@@ -1,7 +1,7 @@
 #include "music.h"
 #include <Arduino.h>
 #include <SoftwareSerial.h>
-SoftwareSerial jqSerial(8,9); //Arduino D2=RX、D3=TX 接 JQ6500 TX、RX
+SoftwareSerial jqSerial(12,13);
 
 void musicjq(){
     jqSerial.begin(115200);
