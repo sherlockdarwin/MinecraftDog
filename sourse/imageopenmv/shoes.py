@@ -1,0 +1,36 @@
+# This work is licensed under the MIT license.
+# Copyright (c) 2013-2025 OpenMV LLC. All rights reserved.
+# https://github.com/openmv/openmv/blob/master/LICENSE
+#
+# Hello World Example
+#
+# Welcome to the OpenMV IDE! Click on the green run arrow button below to run the script!
+
+import sensor
+import time
+import image
+import pyb
+from pyb import UART
+import math
+import ustruct
+from image import SEARCH_EX, SEARCH_DS
+
+led = pyb.LED(1)
+led.on()
+
+sensor.reset()  # Reset and initialize the sensor.
+sensor.set_pixformat(sensor.RGB565)  # Set pixel format to RGB565 (or GRAYSCALE)
+sensor.set_framesize(sensor.QVGA)  # Set frame size to QVGA (320x240)
+sensor.skip_frames(time=2000)  # Wait for settings take effect.
+clock = time.clock()  # Create a clock object to track the FPS.
+sensor.set_auto_whitebal(True)#设置为自动白平衡模式。
+sensor.set_auto_gain(False)
+
+
+uart = UART(3, 115200, bits=8, parity=None, stop=1, timeout_char=1000)
+
+while True:
+    clock.tick()  # Update the FPS clock.
+    img = sensor.snapshot()  # Take a picture and return the image.
+    print(clock.fps())  # Note: OpenMV Cam runs about half as fast when connected
+    # to the IDE. The FPS should increase once disconnected.
