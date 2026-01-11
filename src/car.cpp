@@ -1,10 +1,6 @@
 #include "car.h"
 #include <Arduino.h>
 
-/*
-
-*/
-
 void carpin(){
   pinMode(AIN1,OUTPUT);
   pinMode(AIN2,OUTPUT);
@@ -60,6 +56,15 @@ void turnright(){
   digitalWrite(BIN1,HIGH);
   digitalWrite(BIN2,LOW);
   analogWrite(PWMA,50);
+  analogWrite(PWMB,128);
+}
+
+void backward(){
+  digitalWrite(AIN1,HIGH);
+  digitalWrite(AIN2,LOW);
+  digitalWrite(BIN1,LOW);
+  digitalWrite(BIN2,HIGH);
+  analogWrite(PWMA,128);
   analogWrite(PWMB,128);
 }
 
