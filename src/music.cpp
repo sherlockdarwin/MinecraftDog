@@ -1,10 +1,10 @@
 #include "music.h"
 #include <Arduino.h>
 #include <SoftwareSerial.h>
-SoftwareSerial jqSerial(12,13);
+SoftwareSerial jqSerial(12,13); // RX12, TX13
 
 void musicjq(){
-    jqSerial.begin(115200);
+  jqSerial.begin(115200);
 }
 
 void volume(int volume) {

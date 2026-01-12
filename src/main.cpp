@@ -9,6 +9,7 @@ unsigned long lasttime = 0;        // 上次更新时间
 int cnt=0;
 
 volatile bool falling=false;
+volatile bool au=false;
 void hallchange(){
   falling=(digitalRead(hallPin2)==LOW);
 }
@@ -25,8 +26,6 @@ void setup() {
   playmusic(1);
 }
 
-bool au=false;
-
 void loop() {
   // put your main code here, to run repeatedly:
 //  a0value=analogRead(hallPin);
@@ -36,12 +35,11 @@ void loop() {
     playmusic(2);
     cnt++;
   }
-  if(cnt==3){
+  if(!falling){
+    au=false;
     volume(25);
     playmusic(1);
-    cnt=0;
-    au=false;
-    falling=false;
+    if(cnt==3)cnt=0;
   }
 
 }
