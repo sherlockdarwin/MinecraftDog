@@ -10,13 +10,14 @@ int cnt=0;
 
 volatile bool falling=false;
 volatile bool au=false;
+int music=2;
 void hallchange(){
   falling=(digitalRead(hallPin2)==LOW);
 }
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(115200);
+  Serial.begin(9600);
   musicjq();
 //  pinMode(hallPin,INPUT);
   pinMode(hallPin2,INPUT_PULLUP);
@@ -31,14 +32,18 @@ void loop() {
 //  a0value=analogRead(hallPin);
   if(falling&&!au){
     au=true;
+    digitalWrite(8,LOW);
     volume(30);
     playmusic(2);
+    music=2;
     cnt++;
   }
-  if(!falling){
+  if(!falling&&(au||music!=1)){
     au=false;
+    digitalWrite(8,HIGH);
     volume(25);
     playmusic(1);
+    music=1;
     if(cnt==3)cnt=0;
   }
 
