@@ -7,6 +7,7 @@ int hallPin2=2;
 //  int a0value;     // a0读取的模拟值
 unsigned long lasttime = 0;        // 上次更新时间
 int cnt=0;
+SoftwareSerial openmvSerial(A4, A5);
 
 volatile bool falling=false;
 volatile bool au=false;
@@ -18,6 +19,7 @@ void hallchange(){
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
+  openmvSerial.begin(9600);
   musicjq();
 //  pinMode(hallPin,INPUT);
   pinMode(hallPin2,INPUT_PULLUP);
@@ -45,6 +47,20 @@ void loop() {
     playmusic(1);
     music=1;
     if(cnt==3)cnt=0;
+  }
+
+  if (openmvSerial.available()) {
+    String data = openmvSerial.readStringUntil('\n');
+    int cx, cy, r;
+    if (sscanf(data.c_str(), "%d,%d,%d", &cx, &cy, &r) == 3) {
+      Serial.print("X: ");
+      Serial.print(cx);
+      Serial.print("  Y: ");
+      Serial.print(cy);
+      Serial.print("  R: ");
+      Serial.println(r);
+      //控制逻辑
+    }
   }
 
 }
