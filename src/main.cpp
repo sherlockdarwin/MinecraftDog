@@ -5,8 +5,8 @@
 // int hallPin=A0;     // 霍尔传感器引脚
 int hallPin2=2;
 //  int a0value;     // a0读取的模拟值
-unsigned long lasttime = 0;        // 上次更新时间
-int cnt=0;
+//unsigned long lasttime = 0;        // 上次更新时间
+//int cnt=0;
 SoftwareSerial openmvSerial(A4, A5);
 
 volatile bool falling=false;
@@ -24,7 +24,8 @@ void setup() {
 //  pinMode(hallPin,INPUT);
   pinMode(hallPin2,INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(hallPin2),hallchange,CHANGE);
-  delay(1000);
+  delay(2000);
+  startmusic();
   volume(25);
   playmusic(1);
 }
@@ -34,19 +35,24 @@ void loop() {
 //  a0value=analogRead(hallPin);
   if(falling&&!au){
     au=true;
-    digitalWrite(8,LOW);
     volume(30);
-    playmusic(2);
+    digitalWrite(8,LOW);
     music=2;
-    cnt++;
+//    cnt++;
   }
   if(!falling&&(au||music!=1)){
     au=false;
     digitalWrite(8,HIGH);
+//    digitalWrite(11,HIGH);
     volume(25);
     playmusic(1);
     music=1;
-    if(cnt==3)cnt=0;
+/*
+    if(cnt==3){
+      cnt=0;
+      digitalWrite(11,LOW); 
+    }
+*/
   }
 
   if (openmvSerial.available()) {
@@ -60,7 +66,21 @@ void loop() {
       Serial.print("  R: ");
       Serial.println(r);
       //控制逻辑
+      forward();
+      if(cx<50){
+        turnright();
+        delay(500);
+        forward();
+      }
+      if(cx>200){
+        turnleft();
+        delay(500);
+        forward();
+      }
+      if(r>30)slowdown();
+      if(r<15)speedup();
     }
   }
+  else carstop();
 
 }

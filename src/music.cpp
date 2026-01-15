@@ -6,6 +6,8 @@ SoftwareSerial jqSerial(12,13); // RX12, TX13
 void musicjq(){
   jqSerial.begin(9600);
   pinMode(8,OUTPUT);
+//  pinMode(11,OUTPUT);
+//  digitalWrite(11,HIGH);
   digitalWrite(8,HIGH); 
 }
 

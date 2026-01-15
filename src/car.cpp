@@ -23,13 +23,22 @@ void speedup(){
   analogWrite(PWMB,255);
 }
 
+void forward(){
+  digitalWrite(AIN1,LOW);
+  digitalWrite(AIN2,HIGH);
+  digitalWrite(BIN1,HIGH);
+  digitalWrite(BIN2,LOW);
+  analogWrite(PWMA,120);
+  analogWrite(PWMB,120);
+}
+
 void slowdown(){
   digitalWrite(AIN1,LOW);
   digitalWrite(AIN2,HIGH);
   digitalWrite(BIN1,HIGH);
   digitalWrite(BIN2,LOW);
-  analogWrite(PWMA,88);
-  analogWrite(PWMB,88);
+  analogWrite(PWMA,50);
+  analogWrite(PWMB,50);
 }
 
 void carstop(){
@@ -68,6 +77,7 @@ void backward(){
   analogWrite(PWMB,128);
 }
 
+/*
 void peace(){
   digitalWrite(AIN1,LOW);
   digitalWrite(AIN2,LOW);
@@ -76,3 +86,4 @@ void peace(){
   analogWrite(PWMA,0);
   analogWrite(PWMB,0);
 }
+*/
