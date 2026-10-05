@@ -1,0 +1,3 @@
+# 仿真输出（tools/sim.sh 生成），不入库
+.out/
+*.vcd

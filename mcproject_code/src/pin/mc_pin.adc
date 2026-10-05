@@ -1,0 +1,47 @@
+set_pin_assignment	{ I_sys_clk }	{ LOCATION = C4;  IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+
+# ---- 板上 3 个按键 SW1/SW2/SW3（按下为低）。SW1 按住 2 秒 = 整机复位（见 mc_hold_reset.v）----
+set_pin_assignment	{ I_key[0] }	{ LOCATION = R10; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+set_pin_assignment	{ I_key[1] }	{ LOCATION = N2;  IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+set_pin_assignment	{ I_key[2] }	{ LOCATION = J14; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+
+set_pin_assignment	{ O_led[0] }	{ LOCATION = K16; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ O_led[1] }	{ LOCATION = K17; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ O_led[2] }	{ LOCATION = J18; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+
+# ---- CSI 口：摄像头 I2C / INCK / 复位（板上经 TXS0104 转 1.8V）----
+set_pin_assignment	{ O_cam_scl }	{ LOCATION = T9;  IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+set_pin_assignment	{ IO_cam_sda }	{ LOCATION = U9;  IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+set_pin_assignment	{ O_cam_24m }	{ LOCATION = V9;  IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+set_pin_assignment	{ O_cam_rst }	{ LOCATION = V8;  IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+
+# ---- DSI 口：背光 PWM / 面板复位（板上经 TXS0108E 转 1.8V）----
+set_pin_assignment	{ O_dsi_pwm }	{ LOCATION = R11; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLDOWN; }
+set_pin_assignment	{ O_dsi_rst_n }	{ LOCATION = T10; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+
+# ---- CEP 排针（2×20，间距 2.54，3.3V；脚 1 = 3V3，脚 2 = GND，脚 3~38 = 信号 CEP_L1_P ... CEP_L18_N）----
+# 尾巴：步进驱动器 UART，只发不收（CEP 脚 15 = CEP_L7_P → 驱动器 R/A/H 脚；空闲为高，所以上拉）。脚 16（E16）不用了
+set_pin_assignment	{ O_step_tx }	{ LOCATION = E17; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+# 喂食检测：霍尔传感器模块的输出（CEP 脚 17 = CEP_L8_P）。磁铁靠近 = 高电平。输入脚下拉：没接传感器时读 0，不会误触发；
+# 模块请用 3.3V 供电（输出才是 3.3V 电平，FPGA 的 IO 不耐 5V）。你的模块反过来（靠近输出低）就在 mctop.v 里把 mc_hall 例化处的 .I_hall (I_hall) 改成 .I_hall (~I_hall)（本脚的下拉也要换成上拉 / 外加上拉，否则没接传感器时会误触发）。
+set_pin_assignment	{ I_hall }	{ LOCATION = B17; IOSTANDARD = LVCMOS33; PULLTYPE = PULLDOWN; }
+
+# ---- 音频：板载 ES8388（引脚来自硬件手册 / 厂商例程 09_aud8388_loop 的 SDA.adc）----
+# MCLK = 100 MHz ÷ 8 = 12.5 MHz；SCLK/LRCK/DSDIN 同源。I2C 的 SDA 在板上有 10k 上拉，FPGA 内部不用上拉。
+# CE（A12）板上上拉，ES8388 的 I2C 地址 = 0x11，不要驱动它。喇叭口 J11 / J12（2 针，2.54 mm）经板上 TT8642 功放，SPK_CTL 拉高才有声音。
+set_pin_assignment	{ O_aud_mclk }	{ LOCATION = F14; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ O_aud_sclk }	{ LOCATION = K13; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ O_aud_lrck }	{ LOCATION = C13; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ O_aud_dsdin }	{ LOCATION = J13; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ O_aud_cclk }	{ LOCATION = A13; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ IO_aud_cdata }	{ LOCATION = B14; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ O_spk_ctl }	{ LOCATION = K15; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+
+# ---- TF 卡座（SPI 模式：CS = DAT3，SCK = CLK，MOSI = CMD，MISO = DAT0；座子上每根线有 22Ω 串阻 + 4.7k 上拉）----
+# DAT1（E7）、DAT2（D5）、卡检测 CD（D8）这版没用，不约束。
+set_pin_assignment	{ O_sd_cs_n }	{ LOCATION = E5;  IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+set_pin_assignment	{ O_sd_sck }	{ LOCATION = D9;  IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+set_pin_assignment	{ O_sd_mosi }	{ LOCATION = C9;  IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+set_pin_assignment	{ I_sd_miso }	{ LOCATION = E6;  IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+
+# MIPI CSI(DPHY0) / DSI(DPHY1) 的差分对由硬核固定，不需要管脚约束；DDR2 管脚见 src/ip/ddr2/src/adc/ddr2.adc

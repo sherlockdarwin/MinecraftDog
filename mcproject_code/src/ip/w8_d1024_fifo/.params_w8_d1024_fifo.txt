@@ -1,0 +1,25 @@
+ERAM : 1 : U : En :  :  : 
+DRAM_EN : 0 : U : En :  :  : 
+BRAM_AUTO : 1 : U : En :  :  : 
+BRAM_FAST : 0 : U : En :  :  : 
+ASYNC : 0 : U : En :  :  : 
+SYNC : 1 : U : En :  :  : 
+RST_ASYNC : 1 : U : En :  :  : 
+Write_Depth : 1024 : U : En : 16;;32;;64;;128;;256;;512;;1024;;2048;;4096;;8192;;16384;;32768;;65536;;131072 :  : 
+DATA_WIDTH_W : 8 : U : En :  : 1 : 1024
+DATA_WIDTH_R : 8 : U : En : 1;;2;;4;;8;;16;;32;;64 :  : 
+SHOW_AHEAD_EN : 0 : G : En :  :  : 
+OUTREG_EN : NOREG : G : En :  :  : 
+AL_FULL_NUM : 253 : U : En :  : 3 : 1021
+AL_EMPTY_NUM : 2 : U : En :  : 2 : 1020
+COMMON_CLK_EN : 1 : G : En :  :  : 
+ADDR_WIDTH_W : 10 : G : En :  :  : 
+ADDR_WIDTH_R : 10 : G : En :  :  : 
+Outreg_enable : 0 : U : En :  :  : 
+Outreg_disable : 1 : U : En :  :  : 
+Show_ahead_en : 0 : U : En :  :  : 
+Show_ahead_dis : 1 : U : En :  :  : 
+AL_Full_Range : 3-1021 : G : En :  :  : 
+AL_Empty_Range : 2-1020 : G : En :  :  : 
+Read_Depth : 1024 : G : En :  :  : 
+SYNCHRONOUS_RST_EN : 0 : U : En :  :  : 

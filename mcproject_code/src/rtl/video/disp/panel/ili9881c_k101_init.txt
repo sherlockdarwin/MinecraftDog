@@ -1,0 +1,217 @@
+# =============================================================================
+# 屏幕初始化脚本：10.1" 800x1280 MIPI DSI 屏，驱动 IC = ILI9881C
+# 来源：Linux 内核 drivers/gpu/drm/panel/panel-ilitek-ili9881c.c 里 Feixin K101-IM2BYL02 的初始化序列
+#       （该面板显示区域 135x217 mm，与本屏资料 135.36x216.58 mm 一致）。逐条对应，没有改动数值。
+#
+# 改完本文件后运行同目录的 make_rom.ps1，会重新生成
+#   src/ip/w8_d1024_rom/mc_ili9881c_k101.mif 和 .mif.dat   （屏幕初始化 ROM 的内容）
+# 再在 TD 里重新综合、下载即可。ROM 一共 1024 字节，当前用了 600 字节。
+#
+# 指令（每行一条；# 后面是注释；数字一律 16 进制，PAGE 的页号和 DELAY 的毫秒数为 10 进制）：
+#   PAGE n          切到 ILI9881C 的第 n 页寄存器（发 FF 98 81 n）。页 0 是标准 DCS 命令，页 1/3/4 是厂商私有寄存器
+#   REG rr vv       把当前页的寄存器 rr 写成 vv（DCS 短写，1 个参数）
+#   CMD cc          DCS 无参命令，如 11 = Sleep Out，29 = Display On
+#   LONG b0 b1 ..   DCS 长包写，b0 是命令字节（本脚本没用到，留给别的屏）
+#   DELAY ms        延时若干毫秒（按 10 MHz 时钟计数）
+#   END             脚本结束（必须有）
+#
+# 想改方向/色序：看 PAGE 1 的 REG 22（本屏 = 0A，注释 "BGR, SS"）。画面左右镜像或红蓝反了，先试着改这个寄存器的
+# 对应位（SS=源极扫描方向，BGR=色序），或者改 mctop.v 里的 RB_SWAP。
+# =============================================================================
+PAGE 3
+REG 01 00
+REG 02 00
+REG 03 73
+REG 04 00
+REG 05 00
+REG 06 08
+REG 07 00
+REG 08 00
+REG 09 00
+REG 0A 01
+REG 0B 01
+REG 0C 00
+REG 0D 01
+REG 0E 01
+REG 0F 00
+REG 10 00
+REG 11 00
+REG 12 00
+REG 13 00
+REG 14 00
+REG 15 00
+REG 16 00
+REG 17 00
+REG 18 00
+REG 19 00
+REG 1A 00
+REG 1B 00
+REG 1C 00
+REG 1D 00
+REG 1E 40
+REG 1F C0
+REG 20 06
+REG 21 01
+REG 22 06
+REG 23 01
+REG 24 88
+REG 25 88
+REG 26 00
+REG 27 00
+REG 28 3B
+REG 29 03
+REG 2A 00
+REG 2B 00
+REG 2C 00
+REG 2D 00
+REG 2E 00
+REG 2F 00
+REG 30 00
+REG 31 00
+REG 32 00
+REG 33 00
+REG 34 00        # GPWR1/2 non overlap time 2.62us
+REG 35 00
+REG 36 00
+REG 37 00
+REG 38 00
+REG 39 00
+REG 3A 00
+REG 3B 00
+REG 3C 00
+REG 3D 00
+REG 3E 00
+REG 3F 00
+REG 40 00
+REG 41 00
+REG 42 00
+REG 43 00
+REG 44 00
+REG 50 01
+REG 51 23
+REG 52 45
+REG 53 67
+REG 54 89
+REG 55 AB
+REG 56 01
+REG 57 23
+REG 58 45
+REG 59 67
+REG 5A 89
+REG 5B AB
+REG 5C CD
+REG 5D EF
+REG 5E 00
+REG 5F 01
+REG 60 01
+REG 61 06
+REG 62 06
+REG 63 07
+REG 64 07
+REG 65 00
+REG 66 00
+REG 67 02
+REG 68 02
+REG 69 05
+REG 6A 05
+REG 6B 02
+REG 6C 0D
+REG 6D 0D
+REG 6E 0C
+REG 6F 0C
+REG 70 0F
+REG 71 0F
+REG 72 0E
+REG 73 0E
+REG 74 02
+REG 75 01
+REG 76 01
+REG 77 06
+REG 78 06
+REG 79 07
+REG 7A 07
+REG 7B 00
+REG 7C 00
+REG 7D 02
+REG 7E 02
+REG 7F 05
+REG 80 05
+REG 81 02
+REG 82 0D
+REG 83 0D
+REG 84 0C
+REG 85 0C
+REG 86 0F
+REG 87 0F
+REG 88 0E
+REG 89 0E
+REG 8A 02
+PAGE 4
+REG 3B C0        # ILI4003D sel
+REG 6C 15        # Set VCORE voltage = 1.5V
+REG 6E 2A        # di_pwr_reg=0 for power mode 2A, VGH clamp 18V
+REG 6F 33        # pumping ratio VGH=5x VGL=-3x
+REG 8D 1B        # VGL clamp -10V
+REG 87 BA        # ESD
+REG 3A 24        # POWER SAVING
+REG 26 76
+REG B2 D1
+PAGE 1
+REG 22 0A        # BGR, SS
+REG 31 00        # Zigzag type3 inversion
+REG 40 53        # ILI4003D sel
+REG 43 66
+REG 53 4C
+REG 50 87
+REG 51 82
+REG 60 15
+REG 61 01
+REG 62 0C
+REG 63 00
+REG A0 00
+REG A1 13        # VP251
+REG A2 23        # VP247
+REG A3 14        # VP243
+REG A4 16        # VP239
+REG A5 29        # VP231
+REG A6 1E        # VP219
+REG A7 1D        # VP203
+REG A8 86        # VP175
+REG A9 1E        # VP144
+REG AA 29        # VP111
+REG AB 74        # VP80
+REG AC 19        # VP52
+REG AD 17        # VP36
+REG AE 4B        # VP24
+REG AF 20        # VP16
+REG B0 26        # VP12
+REG B1 4C        # VP8
+REG B2 5D        # VP4
+REG B3 3F        # VP0
+REG C0 00        # VN255 GAMMA N
+REG C1 13        # VN251
+REG C2 23        # VN247
+REG C3 14        # VN243
+REG C4 16        # VN239
+REG C5 29        # VN231
+REG C6 1E        # VN219
+REG C7 1D        # VN203
+REG C8 86        # VN175
+REG C9 1E        # VN144
+REG CA 29        # VN111
+REG CB 74        # VN80
+REG CC 19        # VN52
+REG CD 17        # VN36
+REG CE 4B        # VN24
+REG CF 20        # VN16
+REG D0 26        # VN12
+REG D1 4C        # VN8
+REG D2 5D        # VN4
+REG D3 3F        # VN0
+# ---- 以下是内核 ili9881c_prepare() 在写完寄存器表之后做的事 ----
+PAGE 0
+CMD 11           # DCS Sleep Out
+DELAY 120
+CMD 29           # DCS Display On
+DELAY 20
+END
