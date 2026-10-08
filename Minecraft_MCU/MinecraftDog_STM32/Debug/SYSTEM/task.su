@@ -1,0 +1,9 @@
+../SYSTEM/task.c:4:6:Task_UWB_Poll	8	static
+../SYSTEM/task.c:9:6:Task_Key_Scan	8	static
+../SYSTEM/task.c:21:6:Task_FPGA_Rx	8	static
+../SYSTEM/task.c:28:6:Task_FPGA_Tx	40	static
+../SYSTEM/task.c:52:13:Task_Motor_Test	24	static
+../SYSTEM/task.c:85:6:Task_Motor_Drive	40	static
+../SYSTEM/task.c:112:6:Task_LED	16	static
+../SYSTEM/task.c:137:10:Get_Time	8	static
+../SYSTEM/task.c:142:6:Scheduler_Run	16	static

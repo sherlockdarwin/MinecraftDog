@@ -1,0 +1,17 @@
+../HARDWARE/MOTOR/motor.c:8:17:Motor_Limit_PWM	2
+../HARDWARE/MOTOR/motor.c:17:16:Motor_Ignore_Dead_Zone	3
+../HARDWARE/MOTOR/motor.c:30:17:Motor_Float_To_PWM	3
+../HARDWARE/MOTOR/motor.c:44:13:Motor_Set_PWM	4
+../HARDWARE/MOTOR/motor.c:49:5:myabs	2
+../HARDWARE/MOTOR/motor.c:58:9:speed_limit	5
+../HARDWARE/MOTOR/motor.c:83:6:Init_Motor_PWM	1
+../HARDWARE/MOTOR/motor.c:90:6:PWM_Control_Car	4
+../HARDWARE/MOTOR/motor.c:120:6:L_control	3
+../HARDWARE/MOTOR/motor.c:145:6:R_control	3
+../HARDWARE/MOTOR/motor.c:170:6:Motor_Stop	2
+../HARDWARE/MOTOR/motor.c:189:6:Motor_Lock_Set	3
+../HARDWARE/MOTOR/motor.c:197:9:Motor_Lock_Get	1
+../HARDWARE/MOTOR/motor.c:202:6:Motor_Run	1
+../HARDWARE/MOTOR/motor.c:208:6:Motor_Back	1
+../HARDWARE/MOTOR/motor.c:214:6:Motor_Left	1
+../HARDWARE/MOTOR/motor.c:222:6:Motor_Right	1

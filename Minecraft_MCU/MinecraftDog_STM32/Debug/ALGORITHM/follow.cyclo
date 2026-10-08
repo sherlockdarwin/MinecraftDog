@@ -1,0 +1,9 @@
+../ALGORITHM/follow.c:18:16:Follow_Abs32	1
+../ALGORITHM/follow.c:23:16:Follow_ClampCommand	3
+../ALGORITHM/follow.c:34:16:Follow_RampCommand	5
+../ALGORITHM/follow.c:59:13:Follow_StopImmediately	1
+../ALGORITHM/follow.c:66:6:Follow_Init	1
+../ALGORITHM/follow.c:77:6:Follow_Enable	3
+../ALGORITHM/follow.c:86:6:Follow_IsEnabled	1
+../ALGORITHM/follow.c:91:14:Follow_GetState	1
+../ALGORITHM/follow.c:96:6:Follow_Process	13

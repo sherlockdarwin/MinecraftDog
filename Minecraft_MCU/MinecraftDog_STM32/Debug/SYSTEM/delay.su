@@ -1,0 +1,13 @@
+../SYSTEM/delay.c:11:6:delay_us	32	static
+../SYSTEM/delay.c:42:6:delay_ms	16	static
+../SYSTEM/delay.c:49:6:delay_1us	16	static
+../SYSTEM/delay.c:50:6:delay_1ms	16	static
+../SYSTEM/delay.c:52:6:get_clock_ms	16	static
+../SYSTEM/delay.c:68:6:Timer_Start	8	static
+../SYSTEM/delay.c:75:6:Timer_Stop	8	static
+../SYSTEM/delay.c:83:6:Timer_Reset	8	static
+../SYSTEM/delay.c:90:10:Timer_GetMs	8	static
+../SYSTEM/delay.c:99:9:Timer_IsRunning	4	static
+../SYSTEM/delay.c:121:6:ModeTimer_Start	8	static
+../SYSTEM/delay.c:129:6:ModeTimer_Stop	8	static
+../SYSTEM/delay.c:137:10:ModeTimer_GetMs	8	static

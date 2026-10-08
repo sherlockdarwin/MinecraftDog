@@ -1,0 +1,14 @@
+../HARDWARE/UWB/uwb.c:48:17:UWB_ReadBE16	16	static
+../HARDWARE/UWB/uwb.c:53:17:UWB_ReadBE32	16	static
+../HARDWARE/UWB/uwb.c:61:17:UWB_AbsAngle	16	static
+../HARDWARE/UWB/uwb.c:70:16:UWB_NormalizeAngle	16	static
+../HARDWARE/UWB/uwb.c:83:13:UWB_ResetParser	16	static
+../HARDWARE/UWB/uwb.c:89:13:UWB_DecodeFrame	40	static
+../HARDWARE/UWB/uwb.c:124:13:UWB_ParseByte	24	static
+../HARDWARE/UWB/uwb.c:155:13:UWB_PushRxByte	24	static
+../HARDWARE/UWB/uwb.c:173:6:UWB_Init	16	static
+../HARDWARE/UWB/uwb.c:188:6:UWB_Process	32	static
+../HARDWARE/UWB/uwb.c:205:6:UWB_GetMeasurement	24	static
+../HARDWARE/UWB/uwb.c:216:6:UWB_GetTarget	48	static
+../HARDWARE/UWB/uwb.c:269:10:UWB_GetFrameCount	16	static
+../HARDWARE/UWB/uwb.c:283:6:UWB_IRQHandler	32	static

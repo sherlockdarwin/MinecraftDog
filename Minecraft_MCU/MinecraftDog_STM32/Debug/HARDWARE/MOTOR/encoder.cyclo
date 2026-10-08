@@ -1,0 +1,11 @@
+../HARDWARE/MOTOR/encoder.c:18:6:encoder_init	1
+../HARDWARE/MOTOR/encoder.c:36:13:get_encoderL_dir	1
+../HARDWARE/MOTOR/encoder.c:41:13:get_encoderR_dir	1
+../HARDWARE/MOTOR/encoder.c:46:6:Encoder_Get_ALL	2
+../HARDWARE/MOTOR/encoder.c:56:6:Encoder_Get_Temp	2
+../HARDWARE/MOTOR/encoder.c:71:6:encoder_update	1
+../HARDWARE/MOTOR/encoder.c:107:6:Encoder_Odom_Reset	1
+../HARDWARE/MOTOR/encoder.c:113:6:Encoder_Odom_Update	1
+../HARDWARE/MOTOR/encoder.c:118:6:Encoder_Odom_GetCount	1
+../HARDWARE/MOTOR/encoder.c:123:7:Encoder_Odom_GetM	3
+../HARDWARE/MOTOR/encoder.c:136:6:Encoder_Speed_Sample	1

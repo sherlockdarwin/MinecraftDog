@@ -1,0 +1,13 @@
+../HARDWARE/MLK/fpgamlk.c:60:13:FPGAMLK_ParseWheel	24	static
+../HARDWARE/MLK/fpgamlk.c:85:13:FPGAMLK_DecodeFrame	24	static
+../HARDWARE/MLK/fpgamlk.c:111:13:FPGAMLK_ParseByte	16	static
+../HARDWARE/MLK/fpgamlk.c:142:13:FPGAMLK_StartRxDMA	8	static
+../HARDWARE/MLK/fpgamlk.c:155:13:FPGAMLK_StartTxDMA	16	static
+../HARDWARE/MLK/fpgamlk.c:162:6:FPGAMLK_Init	8	static
+../HARDWARE/MLK/fpgamlk.c:182:6:FPGAMLK_Poll	24	static
+../HARDWARE/MLK/fpgamlk.c:205:6:FPGAMLK_TakeUpdate	4	static
+../HARDWARE/MLK/fpgamlk.c:215:6:FPGAMLK_LinkAlive	16	static
+../HARDWARE/MLK/fpgamlk.c:221:6:FPGAMLK_TxBusy	4	static
+../HARDWARE/MLK/fpgamlk.c:226:6:FPGAMLK_SendTarget	24	static
+../HARDWARE/MLK/fpgamlk.c:258:6:FPGAMLK_SendLost	8	static
+../HARDWARE/MLK/fpgamlk.c:276:6:HAL_UART_ErrorCallback	16	static

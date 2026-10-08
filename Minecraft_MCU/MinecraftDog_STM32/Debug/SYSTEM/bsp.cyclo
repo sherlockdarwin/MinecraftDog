@@ -1,0 +1,2 @@
+../SYSTEM/bsp.c:10:6:board_init	1
+../SYSTEM/bsp.c:15:6:bsp_init	1

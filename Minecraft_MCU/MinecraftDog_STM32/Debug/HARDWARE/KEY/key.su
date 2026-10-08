@@ -1,0 +1,11 @@
+../HARDWARE/KEY/key.c:28:13:KEY_ReadPressed	16	static
+../HARDWARE/KEY/key.c:33:13:KEY_AddEvent	16	static
+../HARDWARE/KEY/key.c:40:6:KEY_Init	16	static
+../HARDWARE/KEY/key.c:57:6:KEY_Scan	32	static
+../HARDWARE/KEY/key.c:95:6:KEY_IsPressed	16	static
+../HARDWARE/KEY/key.c:103:6:KEY_TakeShortPress	16	static
+../HARDWARE/KEY/key.c:113:6:KEY_TakeLongPress	16	static
+../HARDWARE/KEY/key.c:123:6:Key1_Short_Press	8	static
+../HARDWARE/KEY/key.c:124:6:Key2_Short_Press	8	static
+../HARDWARE/KEY/key.c:125:6:Key1_Long_Press	8	static
+../HARDWARE/KEY/key.c:126:6:Key2_Long_Press	8	static
