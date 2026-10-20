@@ -11,8 +11,10 @@ RM := rm -rf
 -include sources.mk
 -include SYSTEM/subdir.mk
 -include HARDWARE/UWB/subdir.mk
+-include HARDWARE/STEPPER/subdir.mk
 -include HARDWARE/MOTOR/subdir.mk
 -include HARDWARE/MLK/subdir.mk
+-include HARDWARE/LCD/subdir.mk
 -include HARDWARE/KEY/subdir.mk
 -include Drivers/STM32F1xx_HAL_Driver/Src/subdir.mk
 -include Core/Startup/subdir.mk

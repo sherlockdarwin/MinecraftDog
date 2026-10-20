@@ -1,0 +1,10 @@
+../HARDWARE/LCD/lcd.c:38:13:LCD_WriteByte	24	static
+../HARDWARE/LCD/lcd.c:54:13:LCD_WriteCmd	16	static
+../HARDWARE/LCD/lcd.c:62:13:LCD_WriteData	16	static
+../HARDWARE/LCD/lcd.c:72:13:LCD_Cmd	16	static
+../HARDWARE/LCD/lcd.c:81:13:LCD_RawWindow	32	static
+../HARDWARE/LCD/lcd.c:92:13:LCD_PushColor	16	static
+../HARDWARE/LCD/lcd.c:103:6:LCD_Init	32	static
+../HARDWARE/LCD/lcd.c:172:6:LCD_Fill	24	static
+../HARDWARE/LCD/lcd.c:189:6:LCD_ShowChar	40	static
+../HARDWARE/LCD/lcd.c:231:6:LCD_ShowString	48	static

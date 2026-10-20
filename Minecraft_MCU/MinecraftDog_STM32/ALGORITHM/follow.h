@@ -8,16 +8,24 @@
 #define FOLLOW_STOP_DISTANCE_CM       (300U)
 #define FOLLOW_LOST_DISTANCE_CM       (2000U)
 
-/* 20 ms control loop tuning. Values are motor PWM commands, not physical speed. */
-#define FOLLOW_DISTANCE_KP_PWM_PER_CM (4)
-#define FOLLOW_ANGLE_KP_PWM_PER_DEG   (35)
-#define FOLLOW_MIN_FORWARD_PWM        (600)
-#define FOLLOW_MAX_FORWARD_PWM        (6000)
-#define FOLLOW_MAX_TURN_PWM           (3500)
+/* 20 ms 一次, 数值都是轮子 PWM 命令 (满量程 8000), 按 1 kg 左右的车调 (2026-10-20 上车后改):
+ *   前进 = 起步值 + (距离 - 停车距离) × 系数, 最多 FOLLOW_MAX_FORWARD_PWM;
+ *   转向 = 角度 × 系数, 但最多占前进的 FOLLOW_TURN_RATIO_PERCENT, 内侧轮不会停;
+ *   角度在 ±FOLLOW_ANGLE_DEADBAND_DEG 以内当正前方 (UWB 角度会抖几度);
+ *   角度超过 FOLLOW_PIVOT_ENTER_DEG 原地转, 转到 FOLLOW_PIVOT_EXIT_DEG 以内再往前走。
+ * 原来的 MSPM0 参数 (起步 600、转向 × 35) 上车实测推不动、一直原地打转。 */
+#define FOLLOW_START_PWM              (2200)   /* 起步: 试电机用的 3000 跑得顺, 600 推不动 */
+#define FOLLOW_DISTANCE_KP_PWM_PER_CM (8)      /* 每远 1 cm 多加多少 */
+#define FOLLOW_MAX_FORWARD_PWM        (5000)
+#define FOLLOW_ANGLE_DEADBAND_DEG     (5)
+#define FOLLOW_ANGLE_KP_PWM_PER_DEG   (40)
+#define FOLLOW_TURN_RATIO_PERCENT     (50)     /* 转向最多 = 前进 × 50%: 内侧轮至少还有一半 */
+#define FOLLOW_PIVOT_ENTER_DEG        (45)
+#define FOLLOW_PIVOT_EXIT_DEG         (25)
+#define FOLLOW_PIVOT_PWM              (2800)   /* 原地转时两轮一正一反 */
 #define FOLLOW_MAX_WHEEL_PWM          (6500)
 #define FOLLOW_ACCEL_STEP_PWM         (200)
 #define FOLLOW_DECEL_STEP_PWM         (400)
-#define FOLLOW_PIVOT_ANGLE_DEG        (90)
 
 typedef enum {
     FOLLOW_STATE_DISABLED = 0,

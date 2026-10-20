@@ -83,6 +83,10 @@ void Error_Handler(void);
 #define KEY1_GPIO_Port GPIOC
 #define LED_Pin GPIO_PIN_8
 #define LED_GPIO_Port GPIOA
+#define STEPPER_U1TX_Pin GPIO_PIN_9
+#define STEPPER_U1TX_GPIO_Port GPIOA
+#define STEPPER_U1RX_Pin GPIO_PIN_10
+#define STEPPER_U1RX_GPIO_Port GPIOA
 #define E2A_Pin GPIO_PIN_15
 #define E2A_GPIO_Port GPIOA
 #define UWB_F_U4TX_Pin GPIO_PIN_10
@@ -95,6 +99,18 @@ void Error_Handler(void);
 #define UWB_R_U5RX_GPIO_Port GPIOD
 #define E2B_Pin GPIO_PIN_3
 #define E2B_GPIO_Port GPIOB
+#define LCD_BLK_Pin GPIO_PIN_4
+#define LCD_BLK_GPIO_Port GPIOB
+#define LCD_DC_Pin GPIO_PIN_5
+#define LCD_DC_GPIO_Port GPIOB
+#define LCD_RES_Pin GPIO_PIN_6
+#define LCD_RES_GPIO_Port GPIOB
+#define LCD_CS_Pin GPIO_PIN_7
+#define LCD_CS_GPIO_Port GPIOB
+#define LCD_SCL_Pin GPIO_PIN_8
+#define LCD_SCL_GPIO_Port GPIOB
+#define LCD_SDA_Pin GPIO_PIN_9
+#define LCD_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

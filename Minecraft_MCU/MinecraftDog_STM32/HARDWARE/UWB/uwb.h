@@ -6,6 +6,8 @@
 
 #define UWB_LOCATION_COMMAND          (0x2001U)
 #define UWB_LOCATION_FRAME_LENGTH     (37U)
+#define UWB_HEARTBEAT_COMMAND         (0x2002U)
+#define UWB_HEARTBEAT_FRAME_LENGTH    (16U)
 #define UWB_DATA_TIMEOUT_MS           (500U)
 
 /* Actual installation reference:
@@ -60,6 +62,23 @@ void UWB_Init(void);
 void UWB_Process(uint32_t now_ms);
 bool UWB_GetMeasurement(UWB_Anchor source, UWB_Measurement *measurement);
 bool UWB_GetTarget(uint32_t now_ms, UWB_Target *target);
+
+/* 排查接线用的计数 (每个基站一份):
+ *   rx_bytes 一直是 0          -> 串口线上没数据: 查 基站 TX -> STM32 RX、共地
+ *   rx_bytes 在涨, frames 是 0 -> 收到了但解不出: 看 checksum_errors 和 last_* (屏幕最下面一行) */
+typedef struct {
+    uint32_t rx_bytes;          /* 收到的字节总数 */
+    uint32_t frames;            /* 校验通过的定位帧 (0x2001) */
+    uint32_t checksum_errors;   /* 校验不对的帧 */
+    uint32_t uart_errors;       /* 串口帧错 / 噪声 / 溢出 */
+    uint32_t overflows;         /* 环形缓冲满了丢掉的字节 */
+    uint16_t last_length;       /* 最近一个定位帧: 长度字段 */
+    uint16_t last_version;      /*                 版本号 */
+    uint8_t  last_xor_rx;       /*                 帧里的校验字节 */
+    uint8_t  last_xor_calc;     /*                 算出来的异或 */
+} UWB_Stats;
+
+void UWB_GetStats(UWB_Anchor source, UWB_Stats *stats);
 
 /* Total frames decoded on all anchors; changes whenever any anchor updates. */
 uint32_t UWB_GetFrameCount(void);

@@ -1,0 +1,4 @@
+../ALGORITHM/follow_mode.c:10:13:FollowMode_Enter	1
+../ALGORITHM/follow_mode.c:19:13:FollowMode_Exit	1
+../ALGORITHM/follow_mode.c:26:6:FollowMode_Process	7
+../ALGORITHM/follow_mode.c:54:6:FollowMode_IsActive	1

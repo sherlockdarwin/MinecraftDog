@@ -1,5 +1,5 @@
-/* 已停用: 跟随 + 避障决策改在 FPGA 做 (obstacle.md 第 6 节), task.c 不再调度
- * Follow_Process, bsp.c 不再调用 Follow_Init。代码保留备查。 */
+/* 正常模式不用它: 跟随 + 避障决策在 FPGA 做 (obstacle.md 第 6 节)。
+ * 只有长按 KEY1 进入的【跟随测试模式】(follow_mode.c) 会调 Follow_Process。 */
 #include "follow.h"
 
 #include "motor.h"
@@ -13,6 +13,7 @@ volatile int16_t g_follow_left_command = 0;
 volatile int16_t g_follow_right_command = 0;
 
 static uint8_t g_follow_enabled = 0U;
+static bool s_follow_pivoting = false;   /* 正在原地转 (角度回差用) */
 static Follow_State g_follow_state = FOLLOW_STATE_DISABLED;
 
 static int32_t Follow_Abs32(int32_t value)
@@ -66,6 +67,7 @@ static void Follow_StopImmediately(void)
 void Follow_Init(void)
 {
     g_follow_enabled       = 0U;
+    s_follow_pivoting      = false;
     g_follow_state         = FOLLOW_STATE_DISABLED;
     g_follow_stop_flag     = 0U;
     g_follow_lost_flag     = 1U;
@@ -101,6 +103,7 @@ void Follow_Process(uint32_t now_ms)
     int32_t angle_abs;
     int32_t forward;
     int32_t turn;
+    int32_t max_turn;
     int16_t left_target;
     int16_t right_target;
 
@@ -153,29 +156,36 @@ void Follow_Process(uint32_t now_ms)
         return;
     }
 
-    distance_error = target.distance_cm - FOLLOW_STOP_DISTANCE_CM;
-    forward = (int32_t) distance_error * FOLLOW_DISTANCE_KP_PWM_PER_CM;
-    if (forward < FOLLOW_MIN_FORWARD_PWM) {
-        forward = FOLLOW_MIN_FORWARD_PWM;
-    }
-    if (forward > FOLLOW_MAX_FORWARD_PWM) {
-        forward = FOLLOW_MAX_FORWARD_PWM;
-    }
-
-    angle = target.azimuth_deg;
+    angle     = target.azimuth_deg;
     angle_abs = Follow_Abs32(angle);
-    if (angle_abs > FOLLOW_PIVOT_ANGLE_DEG) {
-        angle_abs = FOLLOW_PIVOT_ANGLE_DEG;
+
+    /* 主人在侧面 / 后面: 原地转过去 (有回差, 免得在 45° 附近来回切) */
+    if (angle_abs > FOLLOW_PIVOT_ENTER_DEG) {
+        s_follow_pivoting = true;
+    } else if (angle_abs < FOLLOW_PIVOT_EXIT_DEG) {
+        s_follow_pivoting = false;
     }
 
-    /* Slow the forward component as heading error grows; pivot at 90 degrees. */
-    forward = (forward * (FOLLOW_PIVOT_ANGLE_DEG - angle_abs)) /
-              FOLLOW_PIVOT_ANGLE_DEG;
-    turn = angle * FOLLOW_ANGLE_KP_PWM_PER_DEG;
-    if (turn > FOLLOW_MAX_TURN_PWM) {
-        turn = FOLLOW_MAX_TURN_PWM;
-    } else if (turn < -FOLLOW_MAX_TURN_PWM) {
-        turn = -FOLLOW_MAX_TURN_PWM;
+    if (s_follow_pivoting) {
+        forward = 0;
+        turn    = (angle > 0) ? FOLLOW_PIVOT_PWM : -FOLLOW_PIVOT_PWM;
+    } else {
+        distance_error = target.distance_cm - FOLLOW_STOP_DISTANCE_CM;
+        forward = FOLLOW_START_PWM + (int32_t) distance_error * FOLLOW_DISTANCE_KP_PWM_PER_CM;
+        if (forward > FOLLOW_MAX_FORWARD_PWM) {
+            forward = FOLLOW_MAX_FORWARD_PWM;
+        }
+
+        if (angle_abs <= FOLLOW_ANGLE_DEADBAND_DEG) {
+            angle = 0;
+        }
+        turn = angle * FOLLOW_ANGLE_KP_PWM_PER_DEG;
+        max_turn = forward * FOLLOW_TURN_RATIO_PERCENT / 100;
+        if (turn > max_turn) {
+            turn = max_turn;
+        } else if (turn < -max_turn) {
+            turn = -max_turn;
+        }
     }
 
     /* Positive azimuth means right: speed up left wheel and slow right wheel. */

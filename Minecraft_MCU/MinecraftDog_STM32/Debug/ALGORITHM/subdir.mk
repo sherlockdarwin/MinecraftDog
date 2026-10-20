@@ -5,13 +5,16 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../ALGORITHM/follow.c 
+../ALGORITHM/follow.c \
+../ALGORITHM/follow_mode.c 
 
 OBJS += \
-./ALGORITHM/follow.o 
+./ALGORITHM/follow.o \
+./ALGORITHM/follow_mode.o 
 
 C_DEPS += \
-./ALGORITHM/follow.d 
+./ALGORITHM/follow.d \
+./ALGORITHM/follow_mode.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
@@ -21,7 +24,7 @@ ALGORITHM/%.o ALGORITHM/%.su ALGORITHM/%.cyclo: ../ALGORITHM/%.c ALGORITHM/subdi
 clean: clean-ALGORITHM
 
 clean-ALGORITHM:
-	-$(RM) ./ALGORITHM/follow.cyclo ./ALGORITHM/follow.d ./ALGORITHM/follow.o ./ALGORITHM/follow.su
+	-$(RM) ./ALGORITHM/follow.cyclo ./ALGORITHM/follow.d ./ALGORITHM/follow.o ./ALGORITHM/follow.su ./ALGORITHM/follow_mode.cyclo ./ALGORITHM/follow_mode.d ./ALGORITHM/follow_mode.o ./ALGORITHM/follow_mode.su
 
 .PHONY: clean-ALGORITHM
 

@@ -1,0 +1,11 @@
+../HARDWARE/STEPPER/stepper.c:17:6:Stepper_Init	1
+../HARDWARE/STEPPER/stepper.c:26:6:Stepper_IRQHandler	6
+../HARDWARE/STEPPER/stepper.c:57:9:Stepper_SendArray	3
+../HARDWARE/STEPPER/stepper.c:71:9:Stepper_EnableEx	3
+../HARDWARE/STEPPER/stepper.c:84:9:Stepper_SpeedEx	2
+../HARDWARE/STEPPER/stepper.c:100:9:Stepper_PositionEx	2
+../HARDWARE/STEPPER/stepper.c:121:9:Stepper_StopEx	2
+../HARDWARE/STEPPER/stepper.c:134:9:Stepper_ResetCurrentPosition	1
+../HARDWARE/STEPPER/stepper.c:147:9:Stepper_ClearProtection	1
+../HARDWARE/STEPPER/stepper.c:159:9:Stepper_SetOrigin	2
+../HARDWARE/STEPPER/stepper.c:172:9:Stepper_TriggerOrigin	2

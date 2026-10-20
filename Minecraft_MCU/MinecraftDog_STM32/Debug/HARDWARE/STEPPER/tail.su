@@ -1,0 +1,8 @@
+../HARDWARE/STEPPER/tail.c:34:22:Tail_LeftDir	4	static
+../HARDWARE/STEPPER/tail.c:39:22:Tail_RightDir	4	static
+../HARDWARE/STEPPER/tail.c:45:17:Tail_DoStep	32	static
+../HARDWARE/STEPPER/tail.c:84:13:Tail_StartSequence	24	static
+../HARDWARE/STEPPER/tail.c:93:6:Tail_Init	8	static
+../HARDWARE/STEPPER/tail.c:102:6:Tail_Process	24	static
+../HARDWARE/STEPPER/tail.c:130:6:Tail_Wag	8	static
+../HARDWARE/STEPPER/tail.c:140:6:Tail_IsHomed	4	static

@@ -27,6 +27,8 @@ SYSTEM/task.o: ../SYSTEM/task.c ../SYSTEM/task.h ../SYSTEM/AllHeader.h \
  ../Core/Inc/usart.h ../Core/Inc/main.h ../Core/Inc/tim.h ../SYSTEM/bsp.h \
  ../SYSTEM/delay.h ../HARDWARE/MOTOR/motor.h ../HARDWARE/MOTOR/encoder.h \
  ../HARDWARE/UWB/uwb.h ../HARDWARE/KEY/key.h ../ALGORITHM/follow.h \
+ ../ALGORITHM/follow_mode.h ../HARDWARE/LCD/lcd.h \
+ ../HARDWARE/STEPPER/stepper.h ../HARDWARE/STEPPER/tail.h \
  ../HARDWARE/MLK/fpgamlk.h
 ../SYSTEM/task.h:
 ../SYSTEM/AllHeader.h:
@@ -66,4 +68,8 @@ SYSTEM/task.o: ../SYSTEM/task.c ../SYSTEM/task.h ../SYSTEM/AllHeader.h \
 ../HARDWARE/UWB/uwb.h:
 ../HARDWARE/KEY/key.h:
 ../ALGORITHM/follow.h:
+../ALGORITHM/follow_mode.h:
+../HARDWARE/LCD/lcd.h:
+../HARDWARE/STEPPER/stepper.h:
+../HARDWARE/STEPPER/tail.h:
 ../HARDWARE/MLK/fpgamlk.h:

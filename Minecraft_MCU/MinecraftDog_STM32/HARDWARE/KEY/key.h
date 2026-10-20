@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define KEY_DEBOUNCE_MS   (20U)
-#define KEY_LONG_PRESS_MS (800U)
+#define KEY_LONG_PRESS_MS (1000U)   /* 长按 1 秒: KEY1 进跟随测试模式, KEY2 退出 */
 
 /* 按下时读到的电平 (按"按下接地"配的)。按了 KEY1/KEY2 没反应, 就改成 GPIO_PIN_SET,
  * 同时把 CubeMX 里 PC8/PC9 的上拉改成下拉。 */

@@ -6,7 +6,7 @@
 #include "usart.h"
 
 #define UWB_FRAME_MAX_LENGTH  (64U)
-#define UWB_RX_RING_SIZE      (128U)
+#define UWB_RX_RING_SIZE      (512U)   /* 每路 1.5 KB/s, 刷屏阻塞 100 ms 也不会溢出 */
 #define UWB_RX_RING_MASK      (UWB_RX_RING_SIZE - 1U)
 
 #if ((UWB_RX_RING_SIZE & UWB_RX_RING_MASK) != 0U)
@@ -23,9 +23,14 @@ typedef struct {
     volatile uint16_t rx_head;
     volatile uint16_t rx_tail;
     uint8_t rx_ring[UWB_RX_RING_SIZE];
+    volatile uint32_t rx_byte_count;     /* 串口收到的字节总数 (排查接线用) */
     volatile uint32_t rx_overflow_count;
     volatile uint32_t uart_error_count;
     uint32_t checksum_error_count;
+    uint16_t last_length;                /* 最近一个定位帧的长度字段 / 版本号 / 校验 (排查用) */
+    uint16_t last_version;
+    uint8_t last_xor_rx;
+    uint8_t last_xor_calc;
     UWB_Parser parser;
     UWB_Measurement latest;
 } UWB_Channel;
@@ -86,6 +91,9 @@ static void UWB_ResetParser(UWB_Parser *parser)
     parser->expected_length = 0U;
 }
 
+/* 一帧收齐以后: 记下帧头 (排查用), 只认 0x2001 定位帧, 校验 = 前面所有字节异或。
+ * 长度字段和版本号不检查: 规格书里定位帧写版本 0x0100、心跳帧写 0x0101, 本身就对不上,
+ * 厂家自己的 STM32 例程 (示例代码/STM32F1-Usart) 也只看帧头 + 命令码。 */
 static void UWB_DecodeFrame(
     UWB_Anchor source, const uint8_t *frame, uint16_t length, uint32_t now_ms)
 {
@@ -94,15 +102,18 @@ static void UWB_DecodeFrame(
     uint8_t checksum = 0U;
     uint16_t i;
 
-    if ((length != UWB_LOCATION_FRAME_LENGTH) ||
-        (UWB_ReadBE16(&frame[8]) != UWB_LOCATION_COMMAND) ||
-        (UWB_ReadBE16(&frame[10]) != 0x0100U)) {
-        return;
+    if (UWB_ReadBE16(&frame[8]) != UWB_LOCATION_COMMAND) {
+        return;     /* 0x2002 心跳帧 (信标不在线时 2 秒一次) */
     }
 
     for (i = 0U; i < (length - 1U); i++) {
         checksum ^= frame[i];
     }
+
+    channel->last_length   = UWB_ReadBE16(&frame[4]);
+    channel->last_version  = UWB_ReadBE16(&frame[10]);
+    channel->last_xor_rx   = frame[length - 1U];
+    channel->last_xor_calc = checksum;
 
     if (checksum != frame[length - 1U]) {
         channel->checksum_error_count++;
@@ -121,9 +132,12 @@ static void UWB_DecodeFrame(
     measurement->valid          = true;
 }
 
+/* 逐字节找帧: 4 个 0xFF 开头; 收到第 10 个字节 (命令码齐了) 时按命令码定帧长 (和厂家例程一样,
+ * 不信长度字段): 0x2001 定位帧 37 字节, 0x2002 心跳帧 16 字节, 别的命令码丢掉重新找帧头。 */
 static void UWB_ParseByte(UWB_Anchor source, uint8_t data, uint32_t now_ms)
 {
     UWB_Parser *parser = &g_uwb_channels[source].parser;
+    uint16_t command;
 
     if (parser->index < 4U) {
         if (data == 0xFFU) {
@@ -134,12 +148,21 @@ static void UWB_ParseByte(UWB_Anchor source, uint8_t data, uint32_t now_ms)
         return;
     }
 
+    /* 帧头前面多了个 0xFF (比如上一帧的校验字节正好是 FF): 长度高字节不会是 FF, 往后错一位 */
+    if ((parser->index == 4U) && (data == 0xFFU)) {
+        return;
+    }
+
     parser->bytes[parser->index++] = data;
 
-    if (parser->index == 6U) {
-        parser->expected_length = UWB_ReadBE16(&parser->bytes[4]);
-        if ((parser->expected_length < 12U) ||
-            (parser->expected_length > UWB_FRAME_MAX_LENGTH)) {
+    if (parser->index == 10U) {
+        command = UWB_ReadBE16(&parser->bytes[8]);
+
+        if (command == UWB_LOCATION_COMMAND) {
+            parser->expected_length = UWB_LOCATION_FRAME_LENGTH;
+        } else if (command == UWB_HEARTBEAT_COMMAND) {
+            parser->expected_length = UWB_HEARTBEAT_FRAME_LENGTH;
+        } else {
             UWB_ResetParser(parser);
             return;
         }
@@ -266,6 +289,26 @@ bool UWB_GetTarget(uint32_t now_ms, UWB_Target *target)
     return true;
 }
 
+void UWB_GetStats(UWB_Anchor source, UWB_Stats *stats)
+{
+    const UWB_Channel *channel;
+
+    if ((stats == NULL) || ((uint32_t) source >= (uint32_t) UWB_ANCHOR_COUNT)) {
+        return;
+    }
+
+    channel = &g_uwb_channels[source];
+    stats->rx_bytes        = channel->rx_byte_count;
+    stats->frames          = channel->latest.frame_count;
+    stats->checksum_errors = channel->checksum_error_count;
+    stats->uart_errors     = channel->uart_error_count;
+    stats->overflows       = channel->rx_overflow_count;
+    stats->last_length     = channel->last_length;
+    stats->last_version    = channel->last_version;
+    stats->last_xor_rx     = channel->last_xor_rx;
+    stats->last_xor_calc   = channel->last_xor_calc;
+}
+
 uint32_t UWB_GetFrameCount(void)
 {
     uint32_t source;
@@ -305,6 +348,7 @@ void UWB_IRQHandler(UWB_Anchor source)
     }
 
     if ((status & USART_SR_RXNE) != 0U) {
+        g_uwb_channels[source].rx_byte_count++;
         UWB_PushRxByte(source, data);
     }
 }

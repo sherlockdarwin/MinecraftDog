@@ -25,6 +25,10 @@
 #include "uwb.h"
 #include "KEY/key.h"
 #include "ALGORITHM/follow.h"
+#include "ALGORITHM/follow_mode.h"   /* 【跟随测试模式】不要了删这一行, 见 follow_mode.h */
+#include "LCD/lcd.h"
+#include "STEPPER/stepper.h"
+#include "STEPPER/tail.h"
 
 /* USART3: FPGA 串口 (DMA 收发, 协议见 obstacle.md 第 5 节) */
 #include "MLK/fpgamlk.h"

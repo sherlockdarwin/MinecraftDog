@@ -1,0 +1,8 @@
+../HARDWARE/STEPPER/tail.c:34:22:Tail_LeftDir	1
+../HARDWARE/STEPPER/tail.c:39:22:Tail_RightDir	1
+../HARDWARE/STEPPER/tail.c:45:17:Tail_DoStep	8
+../HARDWARE/STEPPER/tail.c:84:13:Tail_StartSequence	1
+../HARDWARE/STEPPER/tail.c:93:6:Tail_Init	1
+../HARDWARE/STEPPER/tail.c:102:6:Tail_Process	6
+../HARDWARE/STEPPER/tail.c:130:6:Tail_Wag	2
+../HARDWARE/STEPPER/tail.c:140:6:Tail_IsHomed	3
