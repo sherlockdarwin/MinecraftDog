@@ -1,15 +1,17 @@
 `timescale 1ns / 1ps
-// 测试 mc_osd_dash（屏幕中间状态带的文字，3 行 × 45 列，只有一页）+ mc_osd_text 的字符 RAM。
-// 每个场景都把整块字符 RAM（135 个字符）和测试台里按版面规则拼出来的期望逐字符比较（多一个、少一个、错位都会报），覆盖：
+// 测试 mc_osd_dash（屏幕中间状态带的文字，5 行 × 45 列，只有一页）+ mc_osd_text 的字符 RAM。
+// 每个场景都把整块字符 RAM（225 个字符）和测试台里按版面规则拼出来的期望逐字符比较（多一个、少一个、错位都会报），覆盖：
 //   · 全部文字和位置；没有项目的格子必须是空格（复位清屏）；
 //   · 数字转换：位数不够显示高位时只显示低位（开机秒数 32 位取低 5 位）、0、最大值、保留前导零；
+//     有符号数字（亮度档 −4~+4，显示 '+' / '-' 和一位数；4 位有符号的最大 +7 / 最小 −8）；曝光行数 4 位；
+//   · 跟随行：UWB 有 / 没有、有符号角度（8 位：显示低两位）、距离（10 位：显示低三位）、6 个决策状态、左右轮 PWM（14 位有符号，4 位 + 符号）；
 //   · 所有状态名（尾巴 / TF 卡 / 编解码器 / 背景音乐 / 音效）、未定义状态值显示 "?"；背景音乐和音效取不同的值（接反能看出来）；
 //   · 三个键的电平的 8 种组合、最近一次按键事件（含同时来的优先级）、开机秒数（先让它自己数，再强制成各种值）；
 //   · 刷新节奏：复位后第一遍很快就画完（不等 100 ms）、之后每个 100 ms 节拍恰好一遍（两遍之间总线安静）。
 // 为了仿真快：1 ms 节拍取 100 个时钟，100 ms 节拍取 10000 个时钟。
 module tb_dash;
 
-localparam COLS = 45, ROWS = 3, CELLS = 135;
+localparam COLS = 45, ROWS = 5, CELLS = 225;
 
 reg clk = 0, rst_n = 0;
 always #5 clk = ~clk;
@@ -23,7 +25,17 @@ always @(posedge clk) begin
 end
 
 reg  [2:0] kp = 3'b000, ks = 0, kl = 0;
-reg  [7:0] cam_ae = 8'd50;
+reg  [7:0] cam_gain = 8'd50;
+reg  [11:0] cam_exp = 12'd2275;
+reg  [3:0] cam_ev = 4'd4;
+reg  [7:0] obs_near = 8'd255, obs_free = 8'd0;
+reg  [6:0] obs_ndeg = 7'd0, obs_gdeg = 7'd0;
+reg        obs_stop = 1'b1;
+reg        uwb_ok = 1'b0;
+reg  [7:0] uwb_deg = 8'd0;
+reg  [9:0] uwb_cm = 10'd0;
+reg  [2:0] cmd_st = 3'd0;
+reg  [13:0] cmd_l = 14'd0, cmd_r = 14'd0;
 reg        hall = 0;
 reg  [1:0] tail_seq = 2'd0;
 reg  [2:0] aud_sd = 3'd1;
@@ -34,7 +46,9 @@ wire [19:0] bus;
 mc_osd_dash dut (
     .I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick1), .I_tick_100ms(tick100),
     .I_key_pressed(kp), .I_key_short(ks), .I_key_long(kl),
-    .I_cam_ae(cam_ae), .I_hall(hall), .I_tail_seq(tail_seq),
+    .I_cam_gain(cam_gain), .I_cam_exp(cam_exp), .I_cam_ev(cam_ev), .I_obs_near(obs_near), .I_obs_near_deg(obs_ndeg), .I_obs_go_deg(obs_gdeg), .I_obs_free(obs_free), .I_obs_stop(obs_stop),
+    .I_hall(hall), .I_tail_seq(tail_seq),
+    .I_uwb_ok(uwb_ok), .I_uwb_deg(uwb_deg), .I_uwb_cm(uwb_cm), .I_cmd_state(cmd_st), .I_cmd_l(cmd_l), .I_cmd_r(cmd_r),
     .I_aud_sd(aud_sd), .I_aud_codec(aud_codec), .I_bgm_state(bgm_state), .I_sfx_state(sfx_state),
     .O_bus(bus)
 );
@@ -74,12 +88,20 @@ function [31:0] state_name; input [1:0] v; case (v) 2'd0: state_name = "IDLE"; 2
 function [31:0] codec_name; input [1:0] v; case (v) 2'd0: codec_name = "INIT"; 2'd1: codec_name = "OK  "; 2'd2: codec_name = "ERR "; default: codec_name = "????"; endcase endfunction
 function [47:0] sd_name;    input [2:0] v; case (v) 3'd0: sd_name = "INIT  "; 3'd1: sd_name = "READY "; 3'd2: sd_name = "NO SD "; 3'd3: sd_name = "NO FAT"; default: sd_name = "??????"; endcase endfunction
 function [23:0] dec3;       input [7:0] v; reg [7:0] h, t, o; begin h = 8'h30 + v / 8'd100; t = 8'h30 + (v / 8'd10) % 8'd10; o = 8'h30 + v % 8'd10; dec3 = {h, t, o}; end endfunction
+function [31:0] dec4;       input [11:0] v; reg [7:0] a, b, c, d; begin a = 8'h30 + v / 12'd1000 % 12'd10; b = 8'h30 + v / 12'd100 % 12'd10; c = 8'h30 + v / 12'd10 % 12'd10; d = 8'h30 + v % 12'd10; dec4 = {a, b, c, d}; end endfunction
+function [23:0] sdeg;       input [6:0] v; integer e; reg [7:0] s, t, o; begin e = (v > 63) ? v - 128 : v; s = (e < 0) ? 8'h2D : 8'h2B; if (e < 0) e = -e; t = 8'h30 + e / 10; o = 8'h30 + e % 10; sdeg = {s, t, o}; end endfunction   // 7 位有符号 → "±dd"
+function [23:0] sdeg8;      input [7:0] v; integer e; reg [7:0] s, t, o; begin e = (v > 127) ? v - 256 : v; s = (e < 0) ? 8'h2D : 8'h2B; if (e < 0) e = -e; t = 8'h30 + (e / 10) % 10; o = 8'h30 + e % 10; sdeg8 = {s, t, o}; end endfunction   // 8 位有符号 → "±dd"（只显示低两位）
+function [23:0] dec3w;      input [9:0] v; reg [7:0] a, b, c; begin a = 8'h30 + (v / 100) % 10; b = 8'h30 + (v / 10) % 10; c = 8'h30 + v % 10; dec3w = {a, b, c}; end endfunction   // 10 位 → 低三位
+function [39:0] sdec4;      input [13:0] v; integer e; reg [7:0] s, a, b, c, d; begin e = (v > 8191) ? v - 16384 : v; s = (e < 0) ? 8'h2D : 8'h2B; if (e < 0) e = -e;
+                            a = 8'h30 + (e / 1000) % 10; b = 8'h30 + (e / 100) % 10; c = 8'h30 + (e / 10) % 10; d = 8'h30 + e % 10; sdec4 = {s, a, b, c, d}; end endfunction   // 14 位有符号 → "±dddd"
+function [31:0] cmd_name;   input [2:0] v; case (v) 3'd0: cmd_name = "LOST"; 3'd1: cmd_name = "NCAM"; 3'd2: cmd_name = "HERE"; 3'd3: cmd_name = "BLK "; 3'd4: cmd_name = "TURN"; default: cmd_name = "GO  "; endcase endfunction
+function [15:0] evtxt;      input [3:0] v; integer e; begin e = v - 4; if (e > 7) e = e - 16; evtxt[15:8] = (e < 0) ? 8'h2D : 8'h2B; evtxt[7:0] = 8'h30 + ((e < 0) ? -e : e); end endfunction   // 档位 v → "−4"~"+4"（v 当成 v−4 的 4 位有符号数）
 
 task build_exp;                              // 按当前输入拼出整屏期望
     integer i;
     begin
         for (i = 0; i < CELLS; i = i + 1) exp_mem[i] = 8'h20;
-        put(0, 0,  "GAIN ", 5);  put(0, 5, dec3(cam_ae), 3);
+        put(0, 0,  "GAIN ", 5);  put(0, 5, dec3(cam_gain), 3);
         put(0, 10, "HALL ", 5);  exp_mem[15] = hall ? "1" : "0";
         put(0, 18, "TAIL ", 5);  put(0, 23, tail_name(tail_seq), 4);
         put(0, 28, "KEY ", 4);   put(0, 32, {(kp[0] ? "1" : "0"), (kp[1] ? "1" : "0"), (kp[2] ? "1" : "0")}, 3);
@@ -88,8 +110,14 @@ task build_exp;                              // 按当前输入拼出整屏期�
         put(1, 10, "CODEC ", 6); put(1, 16, codec_name(aud_codec), 4);
         put(1, 22, "BGM ", 4);   put(1, 26, state_name(bgm_state), 4);
         put(1, 32, "SFX ", 4);   put(1, 36, state_name(sfx_state), 4);
+        put(1, 41, "EV", 2);     put(1, 43, evtxt(cam_ev), 2);
         put(2, 0,  e_evt, 8);
-        put(2, 10, "SW2 gain+ SW3 gain- SW1 2s reset", 32);
+        put(2, 10, "SW2/3 EV+/- SW1 2s reset", 24);
+        put(2, 35, "EXP ", 4);   put(2, 39, dec4(cam_exp), 4);
+        put(3, 0,  "NEAR ", 5);  put(3, 5, dec3(obs_near), 3);  put(3, 8, "cm ", 3);  put(3, 11, sdeg(obs_ndeg), 3);  put(3, 14, "deg", 3);
+        put(3, 19, obs_stop ? "STOP" : "GO  ", 4);  put(3, 24, sdeg(obs_gdeg), 3);  put(3, 27, "deg ", 4);  put(3, 31, dec3(obs_free), 3);  put(3, 34, "cm", 2);
+        put(4, 0,  "UWB ", 4);  put(4, 4, uwb_ok ? "OK  " : "LOST", 4);  put(4, 9, sdeg8(uwb_deg), 3);  put(4, 12, "deg ", 4);  put(4, 16, dec3w(uwb_cm), 3);
+        put(4, 19, "cm  CMD ", 8);  put(4, 27, cmd_name(cmd_st), 4);  put(4, 32, "L", 1);  put(4, 33, sdec4(cmd_l), 5);  put(4, 39, "R", 1);  put(4, 40, sdec4(cmd_r), 5);
     end
 endtask
 
@@ -161,10 +189,30 @@ initial begin
     force dut.S_sec = 32'd123; e_sec = "00123";
     settle; check("default screen");
 
-    // ---- 相机增益、霍尔 ----
-    cam_ae = 8'd255; hall = 1; settle; check("gain 255, hall 1");
-    cam_ae = 8'd0;   hall = 0; settle; check("gain 0, hall 0");
-    cam_ae = 8'd109;           settle; check("gain 109");
+    // ---- 相机增益 / 曝光 / 亮度档、霍尔 ----
+    cam_gain = 8'd255; cam_exp = 12'd4095; cam_ev = 4'd8; hall = 1; settle; check("gain 255, exp 4095, EV+4, hall 1");
+    cam_gain = 8'd0;   cam_exp = 12'd0;    cam_ev = 4'd0; hall = 0; settle; check("gain 0, exp 0, EV-4, hall 0");
+    cam_gain = 8'd109; cam_exp = 12'd1234; cam_ev = 4'd4;           settle; check("gain 109, exp 1234, EV+0");
+    cam_gain = 8'd7;   cam_exp = 12'd4;    cam_ev = 4'd3;           settle; check("gain 7, exp 4, EV-1");
+    cam_ev = 4'd5;  settle; check("EV+1");
+    cam_ev = 4'd11; settle; check("ev 11 -> +7 (largest 4-bit signed)");
+    cam_ev = 4'd12; settle; check("ev 12 -> -8 (smallest 4-bit signed)");
+    cam_gain = 8'd150; cam_exp = 12'd2275; cam_ev = 4'd4;           settle; check("gain 150, exp 2275, EV+0");
+
+    // ---- 避障：最近的障碍 / 建议方向（有符号角度、STOP / GO）----
+    obs_near = 8'd45; obs_ndeg = -7'sd12; obs_gdeg = 7'sd6;  obs_free = 8'd150; obs_stop = 1'b0; settle; check("obstacle 45 cm at -12, go +6 150 cm");
+    obs_near = 8'd0;  obs_ndeg = -7'sd34; obs_gdeg = -7'sd29; obs_free = 8'd23; obs_stop = 1'b1; settle; check("obstacle 0 cm at -34, stop");
+    obs_near = 8'd123; obs_ndeg = 7'sd34; obs_gdeg = 7'sd29;  obs_free = 8'd99; obs_stop = 1'b0; settle; check("obstacle 123 cm at +34, go +29");
+    obs_ndeg = 7'sd63; obs_gdeg = -7'sd64;                                         settle; check("angles +63 / -64 (7-bit extremes)");
+    obs_near = 8'd255; obs_ndeg = 7'sd0; obs_gdeg = 7'sd0; obs_free = 8'd0; obs_stop = 1'b1;    settle; check("no obstacle (255)");
+
+    // ---- 跟随：主人在哪、决策状态、左右轮 ----
+    uwb_ok = 1; uwb_deg = -8'sd12; uwb_cm = 10'd350; cmd_st = 3'd5; cmd_l = 14'sd3000; cmd_r = -14'sd500;  settle; check("UWB -12 350 cm, GO L+3000 R-0500");
+    uwb_deg = 8'sd99; uwb_cm = 10'd999; cmd_st = 3'd4; cmd_l = -14'sd8192; cmd_r = 14'sd8191;               settle; check("UWB +99 999 cm, TURN extremes");
+    uwb_deg = -8'sd128; uwb_cm = 10'd1023; cmd_st = 3'd3; cmd_l = 14'sd7; cmd_r = -14'sd60;                 settle; check("8-bit -128 -> -28, 1023 -> 023, BLK");
+    uwb_deg = 8'sd127; cmd_st = 3'd2; cmd_l = 14'sd0; cmd_r = 14'sd0;                                         settle; check("+127 -> +27, HERE");
+    uwb_ok = 0; uwb_deg = 8'sd0; uwb_cm = 10'd0; cmd_st = 3'd1;                                               settle; check("UWB lost, NCAM");
+    cmd_st = 3'd0;                                                                                             settle; check("LOST");
 
     // ---- 尾巴动作 ----
     tail_seq = 2'd1; settle; check("tail HOME");

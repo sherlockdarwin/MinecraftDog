@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # 用 Icarus Verilog 跑仿真测试台（src/sim/tb_*.v）。每个测试台最后会打印 PASS 或 FAIL。
-# 用法：bash tools/sim.sh            跑 src/sim 下的 tb_*.v，但跳过最慢的三个（tb_top、tb_fb、tb_audio），17 个约 25 分钟（本机实测，同时还有别的仿真在跑：tb_sdfat 约 15 分钟、tb_dash 约 3 分钟，其余大多在 2 分钟以内）
+# 用法：bash tools/sim.sh            跑 src/sim 下的 tb_*.v，但跳过最慢的三个（tb_top、tb_fb、tb_audio），26 个约 20 分钟（本机实测 2026-10-07：tb_sdfat 约 8 分钟、tb_obs_view 约 3 分钟，其余大多在 1 分钟以内）
 #       bash tools/sim.sh tb_key     只跑一个（可以写多个名字）
 #       慢的三个：tb_top 顶层集成测试（真的 mctop.v + 视频替身 + TF 卡模型 + 霍尔 / 行为层 / LED，约 15 分钟）、
 #                 tb_fb 帧缓存（真的 video_in/video_out + 行为级 DDR；慢相机逐像素核对 + 相机高速写的压力用例，约 2 分钟）、
@@ -37,7 +37,7 @@ rtl_for() {
     tb_tail)       echo "comm/mc_uart_tx.v tail/mc_stepper_emm.v tail/mc_tail.v";;
     tb_osd)        echo "video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/osd/mc_osd_clear.v";;
     tb_bench)      echo "hmi/mc_bench.v";;
-    tb_top)        echo "mctop.v system/mc_rst_sync.v system/mc_tick.v system/mc_sync_bits.v system/mc_activity_mon.v system/mc_hold_reset.v hmi/mc_key.v hmi/mc_bench.v comm/mc_uart_tx.v tail/mc_stepper_emm.v tail/mc_tail.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/osd/mc_osd_clear.v video/osd/mc_osd_dash.v audio/mc_audio.v audio/mc_es8388_cfg.v audio/mc_i2c_wr.v audio/mc_i2s_tx.v audio/mc_sd_spi.v audio/mc_sd_arb.v audio/mc_audio_mix.v audio/mc_fat32.v audio/mc_fat_dir.v audio/mc_fat_rd.v audio/mc_wav_player.v sensor/mc_hall.v app/mc_behavior.v ../sim/models/sd_card_model.v ../sim/models/i2c_ack_slave.v ../sim/stubs/stub_mcsys_pll.v ../sim/stubs/stub_mc_cam_if.v ../sim/stubs/stub_mc_framebuf.v ../sim/stubs/stub_mc_disp_if.v";;
+    tb_top)        echo "mctop.v system/mc_rst_sync.v system/mc_tick.v system/mc_sync_bits.v system/mc_activity_mon.v system/mc_hold_reset.v hmi/mc_key.v hmi/mc_bench.v comm/mc_uart_tx.v comm/mc_uart_rx.v comm/mc_m0_link.v app/mc_follow.v tail/mc_stepper_emm.v tail/mc_tail.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/osd/mc_osd_clear.v video/osd/mc_osd_dash.v audio/mc_audio.v audio/mc_es8388_cfg.v audio/mc_i2c_wr.v audio/mc_i2s_tx.v audio/mc_sd_spi.v audio/mc_sd_arb.v audio/mc_audio_mix.v audio/mc_fat32.v audio/mc_fat_dir.v audio/mc_fat_rd.v audio/mc_wav_player.v sensor/mc_hall.v app/mc_behavior.v ../sim/models/sd_card_model.v ../sim/models/i2c_ack_slave.v video/obs/mc_obs.v video/obs/mc_obs_down.v video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v video/obs/mc_obs_lut.v ../sim/stubs/stub_mcsys_pll.v ../sim/stubs/stub_mc_cam_if.v ../sim/stubs/stub_mc_framebuf.v ../sim/stubs/stub_mc_disp_if.v";;
     tb_fb)         echo "video/fb/mc_framebuf.v video/fb/video_in.v video/fb/video_out.v video/fb/mc_to_user_interface.v ../ip/w128_d512_fifo/w128_d512_fifo.v ../ip/w128_d512_fifo/soft_fifo_al_4057d6b76aa6.v ../ip/w155_d512_fifo/w155_d512_fifo.v ../ip/w155_d512_fifo/soft_fifo_al_f58e8b3e1f3d.v ../sim/stubs/stub_ddr_wrapper.v";;
     tb_i2s)        echo "audio/mc_i2s_tx.v";;
     tb_es8388)     echo "audio/mc_i2c_wr.v audio/mc_es8388_cfg.v";;
@@ -49,7 +49,16 @@ rtl_for() {
     tb_hall)       echo "sensor/mc_hall.v";;
     tb_behavior)   echo "app/mc_behavior.v";;
     tb_awb)        echo "video/isp/awb.v video/isp/signal_delay.v ../sim/stubs/stub_awb_delay_ram.v";;
-    tb_mixer)      echo "video/disp/mc_mixer.v system/mc_sync_bits.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v";;
+    tb_gamma)      echo "video/isp/mc_gamma.v video/isp/mc_gamma_lut.v";;
+    tb_scale)      echo "video/isp/mc_scale.v";;
+    tb_ae)         echo "video/cam/mc_ae.v video/cam/uicfgimx415.v video/cam/uii2c.v video/cam/uiimx415reg.v system/mc_sync_bits.v ../sim/models/i2c_rec_slave.v";;
+    tb_obs_down)   echo "video/obs/mc_obs_down.v";;
+    tb_obs_core)   echo "video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v video/obs/mc_obs_lut.v system/mc_sync_bits.v";;
+    tb_obs_view)   echo "video/obs/mc_obs_view.v video/obs/mc_obs_lut.v system/mc_sync_bits.v";;
+    tb_isp)        echo "video/isp/mc_crop.v video/isp/isp_top.v video/isp/demosaic/demosaic.v video/isp/demosaic/raw_matrix_3x3_buffer.v video/isp/demosaic/mipi_to_raw_converter.v video/isp/demosaic/line_buffer_demosaic.v video/isp/demosaic/zhenghe.v video/isp/demosaic/bilinear_interpolation.v video/isp/data128_96/data128_96.v video/isp/awb.v video/isp/signal_delay.v ../sim/stubs/stub_awb_delay_ram.v ../sim/stubs/stub_demosaic_rams.v";;
+    tb_follow)     echo "app/mc_follow.v video/obs/mc_obs_lut.v system/mc_sync_bits.v";;
+    tb_m0_link)    echo "comm/mc_m0_link.v comm/mc_uart_rx.v comm/mc_uart_tx.v";;
+    tb_mixer)      echo "video/disp/mc_mixer.v system/mc_sync_bits.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/obs/mc_obs_view.v video/obs/mc_obs_lut.v";;
     tb_dash)       echo "system/mc_sync_bits.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/osd/mc_osd_clear.v video/osd/mc_osd_dash.v";;
     *) echo "";;
   esac

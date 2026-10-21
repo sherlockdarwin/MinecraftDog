@@ -10,12 +10,13 @@
 //                                                      ▲                          ▲
 //                             状态/活动监测 ───────────┴─► 屏幕上的 8 个状态方块     │ 文字写入总线
 // 人机交互 / 执行器（M3）：
-//   SW1~SW3 ─► mc_key(短按/长按) ─► mc_bench(SW2/SW3 短按 → 相机增益键)
+//   SW1~SW3 ─► mc_key(短按/长按) ─► mc_bench(SW2/SW3 短按 → 相机亮度键)
 //   TF 卡 ─ WAV ─► mc_audio ─► ES8388 ─► 喇叭（背景音乐上电自动循环 + 进食音效，同时播）
 //   霍尔传感器 ─► mc_hall ─► mc_behavior（喂食：摇尾巴 + 进食音效；以后 UWB 的"距离 < 5 m 摇尾巴"、"丢了就叫"也接这里）─► mc_tail ─UART(只发)─► 步进驱动器（尾巴）/ mc_audio
-//   各模块的状态 ─► mc_osd_dash ─文字写入总线─► mc_disp_if 里的文字层 ─► 画面中间状态带的 3 行文字
+//   各模块的状态 ─► mc_osd_dash ─文字写入总线─► mc_disp_if 里的文字层 ─► 画面中间状态带的 5 行文字
+//   MSPM0（UWB：主人在哪）─UART─► mc_m0_link ─► mc_follow（+ 避障结果）─► 两个轮子的 PWM ─UART─► MSPM0（电机）
 //   （轮子的控制放在另一块单片机上，这里没有电机驱动 / 编码器）
-// 画面：竖屏 800×1280，上半相机、中间状态带、下半留给避障；厂商 video_out 顺序读帧缓存，版面见 mc_mixer.v
+// 画面：竖屏 800×1280，上半相机、中间状态带、下半避障处理画面；厂商 video_out 顺序读帧缓存，版面见 mc_mixer.v
 // =============================================================================
 module mctop (
     input  wire         I_sys_clk,          // 25 MHz 晶振 (C4)
@@ -43,8 +44,12 @@ module mctop (
     // ---- 尾巴：步进电机（ZDT X42S，UART 115200 8N1，只发不收；括号里是 CEP 排针的物理脚号 / FPGA 管脚）----
     output wire         O_step_tx,          // CEP 15 / E17   → 驱动器 R/A/H 脚（驱动器 GND 接 CEP 脚 2）
 
-    // ---- 喂食检测：霍尔传感器模块（CEP 排针，3.3V；磁铁靠近输出高电平、离开输出低电平）----
-    input  wire         I_hall,             // CEP 17 / B17   传感器输出（模块请用 3.3V 供电）
+    // ---- 喂食检测：霍尔传感器模块（CEP 排针，3.3V 供电；磁铁靠近输出低电平、离开输出高电平）----
+    input  wire         I_hall_n,           // CEP 17 / B17   传感器输出（低 = 磁铁靠近；脚上开了上拉，没接模块 = 没喂食）
+
+    // ---- MSPM0（轮子 + UWB）：UART 115200 8N1，ASCII 帧见 mc_m0_link.v；MSPM0 的 GND 接 CEP 脚 2 ----
+    output wire         O_m0_tx,            // CEP 3 / L15    → MSPM0 PA13（它的 UART_fpgaMLK 接收）
+    input  wire         I_m0_rx,            // CEP 4 / L16    ← MSPM0 PA14（脚上开了上拉，没接 = 一直空闲）
 
     // ---- 音频：板载 ES8388（耳机口 / 两个喇叭口）----
     output wire         O_aud_mclk,         // F14   MCLK 12.5 MHz
@@ -81,26 +86,47 @@ module mctop (
 // =============================================================================
 // 配置区（想改画面/时序/排线极性，只改这里）
 // =============================================================================
-// ---- 摄像头 ----
+// ---- 摄像头（完整视场：传感器的 1920×1080 等比缩小 2.4 倍 → 800×448，见 mc_scale.v；画面偏暗 / 偏亮由自动曝光 mc_ae 调）----
 localparam [3:0] CAM_LANE_INVERT = 4'b0000;    // 不出图且通道错误时，试着把对应 lane 置 1（排线 P/N 接反）
-localparam       WIN_W           = 800;        // 送屏的相机窗口宽（像素）= 屏宽，必须是 16 的倍数
-localparam       WIN_H           = 560;        // 送屏的相机窗口高（行），WIN_W*WIN_H 必须是 1280 的整数倍（800×560 = 350×1280）
-localparam       CROP_X0_GRP     = 141;        // 窗口左边在传感器 1920 宽里的位置：(1920-800)/2/4 + 1
-localparam       CROP_Y0         = 261;        // 窗口上边的行号：(1080-560)/2 + 1，必须是奇数（Bayer 相位）
+localparam       CROP_X0_GRP     = 1;          // 1920×1080 在传感器每行 1944 像素里从第 4 个开始（1 组 = 4 像素）
+localparam       CROP_Y0         = 13;         // 从第 13 行开始（必须是奇数：Bayer 相位）；传感器有效行 1~1095，录像区 11~1090
+localparam       WIN_W           = 800;        // 送屏的相机窗口宽 = 1920 / 2.4（固定，由 mc_scale 决定）
+localparam       WIN_H           = 448;        // 送屏的相机窗口高：1080 / 2.4 = 450，帧缓存要求 WIN_W*WIN_H 是 1280 的倍数 → 448（丢最后 2 行）
 // ---- 屏幕（ILI9881C 10.1" 800×1280，竖屏）----
 localparam       PANEL_H         = 800;        // 屏的列数（竖屏时的"宽"）
 localparam       PANEL_V         = 1280;       // 屏的行数
 localparam [3:0] TPG_MODE        = 4'd9;       // 测试图案：1红 2绿 3蓝 4白 5~8渐变 9马赛克 10斜线 11网格（只在 BG_PATTERN=1 时显示）
 localparam       BG_PATTERN      = 0;          // 0：没内容的地方是黑色；1：显示上面的测试图案（排查屏幕链路用）
-localparam       RB_SWAP         = 0;          // 红蓝反了就改成 1
-// ---- 画面版面（见 mc_mixer.v）：上半相机窗口 v 0~559；中间状态带 v 560~719（方块 v 568~607、文字 v 616~711）；下半 v 720~1279 留给避障 ----
-localparam       SQ_V0           = 568;        // 状态方块起始行
+// ---- 画面版面（见 mc_mixer.v）：相机窗口 v 0~447；状态带（方块 v 456~495、文字 5 行 v 504~663）；避障画面 v 830~1279（上方 v 820~827 是建议方向的绿条）----
+localparam       SQ_V0           = 456;        // 状态方块起始行
 localparam       SQ_H            = 40;         // 状态方块高（宽 80）
 localparam       OSD_X0          = 40;         // 文字框左上角 u（列）
-localparam       OSD_Y0          = 616;        // 文字框左上角 v（行）
+localparam       OSD_Y0          = 504;        // 文字框左上角 v（行）
 localparam       OSD_COLS        = 45;         // 每行字符数（mc_osd_dash 的版面按 45 列排）
-localparam       OSD_ROWS        = 3;          // 行数（版面按 3 行排）
+localparam       OSD_ROWS        = 5;          // 行数（版面按 5 行排）
 localparam       OSD_SH          = 1;          // 字符放大 2^OSD_SH 倍：1 → 每个字符 16×32 像素，字太小就加大到 2（但要缩小行列数）
+// ---- 避障（见 mc_obs*.v；摄像头离地 174 mm、下倾 15° 写在 tools/gen_obs_lut.pl）----
+localparam [10:0] OBS_V0         = 11'd830;    // 避障处理画面起始行（800×450 = 160×90 格 × 5）
+localparam [7:0]  OBS_REF_X0     = 8'd56;      // 地面参考区（网格坐标，160×90，最多 511 格）：车正前方、画面最下面 48 列 × 8 行（约 23~26 cm 远）
+localparam [7:0]  OBS_REF_X1     = 8'd103;
+localparam [6:0]  OBS_REF_Y0     = 7'd82;
+localparam [6:0]  OBS_REF_Y1     = 7'd89;
+localparam [11:0] OBS_TC         = 12'd12;     // 地面颜色门限：越大越容易把东西判成障碍
+localparam [11:0] OBS_TY         = 12'd12;
+localparam [7:0]  OBS_D_CAP      = 8'd150;     // 选方向最远算到多少厘米
+localparam [7:0]  OBS_D_STOP     = 8'd35;      // 最好的方向也不到这么远（厘米）→ 停
+// ---- 跟随（mc_follow；数值照 MSPM0 原来的跟随程序：每 20 ms 算一次，PWM 满量程 8000）----
+localparam       FOLLOW_STOP_CM   = 300;       // 离主人这么近就停
+localparam       FOLLOW_VIEW_DEG  = 35;        // 主人在 ±这么多度以外：原地转（相机看不到那边）
+localparam       FOLLOW_CLEAR_CM  = 60;        // 避障的方向至少能走这么远才往那边走
+localparam       FOLLOW_KP_D      = 4;         // 前进 PWM / 厘米（离主人的距离 − 停止距离）
+localparam       FOLLOW_KP_A      = 35;        // 转向 PWM / 度
+localparam       FOLLOW_KP_OBS    = 50;        // 前进上限 PWM / 厘米（那个方向能走多远 − OBS_D_STOP）
+localparam       FOLLOW_MIN_FWD   = 600;       // 前进量下限 / 上限
+localparam       FOLLOW_MAX_FWD   = 6000;
+localparam       FOLLOW_MAX_WHEEL = 6500;      // 每个轮子 ±
+localparam       FOLLOW_ACC       = 200;       // 每 20 ms 最多加速 / 减速多少
+localparam       FOLLOW_DEC       = 400;
 // ---- 按键 ----
 localparam       KEY_LONG_MS     = 800;        // 长按判定时间
 localparam       RST_HOLD_MS     = 2000;       // SW1 按住多久整机复位；0 = 取消这个功能
@@ -206,7 +232,7 @@ mc_key #(
     .O_long    (S_key_long)
 );
 
-wire [1:0]  S_cam_key_n;                       // 相机增益键（低有效脉冲，SW2/SW3 短按）
+wire [1:0]  S_cam_key_n;                       // 相机亮度键（低有效脉冲，SW2/SW3 短按）
 wire        S_sfx_busy;
 wire        S_hall_fed;                                 // 霍尔：1 = 正在喂食（磁铁靠近）
 wire        S_beh_wag;                                  // 行为层：喂食时让尾巴摇一个来回
@@ -260,18 +286,20 @@ wire         S_cam_cfg_done;
 wire [3:0]   S_cam_lane_error;
 wire         S_csi_frame_tog;
 wire         S_isp_frame_tog;
-wire [7:0]   S_cam_ae;
+wire         S_isp_fs;                         // 白平衡后的 1920×1080（给避障）
+wire         S_isp_valid;
+wire [95:0]  S_isp_data;
+wire [7:0]   S_cam_gain;                       // 自动曝光的增益 / 曝光行数 / 亮度档（屏幕文字显示）
+wire [11:0]  S_cam_exp;
+wire [3:0]   S_cam_ev;
 
-// 相机增益键 S_cam_key_n 来自 mc_bench：第 0 页的 SW2/SW3 短按 → 40 ms 低电平脉冲
+// 亮度键 S_cam_key_n 来自 mc_bench：SW2/SW3 短按 → 40 ms 低电平脉冲（自动曝光的目标亮度 +/− 一档）
 
 mc_cam_if #(
     .LANE_INVERT (CAM_LANE_INVERT),
     .CROP_X0_GRP (CROP_X0_GRP),
-    .CROP_W_GRP  (WIN_W / 4),
     .CROP_Y0     (CROP_Y0),
-    .CROP_H      (WIN_H),
-    .IMG_W       (WIN_W),
-    .IMG_H       (WIN_H)
+    .OUT_H       (WIN_H)
 ) u_cam (
     .I_rst_n           (S_pll_lock),
     .I_clk_100m        (S_clk_100m),
@@ -294,10 +322,95 @@ mc_cam_if #(
     .O_pix_data        (S_cam_pix_data),
 
     .O_cfg_done        (S_cam_cfg_done),
-    .O_ae              (S_cam_ae),
+    .O_ae_gain         (S_cam_gain),
+    .O_ae_exp          (S_cam_exp),
+    .O_ae_ev           (S_cam_ev),
     .O_lane_error      (S_cam_lane_error),
     .O_csi_frame_tog   (S_csi_frame_tog),
-    .O_isp_frame_tog   (S_isp_frame_tog)
+    .O_isp_frame_tog   (S_isp_frame_tog),
+    .O_isp_fs          (S_isp_fs),
+    .O_isp_valid       (S_isp_valid),
+    .O_isp_data        (S_isp_data)
+);
+
+// ---- 避障：白平衡后的 1920×1080 → 160×90 → 地面 / 障碍 → 方向、框（相机像素时钟域）----
+wire [24:0]  S_obs_wbus;
+wire         S_obs_pub_bank, S_obs_pub_valid, S_obs_disp_bank;
+wire [5:0]   S_obs_go;
+wire [3:0]   S_obs_go_head;
+wire [71:0]  S_obs_head_free;                  // 方向 4~12 各能走多远（给跟随决策）
+wire         S_obs_res_tog;                    // 每帧结果翻转一次
+wire [6:0]   S_obs_go_deg, S_obs_near_deg;
+wire [7:0]   S_obs_go_free, S_obs_near;
+wire         S_obs_stop;
+
+mc_obs #(
+    .REF_X0 (OBS_REF_X0), .REF_X1 (OBS_REF_X1), .REF_Y0 (OBS_REF_Y0), .REF_Y1 (OBS_REF_Y1),
+    .TC (OBS_TC), .TY (OBS_TY), .D_CAP (OBS_D_CAP), .D_STOP (OBS_D_STOP)
+) u_obs (
+    .I_clk       (S_cam_pix_clk),
+    .I_rst_n     (S_pll_lock),
+    .I_fs        (S_isp_fs),
+    .I_valid     (S_isp_valid),
+    .I_data      (S_isp_data),
+    .O_wbus      (S_obs_wbus),
+    .O_pub_bank  (S_obs_pub_bank),
+    .O_pub_valid (S_obs_pub_valid),
+    .O_go        (S_obs_go),
+    .I_disp_bank (S_obs_disp_bank),
+    .O_done      (),
+    .O_sec_dist  (),
+    .O_go_head   (S_obs_go_head),
+    .O_go_deg    (S_obs_go_deg),
+    .O_go_free   (S_obs_go_free),
+    .O_stop      (S_obs_stop),
+    .O_near_cm   (S_obs_near),
+    .O_near_deg  (S_obs_near_deg),
+    .O_head_free (S_obs_head_free),
+    .O_res_tog   (S_obs_res_tog)
+);
+
+// ---- 跟随：MSPM0 送来主人在哪 → 决策（+ 避障结果）→ 两个轮子的 PWM 送回 MSPM0（100 MHz 域）----
+wire               S_uwb_ok;
+wire signed [7:0]  S_uwb_deg;
+wire [9:0]         S_uwb_cm;
+wire               S_cmd_valid, S_cmd_stop;
+wire signed [13:0] S_cmd_l, S_cmd_r;
+wire [2:0]         S_cmd_state;
+
+mc_m0_link u_m0 (
+    .I_clk       (S_clk_100m),
+    .I_rst_n     (S_rst_n_100m),
+    .I_tick_1ms  (S_tick_1ms),
+    .I_rx        (I_m0_rx),
+    .O_tx        (O_m0_tx),
+    .O_tgt_ok    (S_uwb_ok),
+    .O_tgt_deg   (S_uwb_deg),
+    .O_tgt_cm    (S_uwb_cm),
+    .I_cmd_valid (S_cmd_valid),
+    .I_cmd_stop  (S_cmd_stop),
+    .I_cmd_l     (S_cmd_l),
+    .I_cmd_r     (S_cmd_r)
+);
+
+mc_follow #(
+    .STOP_CM (FOLLOW_STOP_CM), .VIEW_DEG (FOLLOW_VIEW_DEG), .CLEAR_CM (FOLLOW_CLEAR_CM), .D_STOP (OBS_D_STOP),
+    .KP_D (FOLLOW_KP_D), .KP_A (FOLLOW_KP_A), .KP_OBS (FOLLOW_KP_OBS),
+    .MIN_FWD (FOLLOW_MIN_FWD), .MAX_FWD (FOLLOW_MAX_FWD), .MAX_WHEEL (FOLLOW_MAX_WHEEL), .ACC (FOLLOW_ACC), .DEC (FOLLOW_DEC)
+) u_follow (
+    .I_clk       (S_clk_100m),
+    .I_rst_n     (S_rst_n_100m),
+    .I_tick_1ms  (S_tick_1ms),
+    .I_tgt_ok    (S_uwb_ok),
+    .I_tgt_deg   (S_uwb_deg),
+    .I_tgt_cm    (S_uwb_cm),
+    .I_obs_tog   (S_obs_res_tog),
+    .I_obs_free  (S_obs_head_free),
+    .O_cmd_valid (S_cmd_valid),
+    .O_cmd_stop  (S_cmd_stop),
+    .O_cmd_l     (S_cmd_l),
+    .O_cmd_r     (S_cmd_r),
+    .O_state     (S_cmd_state)
 );
 
 wire        S_dsi_clk;
@@ -433,7 +546,7 @@ mc_hall #(
     .I_clk      (S_clk_100m),
     .I_rst_n    (S_rst_n_100m),
     .I_tick_1ms (S_tick_1ms),
-    .I_hall     (I_hall),
+    .I_hall     (~I_hall_n),                        // 模块是低有效的，取反后 1 = 磁铁靠近
     .O_fed      (S_hall_fed)
 );
 
@@ -456,7 +569,7 @@ mc_behavior #(
     .O_sfx_clip    (S_beh_sfx_clip)
 );
 
-// ---- 屏幕文字层：状态带里的 3 行文字（版面见 mc_osd_dash.v）----
+// ---- 屏幕文字层：状态带里的 5 行文字（版面见 mc_osd_dash.v）----
 wire [19:0] S_osd_bus;
 
 mc_osd_dash #(
@@ -472,9 +585,22 @@ mc_osd_dash #(
     .I_key_short   (S_key_short),
     .I_key_long    (S_key_long),
 
-    .I_cam_ae      (S_cam_ae),
+    .I_cam_gain    (S_cam_gain),
+    .I_cam_exp     (S_cam_exp),
+    .I_cam_ev      (S_cam_ev),
+    .I_obs_near    (S_obs_near),
+    .I_obs_near_deg(S_obs_near_deg),
+    .I_obs_go_deg  (S_obs_go_deg),
+    .I_obs_free    (S_obs_go_free),
+    .I_obs_stop    (S_obs_stop),
     .I_hall        (S_hall_fed),
     .I_tail_seq    (S_tail_seq),
+    .I_uwb_ok      (S_uwb_ok),
+    .I_uwb_deg     (S_uwb_deg),
+    .I_uwb_cm      (S_uwb_cm),
+    .I_cmd_state   (S_cmd_state),
+    .I_cmd_l       (S_cmd_l),
+    .I_cmd_r       (S_cmd_r),
 
     .I_aud_sd      (S_aud_sd),
     .I_aud_codec   (S_aud_codec),
@@ -493,12 +619,16 @@ mc_disp_if #(
     .SQ_H       (SQ_H),
     .TPG_MODE   (TPG_MODE),
     .BG_PATTERN (BG_PATTERN),
-    .RB_SWAP    (RB_SWAP),
     .TXT_U0     (OSD_X0),
     .TXT_V0     (OSD_Y0),
     .TXT_COLS   (OSD_COLS),
     .TXT_ROWS   (OSD_ROWS),
-    .TXT_SH     (OSD_SH)
+    .TXT_SH     (OSD_SH),
+    .OBS_V0     (OBS_V0),
+    .REF_X0     (OBS_REF_X0),
+    .REF_X1     (OBS_REF_X1),
+    .REF_Y0     (OBS_REF_Y0),
+    .REF_Y1     (OBS_REF_Y1)
 ) u_disp (
     .I_rst_n         (S_pll_lock),
     .I_clk_dpll_ref  (S_clk_dpll_ref),
@@ -515,6 +645,13 @@ mc_disp_if #(
 
     .I_txt_clk       (S_clk_100m),
     .I_txt_bus       (S_osd_bus),
+
+    .I_obs_wclk      (S_cam_pix_clk),
+    .I_obs_wbus      (S_obs_wbus),
+    .I_obs_pub_bank  (S_obs_pub_bank),
+    .I_obs_pub_valid (S_obs_pub_valid),
+    .I_obs_go        (S_obs_go),
+    .O_obs_disp_bank (S_obs_disp_bank),
 
     .O_dsi_pwm       (O_dsi_pwm),
     .O_dsi_rst_n     (O_dsi_rst_n),

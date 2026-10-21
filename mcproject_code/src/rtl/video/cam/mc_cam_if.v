@@ -1,27 +1,28 @@
 `timescale 1ns / 1ps
 // =============================================================================
-// mc_cam_if.v  摄像头接口：IMX415 → MIPI CSI-2(4 lane) → RAW10 → 取窗 → ISP → 打包的 RGB 像素流
+// mc_cam_if.v  摄像头接口：IMX415 → MIPI CSI-2(4 lane) → RAW10 → 取 1920×1080 → 伽马 → ISP → 缩小成 800×OUT_H → 打包的 RGB 像素流
 //
-//   上电时序 mc_cam_pwrup ─► I2C 配置 uicfgimx415 ◄─ ae_set(SW2/SW3 调增益)
+//   上电时序 mc_cam_pwrup ─► I2C 配置 uicfgimx415 ◄─ mc_ae(自动曝光：曝光时间 + 增益；SW2/SW3 调亮度档)
 //   MIPI 引脚 ─► D-PHY RX 硬核封装 ─► csi_unpacket_4lane ─► raw10_unpacket_4lane
-//             ─► mc_crop(取窗) ─► isp_top(去马赛克 + 白平衡) ─► O_pix_*  (去帧缓存)
+//             ─► mc_crop(取 1920×1080) ─► mc_gamma(减黑电平 + 伽马；每帧平均亮度 → mc_ae)
+//             ─► isp_top(去马赛克 + 白平衡) ─┬─► mc_scale(等比缩小 2.4 倍 + 打包) ─► O_pix_*  (去帧缓存)
+//                                             └─► O_isp_*（给避障 mc_obs）
 //
 // 输出像素流时钟 = MIPI 字节时钟（891Mbps/lane ÷ 8 ≈ 111.4 MHz）。
-// 数据格式：128bit = 16 像素 × 24bit RGB 打包的 3 个字，由 data_96bit_to_128bit 完成（厂商模块）。
+// 数据格式：128bit = 16 像素 × 24bit RGB 打包的 3 个字（第一个字节在最高位），每帧 800×OUT_H 像素。
+// 传感器（2/2 binning）每帧送 1097 行 RAW10、每行 1944 像素：第 0 行是 Dummy，1~1095 行是有效像素
+// （录像区 1920×1080 = 第 11~1090 行、第 6~1925 列），见数据手册 "Drive Timing Chart for Horizontal / Vertical 2/2-line binning mode"。
 // =============================================================================
 module mc_cam_if #(
     parameter [3:0] LANE_INVERT = 4'b0000,  // 某一对差分线接反时置位对应 bit
-    parameter       CROP_X0_GRP = 141,      // 取窗：起始组(4像素/组)
-    parameter       CROP_W_GRP  = 200,      //        宽度(组)  → 800 像素
-    parameter       CROP_Y0     = 317,      //        起始行(必须为奇数)
-    parameter       CROP_H      = 448,      //        高度(行)
-    parameter       IMG_W       = 800,      // 必须 = CROP_W_GRP*4
-    parameter       IMG_H       = 448       // 必须 = CROP_H
+    parameter       CROP_X0_GRP = 1,        // 1920×1080 从每行第几组开始(4像素/组)
+    parameter       CROP_Y0     = 13,       //           从第几行开始（必须是奇数：Bayer 相位）
+    parameter       OUT_H       = 448       // 缩小后的高度（1080 / 2.4 = 450，帧缓存要求 宽×高 是 1280 的倍数，取 448）
 )(
     input  wire         I_rst_n,            // 异步复位，低有效（接 PLL lock）
     input  wire         I_clk_100m,         // MIPI RX 的 LP 采样时钟
     input  wire         I_clk_24m,          // 摄像头 INCK / I2C 配置时钟
-    input  wire [1:0]   I_key_n,            // 增益键（低有效）：[0] 增益 +，[1] 增益 -；每个低电平脉冲（≥ 30 ms）改一级。顶层由 mc_bench 给
+    input  wire [1:0]   I_key_n,            // 亮度键（低有效）：[0] 亮一档，[1] 暗一档；每个低电平脉冲（≥ 30 ms）改一档。顶层由 mc_bench 给
 
     // 摄像头板
     output wire         O_cam_scl,
@@ -41,9 +42,16 @@ module mc_cam_if #(
     output wire         O_pix_valid,
     output wire [127:0] O_pix_data,
 
+    // 白平衡后的 1920×1080（同一时钟域，和 mc_scale 并联）：给避障 mc_obs
+    output wire         O_isp_fs,
+    output wire         O_isp_valid,
+    output wire [95:0]  O_isp_data,
+
     // 状态
     output wire         O_cfg_done,         // [24MHz 域] 传感器寄存器已写完
-    output wire [7:0]   O_ae,               // [24MHz 域] 当前曝光/增益设定值（SW2/SW3 调整，屏幕文字层显示）
+    output wire [7:0]   O_ae_gain,          // [24MHz 域] 自动曝光当前的增益（0.3 dB 一级，屏幕显示）
+    output wire [11:0]  O_ae_exp,           // [24MHz 域] 当前曝光行数（最长 2275 ≈ 1 帧）
+    output wire [3:0]   O_ae_ev,            // [24MHz 域] 亮度档 0~8（屏幕显示 −4~+4）
     output wire [3:0]   O_lane_error,       // [字节时钟域] MIPI 通道错误
     output reg          O_csi_frame_tog,    // [字节时钟域] 每收到一个 CSI 帧起始翻转一次
     output reg          O_isp_frame_tog     // [字节时钟域] 每输出一个 ISP 帧起始翻转一次
@@ -54,9 +62,12 @@ module mc_cam_if #(
 // ---------------------------------------------------------------------------
 wire       S_cam_rst_n;
 wire       S_cfg_rst_n;
-wire       S_ae_req;
-wire [7:0] S_ae_data;
-wire       S_ae_cfg_done;
+wire        S_ae_req;
+wire [15:0] S_ae_shr0;
+wire [7:0]  S_ae_gain;
+wire        S_ae_cfg_done;
+wire [7:0]  S_mean;                 // [像素时钟域] mc_gamma 统计的上一帧平均亮度
+wire        S_mean_tog;
 
 mc_cam_pwrup u_pwrup (
     .I_clk       (I_clk_24m),
@@ -66,17 +77,22 @@ mc_cam_pwrup u_pwrup (
 );
 
 assign O_cam_clk = I_clk_24m;
-assign O_ae      = S_ae_data;
+assign O_ae_gain = S_ae_gain;
 assign O_cam_rst = S_cam_rst_n;
 
-ae_set u_ae_set (
-    .I_clk          (I_clk_24m),
-    .I_rst          (S_cfg_rst_n),
-    .I_btn          (I_key_n),                  // ae_set 里的 key.v 按"低 = 按下"判断，所以直接接低有效的键（不取反）
-    .I_cam_cfg_done (O_cfg_done),
-    .I_ae_cfg_done  (S_ae_cfg_done),
-    .O_ae_req       (S_ae_req),
-    .O_ae           (S_ae_data)
+mc_ae u_ae (
+    .I_clk      (I_clk_24m),
+    .I_rst_n    (S_cfg_rst_n),
+    .I_cfg_done (O_cfg_done),
+    .I_wr_done  (S_ae_cfg_done),
+    .I_mean     (S_mean),
+    .I_mean_tog (S_mean_tog),
+    .I_key_n    (I_key_n),
+    .O_req      (S_ae_req),
+    .O_shr0     (S_ae_shr0),
+    .O_gain     (S_ae_gain),
+    .O_exp      (O_ae_exp),
+    .O_ev       (O_ae_ev)
 );
 
 uicfgimx415 #(
@@ -85,7 +101,8 @@ uicfgimx415 #(
     .I_clk         (I_clk_24m),
     .I_rst_n       (S_cfg_rst_n),
     .I_ae_req      (S_ae_req),
-    .I_ae_data     (S_ae_data),
+    .I_ae_shr0     (S_ae_shr0),
+    .I_ae_gain     (S_ae_gain),
     .O_cam_scl     (O_cam_scl),
     .IO_cam_sda    (IO_cam_sda),
     .O_cfg_done    (O_cfg_done),
@@ -177,8 +194,10 @@ raw10_unpacket_4lane u_raw10 (
 );
 
 // ---------------------------------------------------------------------------
-// 4. 取窗 → ISP
+// 4. 取 1920×1080 → 伽马 → ISP → 缩小 + 打包
 // ---------------------------------------------------------------------------
+localparam IN_W = 1920, IN_H = 1080;
+
 wire [39:0] S_crop_tdata;
 wire        S_crop_tvalid;
 wire        S_crop_tuser;
@@ -186,9 +205,9 @@ wire        S_crop_tlast;
 
 mc_crop #(
     .X0_GRP (CROP_X0_GRP),
-    .W_GRP  (CROP_W_GRP),
+    .W_GRP  (IN_W / 4),
     .Y0     (CROP_Y0),
-    .H      (CROP_H)
+    .H      (IN_H)
 ) u_crop (
     .I_clk             (S_hs_rx_clk),
     .I_rst_n           (I_rst_n),
@@ -201,21 +220,40 @@ mc_crop #(
     .O_raw_tlast       (S_crop_tlast)
 );
 
-wire [127:0] S_isp_tdata;
-wire         S_isp_tuser;
-wire         S_isp_tvalid;
+wire [39:0] S_gam_tdata;
+wire        S_gam_tvalid;
+wire        S_gam_tuser;
+wire        S_gam_tlast;
 
-isp_top #(
-    .IMG_WIDTH  (IMG_W),
-    .IMG_HEIGHT (IMG_H),
-    .BAYER_MODE ("BGGR")
+mc_gamma u_gamma (                          // 统计：1920×1080 ≈ 2^21 个像素，用默认的 STAT_SHIFT = 21
+    .I_clk      (S_hs_rx_clk),
+    .I_rst_n    (I_rst_n),
+    .I_tdata    (S_crop_tdata),
+    .I_tvalid   (S_crop_tvalid),
+    .I_tuser    (S_crop_tuser),
+    .I_tlast    (S_crop_tlast),
+    .O_tdata    (S_gam_tdata),
+    .O_tvalid   (S_gam_tvalid),
+    .O_tuser    (S_gam_tuser),
+    .O_tlast    (S_gam_tlast),
+    .O_mean     (S_mean),
+    .O_mean_tog (S_mean_tog)
+);
+
+wire [95:0] S_isp_tdata;
+wire        S_isp_tuser;
+wire        S_isp_tvalid;
+
+isp_top #(                                  // Bayer 排列用 isp_top 的默认值（RGGB），tb_isp 测的就是它
+    .IMG_WIDTH  (IN_W),
+    .IMG_HEIGHT (IN_H)
 ) u_isp (
     .axi4s_video_aclk (S_hs_rx_clk),
     .I_rst_n          (I_rst_n),
-    .I_tlast          (S_crop_tlast),
-    .I_tuser          (S_crop_tuser),
-    .I_tdata          (S_crop_tdata),
-    .I_tvalid         (S_crop_tvalid),
+    .I_tlast          (S_gam_tlast),
+    .I_tuser          (S_gam_tuser),
+    .I_tdata          (S_gam_tdata),
+    .I_tvalid         (S_gam_tvalid),
     .I_tdest          (10'd0),
     .O_tready         (1'b1),
     .O_tdata          (S_isp_tdata),
@@ -225,9 +263,24 @@ isp_top #(
     .I_tready         ()
 );
 
-assign O_pix_frame_start = S_isp_tuser;
-assign O_pix_valid       = S_isp_tvalid;
-assign O_pix_data        = S_isp_tdata;
+assign O_isp_fs    = S_isp_tuser;
+assign O_isp_valid = S_isp_tvalid;
+assign O_isp_data  = S_isp_tdata;
+
+mc_scale #(
+    .IN_W  (IN_W),
+    .IN_H  (IN_H),
+    .OUT_H (OUT_H)
+) u_scale (
+    .I_clk   (S_hs_rx_clk),
+    .I_rst_n (I_rst_n),
+    .I_fs    (S_isp_tuser),
+    .I_valid (S_isp_tvalid),
+    .I_data  (S_isp_tdata),
+    .O_fs    (O_pix_frame_start),
+    .O_valid (O_pix_valid),
+    .O_data  (O_pix_data)
+);
 
 // ---------------------------------------------------------------------------
 // 5. 活动指示（翻转型，交给 mctop 做跨时钟域同步和超时判断）
@@ -238,7 +291,7 @@ always @(posedge S_hs_rx_clk or negedge I_rst_n) begin
         O_isp_frame_tog <= 1'b0;
     end else begin
         if (S_csi_frame_start) O_csi_frame_tog <= ~O_csi_frame_tog;
-        if (S_isp_tuser)       O_isp_frame_tog <= ~O_isp_frame_tog;
+        if (O_pix_frame_start) O_isp_frame_tog <= ~O_isp_frame_tog;
     end
 end
 

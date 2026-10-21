@@ -1,8 +1,9 @@
 `timescale 1ns / 1ps
 // 顶层集成测试：仿真真正的 mctop.v（视频相关的 mcsys_pll / mc_cam_if / mc_framebuf / mc_disp_if 用 stubs/ 里的替身，
 // 但文字层、音频子系统用真的；外面接一个行为级 TF 卡和一个什么都应答的 ES8388 I2C 从机），检查顶层接线：
-//   版面 / 音量参数 → 上电尾巴自动回零（发出的每个字节）→ 按键（相机增益键）/ 屏幕文字 → 背景音乐上电自动播
-//   → 喂食（霍尔：尾巴摇来回 + 进食音效）→ 状态灯真值表 → SW1 按住复位（尾巴重新回零、背景音乐重新开始）。
+//   版面 / 音量参数 → 上电尾巴自动回零（发出的每个字节）→ 按键（亮度键）/ 屏幕文字 → 背景音乐上电自动播
+//   → 喂食（霍尔：尾巴摇来回 + 进食音效）→ 状态灯真值表 → SW1 按住复位（尾巴重新回零、背景音乐重新开始）；
+//   MSPM0 串口：每 20 "ms" 发一帧（替身相机没图 → 一直是 #S*）、收主人位置帧 → 文字第 5 行、超时后又是 LOST。
 //
 // 为了仿真快（整个顶层的行为级仿真每个时钟都要算几百个 always 块，很慢），用 defparam 把时间全部压缩：
 //   mc_tick 按 1 MHz 时钟工作（"1 ms" = 1000 个 100MHz 时钟，"10 ms 节拍" = 100 us）、按键去抖/长按缩短、
@@ -22,6 +23,8 @@ wire tx_clk_n, tx_clk_p; wire [3:0] tx_d_n, tx_d_p;
 wire dsi_pwm, dsi_rst_n;
 reg  hall = 0;                                  // 霍尔传感器：1 = 磁铁靠近
 wire step_tx;
+reg  m0_rx = 1'b1;                              // MSPM0 → FPGA
+wire m0_tx;
 wire [12:0] ddr_addr; wire [1:0] ddr_ba; wire [0:0] ddr_cke, ddr_odt, ddr_cs_n, ddr_ck_p, ddr_ck_n;
 wire ddr_ras_n, ddr_cas_n, ddr_we_n;
 wire [1:0] ddr_dm, ddr_dqs_p, ddr_dqs_n; wire [15:0] ddr_dq;
@@ -35,7 +38,8 @@ mctop dut (
     .IO_rx_clk_pad_n(rx_clk_n), .IO_rx_clk_pad_p(rx_clk_p), .IO_rx_data_pad_n(rx_d_n), .IO_rx_data_pad_p(rx_d_p),
     .IO_tx_clk_pad_n(tx_clk_n), .IO_tx_clk_pad_p(tx_clk_p), .IO_tx_data_pad_n(tx_d_n), .IO_tx_data_pad_p(tx_d_p),
     .O_dsi_pwm(dsi_pwm), .O_dsi_rst_n(dsi_rst_n),
-    .O_step_tx(step_tx), .I_hall(hall),
+    .O_step_tx(step_tx), .I_hall_n(~hall),              // 模块低有效：测试台里 hall = 1 表示磁铁靠近
+    .O_m0_tx(m0_tx), .I_m0_rx(m0_rx),
     .O_aud_mclk(aud_mclk), .O_aud_sclk(aud_sclk), .O_aud_lrck(aud_lrck), .O_aud_dsdin(aud_dsdin),
     .O_aud_cclk(aud_cclk), .IO_aud_cdata(aud_sda), .O_spk_ctl(spk_ctl),
     .O_sd_cs_n(sd_cs_n), .O_sd_sck(sd_sck), .O_sd_mosi(sd_mosi), .I_sd_miso(sd_miso),
@@ -60,6 +64,7 @@ defparam dut.u_tail.HOME_MS          = 10;
 defparam dut.u_tail.GAP_MS           = 2;
 defparam dut.u_tail.INIT_DELAY_MS    = 20;           // 上电 20 "ms" 后自动回零（真实是 1000 ms，由 tb_tail 覆盖）
 defparam dut.u_hall.DEBOUNCE_MS      = 3;            // 霍尔去抖 3 个"毫秒"
+defparam dut.u_m0.BAUD               = 1_000_000;    // MSPM0 串口 1 Mbps（真实 115200 由 tb_m0_link 覆盖）
 
 integer errors = 0;
 task fail; input [255:0] msg; begin $display("FAIL %0s (t=%0t)", msg, $time); errors = errors + 1; end endtask
@@ -96,6 +101,18 @@ always @(posedge dut.S_clk_100m) if (wire_en) begin
     `WCHK(dut.u_dash.I_key_pressed, dut.u_key.O_pressed, "dashboard key levels are not the key module's O_pressed")
     `WCHK(dut.u_bench.I_key_short, dut.u_key.O_short,    "bench short-press input is not the key module's O_short")
     `WCHK(dut.u_cam.I_key_n,      dut.u_bench.O_cam_key_n, "camera gain keys are not the bench's")
+    `WCHK(dut.u_obs.I_clk,        dut.S_cam_pix_clk,     "obstacle subsystem clock is not the camera pixel clock")
+    `WCHK(dut.u_obs.I_rst_n,      dut.S_pll_lock,        "obstacle subsystem reset is not the PLL lock")
+    `WCHK(dut.u_disp.I_obs_wclk,  dut.S_cam_pix_clk,     "obstacle view write clock is not the camera pixel clock")
+    `WCHK(dut.u_m0.I_clk,         dut.S_clk_100m,        "MSPM0 link clock is not the 100 MHz clock")
+    `WCHK(dut.u_m0.I_rst_n,       dut.S_rst_n_100m,      "MSPM0 link reset")
+    `WCHK(dut.u_m0.I_tick_1ms,    dut.S_tick_1ms,        "MSPM0 link 1 ms tick")
+    `WCHK(dut.u_follow.I_clk,     dut.S_clk_100m,        "follow decision clock is not the 100 MHz clock")
+    `WCHK(dut.u_follow.I_rst_n,   dut.S_rst_n_100m,      "follow decision reset")
+    `WCHK(dut.u_follow.I_tick_1ms, dut.S_tick_1ms,       "follow decision 1 ms tick")
+    `WCHK(dut.u_m0.I_cmd_valid,   dut.u_follow.O_cmd_valid, "MSPM0 link command strobe is not the follow decision's")
+    `WCHK(dut.u_m0.I_rx,          m0_rx,                 "MSPM0 link receive pin")
+    `WCHK(m0_tx,                  dut.u_m0.O_tx,         "MSPM0 link transmit pin")
 end
 
 // "一个节拍(10 ms)" = 100 us 仿真时间
@@ -139,6 +156,34 @@ initial begin
         txb[txn] = tb_b; txn = txn + 1;
     end
 end
+
+// ---- MSPM0 串口（1 Mbps）：解码 FPGA 发的字符（记下每个字符的开始时间），给 FPGA 发字符 ----
+reg [7:0] m0b [0:4095];
+time      m0t [0:4095];
+integer   m0n = 0, m0_chk;
+initial begin : m0_decoder
+    integer k; reg [7:0] c; time t0;
+    forever begin
+        @(negedge m0_tx); t0 = $time;
+        #(BIT_NS / 2);
+        for (k = 0; k < 8; k = k + 1) begin #(BIT_NS); c[k] = m0_tx; end
+        #(BIT_NS);
+        if (m0_tx !== 1'b1) begin $display("FAIL MSPM0 link: stop bit not high (t=%0t)", $time); errors = errors + 1; end
+        if (m0n < 4096) begin m0b[m0n] = c; m0t[m0n] = t0; end
+        m0n = m0n + 1;
+    end
+end
+task m0_send;
+    input [8*8-1:0] s;
+    integer k, j;
+    begin
+        for (k = 7; k >= 0; k = k - 1) begin
+            m0_rx = 1'b0; #(BIT_NS);
+            for (j = 0; j < 8; j = j + 1) begin m0_rx = s[8*k + j]; #(BIT_NS); end
+            m0_rx = 1'b1; #(2 * BIT_NS);
+        end
+    end
+endtask
 
 // 期望字节流
 reg [7:0] exb [0:127];
@@ -244,7 +289,9 @@ endtask
 
 // 0a 窗口：强制前存下的原值（见 0a 的说明）
 reg sv_ddr, sv_panel, sv_cfg, sv_csi, sv_isp, sv_lane;
-reg [7:0] sv_ae;   reg [2:0] sv_asd;   reg [1:0] sv_acd, sv_bst, sv_sst;
+reg [7:0] sv_gain; reg [11:0] sv_exp; reg [3:0] sv_ev; reg [2:0] sv_asd;
+reg sv_uok, sv_rt; reg [7:0] sv_udeg; reg [9:0] sv_ucm; reg [2:0] sv_cst; reg [13:0] sv_cl, sv_cr; reg [71:0] sv_hf;
+reg [24:0] sv_wbus; reg sv_pb, sv_pv, sv_stop; reg [5:0] sv_go; reg [7:0] sv_near, sv_free; reg [6:0] sv_ndeg, sv_gdeg;   reg [1:0] sv_acd, sv_bst, sv_sst;
 integer i, s0, lock_low_seen, t, e0, n1;
 initial begin
     #200_000;
@@ -252,12 +299,18 @@ initial begin
     if (dut.S_pll_lock !== 1'b1) fail("PLL not locked");
     if (spk_ctl !== 1'b1) fail("speaker amp enable should be high");
 
-    // ---------- 0. 配置区的参数是否真的送到了下游（版面：上半相机 800×560、方块 v 568 高 40、文字 v 616 三行；音量最大 33）----------
-    if (dut.u_disp.IMG_W !== 800 || dut.u_disp.IMG_H !== 560) fail("camera window size parameters");
-    if (dut.u_disp.SQ_V0 !== 568 || dut.u_disp.SQ_H !== 40)   fail("status square row / height parameters");
-    if (dut.u_disp.TXT_V0 !== 616 || dut.u_disp.TXT_ROWS !== 3 || dut.u_disp.TXT_U0 !== 40 || dut.u_disp.TXT_COLS !== 45) fail("text box parameters");
-    if (dut.u_dash.ROWS !== 3 || dut.u_dash.COLS !== 45) fail("dashboard rows / cols parameters");
-    if (dut.u_cam.CROP_H !== 560 || dut.u_cam.IMG_H !== 560 || dut.u_cam.CROP_Y0 !== 261) fail("camera crop parameters (560 rows from row 261)");
+    // ---------- 0. 配置区的参数是否真的送到了下游（版面：相机 800×448、方块 v 456 高 40、文字 v 504 三行；完整视场取窗；音量最大 33）----------
+    if (dut.u_disp.IMG_W !== 800 || dut.u_disp.IMG_H !== 448) fail("camera window size parameters");
+    if (dut.u_disp.SQ_V0 !== 456 || dut.u_disp.SQ_H !== 40)   fail("status square row / height parameters");
+    if (dut.u_disp.TXT_V0 !== 504 || dut.u_disp.TXT_ROWS !== 5 || dut.u_disp.TXT_U0 !== 40 || dut.u_disp.TXT_COLS !== 45) fail("text box parameters");
+    if (dut.u_dash.ROWS !== 5 || dut.u_dash.COLS !== 45) fail("dashboard rows / cols parameters");
+    if (dut.u_follow.STOP_CM !== 300 || dut.u_follow.VIEW_DEG !== 35 || dut.u_follow.CLEAR_CM !== 60 || dut.u_follow.D_STOP !== 35 ||
+        dut.u_follow.KP_D !== 4 || dut.u_follow.KP_A !== 35 || dut.u_follow.KP_OBS !== 50 || dut.u_follow.MIN_FWD !== 600 ||
+        dut.u_follow.MAX_FWD !== 6000 || dut.u_follow.MAX_WHEEL !== 6500 || dut.u_follow.ACC !== 200 || dut.u_follow.DEC !== 400) fail("follow decision parameters");
+    if (dut.u_disp.OBS_V0 !== 830 || dut.u_disp.REF_X0 !== 56 || dut.u_disp.REF_X1 !== 103 || dut.u_disp.REF_Y0 !== 82 || dut.u_disp.REF_Y1 !== 89) fail("obstacle view parameters of the display");
+    if (dut.u_obs.REF_X0 !== 56 || dut.u_obs.REF_X1 !== 103 || dut.u_obs.REF_Y0 !== 82 || dut.u_obs.REF_Y1 !== 89 || dut.u_obs.TC !== 12 || dut.u_obs.TY !== 12 ||
+        dut.u_obs.D_CAP !== 150 || dut.u_obs.D_STOP !== 35) fail("obstacle parameters");
+    if (dut.u_cam.CROP_X0_GRP !== 1 || dut.u_cam.CROP_Y0 !== 13 || dut.u_cam.OUT_H !== 448) fail("camera parameters (1920x1080 from group 1 / row 13, scaled to 448 rows)");
     if (dut.u_audio.u_cfg.SPK_VOL !== 6'd33 || dut.u_audio.u_cfg.HP_VOL !== 6'd33) fail("volume must be the maximum 33");
 
     // ---------- 0a. 接线核对（强制值窗口）----------
@@ -287,17 +340,55 @@ initial begin
     // 状态面板的输入口：每一路给一个不同的值（正常运行时两路音频的状态量常常相同）。
     // 尾巴动作和霍尔不在这里强制（它们是 mc_tail / mc_hall 自己的寄存器，强制会改变这两个模块自己的行为），
     // 由上面的白盒核对每个时钟比较 + 后面喂食时屏幕上的 HALL 1 来核对
-    sv_ae = dut.S_cam_ae; sv_asd = dut.S_aud_sd; sv_acd = dut.S_aud_codec; sv_bst = dut.S_bgm_state; sv_sst = dut.S_sfx_state;
-    force dut.S_cam_ae = 8'd77;
+    sv_gain = dut.S_cam_gain; sv_exp = dut.S_cam_exp; sv_ev = dut.S_cam_ev; sv_asd = dut.S_aud_sd; sv_acd = dut.S_aud_codec; sv_bst = dut.S_bgm_state; sv_sst = dut.S_sfx_state;
+    force dut.S_cam_gain = 8'd77; force dut.S_cam_exp = 12'd2345; force dut.S_cam_ev = 4'd6;
     force dut.S_aud_sd = 3'd2;  force dut.S_aud_codec = 2'd3;  force dut.S_bgm_state = 2'd1;  force dut.S_sfx_state = 2'd3;
     #(1_000);
-    if (dut.u_dash.I_cam_ae !== 8'd77) fail("dashboard camera-gain input");
+    if (dut.u_dash.I_cam_gain !== 8'd77 || dut.u_dash.I_cam_exp !== 12'd2345 || dut.u_dash.I_cam_ev !== 4'd6) fail("dashboard camera gain / exposure / EV inputs");
     if (dut.u_dash.I_aud_sd !== 3'd2 || dut.u_dash.I_aud_codec !== 2'd3) fail("dashboard SD / codec inputs");
     if (dut.u_dash.I_bgm_state !== 2'd1 || dut.u_dash.I_sfx_state !== 2'd3) fail("dashboard background-music / sound-effect inputs");
     // 这些线有的由子模块的寄存器直接驱动：release 不会恢复寄存器，所以先强制回原值
-    force dut.S_cam_ae = sv_ae; force dut.S_aud_sd = sv_asd; force dut.S_aud_codec = sv_acd; force dut.S_bgm_state = sv_bst; force dut.S_sfx_state = sv_sst;
+    force dut.S_cam_gain = sv_gain; force dut.S_cam_exp = sv_exp; force dut.S_cam_ev = sv_ev; force dut.S_aud_sd = sv_asd; force dut.S_aud_codec = sv_acd; force dut.S_bgm_state = sv_bst; force dut.S_sfx_state = sv_sst;
     #(10);
-    release dut.S_cam_ae; release dut.S_aud_sd; release dut.S_aud_codec; release dut.S_bgm_state; release dut.S_sfx_state;
+    release dut.S_cam_gain; release dut.S_cam_exp; release dut.S_cam_ev; release dut.S_aud_sd; release dut.S_aud_codec; release dut.S_bgm_state; release dut.S_sfx_state;
+    // 避障的连线：相机 → mc_obs → 显示端 / 文字面板，显示端 → mc_obs，每一路给一个不同的值
+    sv_wbus = dut.S_obs_wbus; sv_pb = dut.S_obs_pub_bank; sv_pv = dut.S_obs_pub_valid; sv_go = dut.S_obs_go;
+    sv_near = dut.S_obs_near; sv_ndeg = dut.S_obs_near_deg; sv_gdeg = dut.S_obs_go_deg; sv_free = dut.S_obs_go_free; sv_stop = dut.S_obs_stop;
+    force dut.S_isp_fs = 1'b1; force dut.S_isp_valid = 1'b0; force dut.S_isp_data = {12{8'hA5}} ^ 96'h123456789;
+    force dut.S_obs_disp_bank = 1'b1;
+    force dut.S_obs_wbus = 25'h1ABCDE5; force dut.S_obs_pub_bank = 1'b1; force dut.S_obs_pub_valid = 1'b0; force dut.S_obs_go = 6'b100101;
+    force dut.S_obs_near = 8'd77; force dut.S_obs_near_deg = -7'sd12; force dut.S_obs_go_deg = 7'sd9; force dut.S_obs_go_free = 8'd123; force dut.S_obs_stop = 1'b0;
+    #(1_000);
+    if (dut.u_obs.I_fs !== 1'b1 || dut.u_obs.I_valid !== 1'b0 || dut.u_obs.I_data !== ({12{8'hA5}} ^ 96'h123456789)) fail("obstacle subsystem input is not the camera's white-balanced stream");
+    if (dut.u_obs.I_disp_bank !== 1'b1) fail("obstacle subsystem display-bank input is not the display's");
+    if (dut.u_disp.I_obs_wbus !== 25'h1ABCDE5 || dut.u_disp.I_obs_pub_bank !== 1'b1 || dut.u_disp.I_obs_pub_valid !== 1'b0 || dut.u_disp.I_obs_go !== 6'b100101)
+        fail("obstacle view inputs of the display are not the obstacle subsystem's");
+    if (dut.u_dash.I_obs_near !== 8'd77 || dut.u_dash.I_obs_near_deg !== 7'b1110100 || dut.u_dash.I_obs_go_deg !== 7'd9 || dut.u_dash.I_obs_free !== 8'd123 || dut.u_dash.I_obs_stop !== 1'b0)
+        fail("dashboard obstacle inputs are not the obstacle subsystem's");
+    force dut.S_obs_wbus = sv_wbus; force dut.S_obs_pub_bank = sv_pb; force dut.S_obs_pub_valid = sv_pv; force dut.S_obs_go = sv_go;
+    force dut.S_obs_near = sv_near; force dut.S_obs_near_deg = sv_ndeg; force dut.S_obs_go_deg = sv_gdeg; force dut.S_obs_go_free = sv_free; force dut.S_obs_stop = sv_stop;
+    #(10);
+    release dut.S_isp_fs; release dut.S_isp_valid; release dut.S_isp_data; release dut.S_obs_disp_bank;
+    release dut.S_obs_wbus; release dut.S_obs_pub_bank; release dut.S_obs_pub_valid; release dut.S_obs_go;
+    release dut.S_obs_near; release dut.S_obs_near_deg; release dut.S_obs_go_deg; release dut.S_obs_go_free; release dut.S_obs_stop;
+    #(1_000);
+    // 跟随的连线：MSPM0 链路 → 决策 / 文字面板，决策 → 链路 / 文字面板，避障 → 决策（命令的选通强制成 0：窗口里不发帧）
+    sv_uok = dut.S_uwb_ok; sv_udeg = dut.S_uwb_deg; sv_ucm = dut.S_uwb_cm; sv_cst = dut.S_cmd_state; sv_cl = dut.S_cmd_l; sv_cr = dut.S_cmd_r;
+    sv_hf = dut.S_obs_head_free; sv_rt = dut.S_obs_res_tog;
+    force dut.S_uwb_ok = 1'b1; force dut.S_uwb_deg = -8'sd23; force dut.S_uwb_cm = 10'd456; force dut.S_cmd_state = 3'd4;
+    force dut.S_cmd_l = 14'sd1234; force dut.S_cmd_r = -14'sd567; force dut.S_cmd_stop = 1'b0; force dut.S_cmd_valid = 1'b0;
+    force dut.S_obs_head_free = 72'h0123456789ABCDEF5A; force dut.S_obs_res_tog = ~sv_rt;
+    #(1_000);
+    if (dut.u_dash.I_uwb_ok !== 1'b1 || dut.u_dash.I_uwb_deg !== 8'hE9 || dut.u_dash.I_uwb_cm !== 10'd456 || dut.u_dash.I_cmd_state !== 3'd4 ||
+        dut.u_dash.I_cmd_l !== 14'd1234 || dut.u_dash.I_cmd_r !== 14'h3DC9) fail("dashboard follow inputs");
+    if (dut.u_follow.I_tgt_ok !== 1'b1 || dut.u_follow.I_tgt_deg !== -8'sd23 || dut.u_follow.I_tgt_cm !== 10'd456) fail("follow decision target inputs are not the MSPM0 link's");
+    if (dut.u_follow.I_obs_free !== 72'h0123456789ABCDEF5A || dut.u_follow.I_obs_tog !== ~sv_rt) fail("follow decision obstacle inputs are not the obstacle subsystem's");
+    if (dut.u_m0.I_cmd_stop !== 1'b0 || dut.u_m0.I_cmd_l !== 14'sd1234 || dut.u_m0.I_cmd_r !== -14'sd567) fail("MSPM0 link command inputs are not the follow decision's");
+    force dut.S_uwb_ok = sv_uok; force dut.S_uwb_deg = sv_udeg; force dut.S_uwb_cm = sv_ucm; force dut.S_cmd_state = sv_cst; force dut.S_cmd_l = sv_cl; force dut.S_cmd_r = sv_cr;
+    force dut.S_cmd_stop = 1'b1; force dut.S_obs_head_free = sv_hf; force dut.S_obs_res_tog = sv_rt;
+    #(10);
+    release dut.S_uwb_ok; release dut.S_uwb_deg; release dut.S_uwb_cm; release dut.S_cmd_state; release dut.S_cmd_l; release dut.S_cmd_r;
+    release dut.S_cmd_stop; release dut.S_cmd_valid; release dut.S_obs_head_free; release dut.S_obs_res_tog;
     #(1_000);
 
     // ---------- 1. 上电后尾巴自动回零（20 "ms" 之后：解除保护 / 使能 / 单圈就近回零 / 设坐标零点，共 19 字节）----------
@@ -305,14 +396,14 @@ initial begin
     if (txn !== 19) begin $display("FAIL tail auto-homing after power-up sent %0d bytes, expected 19", txn); errors = errors + 1; end
     exn = 0; home_bytes; compare_tx("tail auto-homing", 0);
 
-    // ---------- 2. 按键：SW2 / SW3 短按 = 相机增益 ±1；长按、SW1 短按什么也不做 ----------
-    spress(1);                                                      // SW2 短按：增益 +1（40 ms 低电平脉冲 → 相机增益键）
+    // ---------- 2. 按键：SW2 / SW3 短按 = 亮度档 ±1（自动曝光的目标亮度）；长按、SW1 短按什么也不做 ----------
+    spress(1);                                                      // SW2 短按：亮一档（40 ms 低电平脉冲 → 相机的亮度键）
     #(1_000_000);
-    if (dut.u_cam.ae !== 8'd51) begin $display("FAIL cam gain after SW2 short: %0d (expected 51)", dut.u_cam.ae); errors = errors + 1; end
+    if (dut.u_cam.ev !== 4'd5) begin $display("FAIL EV after SW2 short: %0d (expected 5)", dut.u_cam.ev); errors = errors + 1; end
     if (kp0_n !== 1 || kp0_w < 299_000 || kp0_w > 401_000) begin $display("FAIL gain+ key pulse: %0d pulse(s), last one %0d ns wide, expected 1 pulse of 300 ~ 400 us (4 ticks of 10 ms)", kp0_n, kp0_w); errors = errors + 1; end
-    spress(2);                                                      // SW3 短按：增益 -1
+    spress(2);                                                      // SW3 短按：暗一档
     #(1_000_000);
-    if (dut.u_cam.ae !== 8'd50) begin $display("FAIL cam gain after SW3 short: %0d (expected 50)", dut.u_cam.ae); errors = errors + 1; end
+    if (dut.u_cam.ev !== 4'd4) begin $display("FAIL EV after SW3 short: %0d (expected 4)", dut.u_cam.ev); errors = errors + 1; end
     if (kp1_n !== 1 || kp1_w < 299_000 || kp1_w > 401_000) begin $display("FAIL gain- key pulse: %0d pulse(s), last one %0d ns wide, expected 1 pulse of 300 ~ 400 us (4 ticks of 10 ms)", kp1_n, kp1_w); errors = errors + 1; end
     // 按着 SW2 + SW3 不放（超过两个 "100 ms" 刷新周期）：第 0 行的 KEY 要显示还按着的键（011），松手后回到 000；
     // 上报给面板的必须是"按着"的电平，不是"刚按下"的单拍脉冲（单拍脉冲显示不出来）。SW1 按住超过 3 ms 会整机复位，这里不碰
@@ -321,13 +412,13 @@ initial begin
     expect_text(0, 32, "011", 3);
     key[1] = 1'b1; key[2] = 1'b1;
     #(4 * TICK_NS);
-    if (dut.u_cam.ae !== 8'd50) begin $display("FAIL cam gain changed by holding SW2 + SW3: %0d", dut.u_cam.ae); errors = errors + 1; end
+    if (dut.u_cam.ev !== 4'd4) begin $display("FAIL EV changed by holding SW2 + SW3: %0d", dut.u_cam.ev); errors = errors + 1; end
     spress(0);                                                      // SW1 短按：没有功能
-    lpress(1);                                                      // 长按：不改增益
+    lpress(1);                                                      // 长按：不改亮度档
     lpress(2);
     #(1_000_000);
-    if (dut.u_cam.ae !== 8'd50) begin $display("FAIL cam gain changed by SW1 / a long press: %0d", dut.u_cam.ae); errors = errors + 1; end
-    if (kp0_n !== 1 || kp1_n !== 1) fail("SW1 / long presses must not give gain-key pulses");
+    if (dut.u_cam.ev !== 4'd4) begin $display("FAIL EV changed by SW1 / a long press: %0d", dut.u_cam.ev); errors = errors + 1; end
+    if (kp0_n !== 1 || kp1_n !== 1) fail("SW1 / long presses must not give brightness-key pulses");
 
     // ---------- 3. 背景音乐上电自动循环播放（左声道），音效那一路（右声道）没触发时静音 ----------
     t = 0;
@@ -347,10 +438,25 @@ initial begin
     exp_v = s16w({clip1_b[45], clip1_b[44]});
     if (!l_first_set || s16w(l_first) !== exp_v) begin $display("FAIL first background-music sample %0d, expected %0d (clip 1 sample 0)", s16w(l_first), exp_v); errors = errors + 1; end
     // 屏幕文字（3 行整行核对，开机秒数那 5 位不比）
-    expect_text(0, 0,  "GAIN 050  HALL 0  TAIL IDLE KEY 000 UP ", 39);
+    expect_text(0, 0,  "GAIN 061  HALL 0  TAIL IDLE KEY 000 UP ", 39);       // 61 / 1717 = 相机替身的诱饵值
     expect_text(0, 44, "s", 1);
-    expect_text(1, 0,  "SD READY  CODEC OK    BGM PLAY  SFX IDLE     ", 45);
-    expect_text(2, 0,  "K3 LONG   SW2 gain+ SW3 gain- SW1 2s reset   ", 45);
+    expect_text(1, 0,  "SD READY  CODEC OK    BGM PLAY  SFX IDLE EV+0", 45);
+    expect_text(2, 0,  "K3 LONG   SW2/3 EV+/- SW1 2s reset EXP 1717  ", 45);
+    expect_text(3, 0,  "NEAR 255cm +00deg  STOP +00deg 000cm         ", 45);   // 没有相机帧：上电时的值
+    expect_text(4, 0,  "UWB LOST +00deg 000cm  CMD LOST L+0000 R+0000", 45);
+
+    // ---------- 3a. MSPM0 串口：每 20 "ms" 一帧 #S*；收到主人位置 → 文字第 5 行（没相机 → NCAM，还是停）；300 "ms" 没新帧 → LOST ----------
+    m0_chk = m0n;
+    m0_send("$l12350&");
+    #(1_500_000);
+    expect_text(4, 0,  "UWB OK   -12deg 350cm  CMD NCAM L+0000 R+0000", 45);
+    if (m0n - m0_chk < 18) begin $display("FAIL MSPM0 link: only %0d characters sent in 15 periods", m0n - m0_chk); errors = errors + 1; end
+    for (i = m0_chk; i < m0n; i = i + 1) begin
+        if (m0b[i] !== ((i % 3 == 0) ? "#" : (i % 3 == 1) ? "S" : "*")) begin $display("FAIL MSPM0 link: character %0d is '%c', expected #S* frames", i, m0b[i]); errors = errors + 1; end
+        if (i % 3 == 0 && i >= 3 && (m0t[i] - m0t[i-3] < 199_000 || m0t[i] - m0t[i-3] > 201_000)) begin $display("FAIL MSPM0 link: frames %0d ns apart, expected 20 \"ms\" (200 us here)", m0t[i] - m0t[i-3]); errors = errors + 1; end
+    end
+    #(3_000_000);
+    expect_text(4, 0,  "UWB LOST -12deg 350cm  CMD LOST L+0000 R+0000", 45);   // 超时：数字留着上一次的
 
     // ---------- 4. 喂食（霍尔 = 1）：尾巴摇一个来回再检查一次；进食音效（2.wav）播一遍，磁铁没拿开不重播 ----------
     if (dut.S_tail_busy !== 1'b0) fail("tail should be idle before the feeding test");

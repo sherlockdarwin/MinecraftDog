@@ -6,8 +6,10 @@ module mc_disp_if #(
     parameter H_ACTIVE = 800, parameter HSA = 24, parameter HBP = 136, parameter HFP = 160,
     parameter V_ACTIVE = 1280, parameter VSA = 6, parameter VBP = 15, parameter VFP = 16,
     parameter IMG_W = 1, parameter IMG_H = 1, parameter SQ_V0 = 1, parameter SQ_H = 1,
-    parameter [3:0] TPG_MODE = 4'd9, parameter BG_PATTERN = 0, parameter RB_SWAP = 0,
+    parameter [3:0] TPG_MODE = 4'd9, parameter BG_PATTERN = 0,
     parameter TXT_U0 = 1, parameter TXT_V0 = 1, parameter TXT_COLS = 45, parameter TXT_ROWS = 1, parameter TXT_SH = 1,
+    parameter [10:0] OBS_V0 = 11'd1, parameter [7:0] REF_X0 = 8'd1, parameter [7:0] REF_X1 = 8'd1,
+    parameter [6:0] REF_Y0 = 7'd1, parameter [6:0] REF_Y1 = 7'd1,
     parameter DPLL_MULTI_RATIO = 20
 )(
     input  wire         I_rst_n,
@@ -22,6 +24,12 @@ module mc_disp_if #(
     output wire         O_panel_ready,
     input  wire         I_txt_clk,
     input  wire [19:0]  I_txt_bus,
+    input  wire         I_obs_wclk,
+    input  wire [24:0]  I_obs_wbus,
+    input  wire         I_obs_pub_bank,
+    input  wire         I_obs_pub_valid,
+    input  wire [5:0]   I_obs_go,
+    output wire         O_obs_disp_bank,
     output wire         O_dsi_pwm,
     output wire         O_dsi_rst_n,
     inout  wire         IO_tx_clk_pad_n,
@@ -35,6 +43,7 @@ assign O_rd_en = 1'b0;
 assign O_panel_ready = 1'b1;
 assign O_dsi_pwm = 1'b1;
 assign O_dsi_rst_n = 1'b1;
+assign O_obs_disp_bank = 1'b0;
 
 mc_osd_text #(.X0(TXT_U0), .Y0(TXT_V0), .COLS(TXT_COLS), .ROWS(TXT_ROWS), .SCALE_SH(TXT_SH)) u_osd (
     .I_pclk(I_clk_dpll_ref), .I_x(11'd0), .I_y(11'd0), .O_hit(), .O_on(),

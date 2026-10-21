@@ -85,7 +85,7 @@ bilinear_interpolation #(
     /*input            */.I_clk            (I_clk   ),
     /*input            */.I_rst_n          (I_rst_n ),
 
-    /*//input
+    //input
     /*input            */.I_tlast      (demosaic_tlast )    ,
     /*input            */.I_tuser      (demosaic_tuser )    ,
     /*input            */.I_tvalid     (demosaic_tvalid)    ,
@@ -96,7 +96,7 @@ bilinear_interpolation #(
     /*input   [95:0]   */.matrix_cur_line  (matrix_cur_line  ),
     /*input   [95:0]   */.matrix_next_line (matrix_next_line ),
   
-    /*//output
+    //output
     /*output           */.O_tlast (O_tlast ),
     /*output           */.O_tuser (O_tuser ),
     /*output [127 : 0] */.O_tdata (O_tdata ),

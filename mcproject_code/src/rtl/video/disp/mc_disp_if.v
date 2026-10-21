@@ -27,18 +27,23 @@ module mc_disp_if #(
     parameter VFP      = 16,
     // ---- 画面内容（版面见 mc_mixer.v）----
     parameter IMG_W    = 800,       // 相机窗口宽
-    parameter IMG_H    = 560,       // 相机窗口高
-    parameter SQ_V0    = 568,       // 状态方块起始行（画布）
+    parameter IMG_H    = 448,       // 相机窗口高
+    parameter SQ_V0    = 456,       // 状态方块起始行（画布）
     parameter SQ_H     = 40,        // 状态方块高
     parameter [3:0] TPG_MODE = 4'd9,// 背景测试图案：1红 2绿 3蓝 4白 5~8渐变 9马赛克 10斜线 11网格（BG_PATTERN=1 时才显示）
     parameter BG_PATTERN = 0,       // 0：背景黑色；1：背景用测试图案
-    parameter RB_SWAP  = 0,         // 红蓝互换
     // ---- 文字层（见 mc_osd_text.v）：画布下方的字符区 ----
     parameter TXT_U0   = 40,        // 文字框左上角 u（画布列）
-    parameter TXT_V0   = 616,       // 文字框左上角 v（画布行）
+    parameter TXT_V0   = 504,       // 文字框左上角 v（画布行）
     parameter TXT_COLS = 45,        // 每行字符数
-    parameter TXT_ROWS = 3,         // 行数
+    parameter TXT_ROWS = 4,         // 行数
     parameter TXT_SH   = 1,         // 字符放大倍数 = 2^TXT_SH（1 → 16×32 像素/字符）
+    // ---- 避障画面（见 mc_obs_view.v）----
+    parameter [10:0] OBS_V0 = 11'd830,
+    parameter [7:0]  REF_X0 = 8'd56,
+    parameter [7:0]  REF_X1 = 8'd103,
+    parameter [6:0]  REF_Y0 = 7'd82,
+    parameter [6:0]  REF_Y1 = 7'd89,
     // ---- D-PHY ----
     parameter DPLL_MULTI_RATIO = 20
 )(
@@ -60,6 +65,14 @@ module mc_disp_if #(
     // 文字层写入（系统 100 MHz 域）：总线格式见 mc_osd_text.v，由 mc_osd_dash 产生
     input  wire         I_txt_clk,
     input  wire [19:0]  I_txt_bus,
+
+    // 避障画面写入（相机像素时钟域）：见 mc_obs_core
+    input  wire         I_obs_wclk,
+    input  wire [24:0]  I_obs_wbus,
+    input  wire         I_obs_pub_bank,
+    input  wire         I_obs_pub_valid,
+    input  wire [5:0]   I_obs_go,
+    output wire         O_obs_disp_bank,
 
     // 面板控制脚（经 TXS0108E 转 1.8V）
     output wire         O_dsi_pwm,          // 背光 PWM（这里恒高 = 最亮），初始化完成后才拉高
@@ -155,7 +168,11 @@ mc_mixer #(
     .TXT_ROWS   (TXT_ROWS),
     .TXT_SH     (TXT_SH),
     .BG_PATTERN (BG_PATTERN),
-    .RB_SWAP    (RB_SWAP)
+    .OBS_V0     (OBS_V0),
+    .REF_X0     (REF_X0),
+    .REF_X1     (REF_X1),
+    .REF_Y0     (REF_Y0),
+    .REF_Y1     (REF_Y1)
 ) u_mixer (
     .I_clk     (S_dsi_clk),
     .I_vsync   (S_vsync),
@@ -166,6 +183,12 @@ mc_mixer #(
     .I_status  (I_status),
     .I_txt_clk (I_txt_clk),
     .I_txt_bus (I_txt_bus),
+    .I_obs_wclk      (I_obs_wclk),
+    .I_obs_wbus      (I_obs_wbus),
+    .I_obs_pub_bank  (I_obs_pub_bank),
+    .I_obs_pub_valid (I_obs_pub_valid),
+    .I_obs_go        (I_obs_go),
+    .O_obs_disp_bank (O_obs_disp_bank),
     .O_rd_en   (O_rd_en),
     .I_rd_data (I_rd_data),
     .O_vsync   (S_mix_vsync),

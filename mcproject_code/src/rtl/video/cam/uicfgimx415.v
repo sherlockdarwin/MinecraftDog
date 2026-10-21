@@ -7,44 +7,45 @@ module uicfgimx415#
 parameter	 CLK_DIV  = 16'd999
 )
 (
-input  wire             I_clk,  //ÏµÍ³Ê±ÖÓÊäÈë
-input  wire             I_rst_n,  //ÏµÍ³¸´Î»ÊäÈë
-input  wire             I_ae_req,//ÉãÏñÍ·AE¿ØÖÆ
-input  wire	 [7:0] 		I_ae_data,
-output wire             O_cam_scl, //I2C×ÜÏß£¬SCLÊ±ÖÓ
-inout  wire             IO_cam_sda, //I2C×ÜÏß£¬SDAÊı¾İ
-output reg              O_cfg_done, //ÅäÖÃÍê³É
+input  wire             I_clk,  //ç³»ç»Ÿæ—¶é’Ÿè¾“å…¥
+input  wire             I_rst_n,  //ç³»ç»Ÿå¤ä½è¾“å…¥
+input  wire             I_ae_req,//æ‘„åƒå¤´AEæ§åˆ¶
+input  wire  [15:0]     I_ae_shr0,   //æ›å…‰ï¼šSHR0ï¼ˆmc_ae ç»™ï¼Œæœ¬æ¨¡å—å†™ä¼ æ„Ÿå™¨æœŸé—´ä¸å˜ï¼‰
+input  wire  [7:0]      I_ae_gain,   //å¢ç›Šï¼šGAIN_PGC_0ï¼ˆ0.3 dB ä¸€çº§ï¼‰
+output wire             O_cam_scl, //I2Cæ€»çº¿ï¼ŒSCLæ—¶é’Ÿ
+inout  wire             IO_cam_sda, //I2Cæ€»çº¿ï¼ŒSDAæ•°æ®
+output reg              O_cfg_done, //é…ç½®å®Œæˆ
 output reg              O_ae_cfg_done
 );	
 
-localparam CAM_ID = 8'h34;//Æ÷¼şµØÖ· 
+localparam CAM_ID = 8'h34;//å™¨ä»¶åœ°å€ 
 
-reg  [7:0] rst_cnt;//¸´Î»ÑÓÊ±¼ÆÊı
-reg  [21:0] cnt;//´ı»úÄ£Ê½¼Ä´æÆ÷ÑÓÊ±ÅäÖÃ¼ÆÊı
+reg  [7:0] rst_cnt;//å¤ä½å»¶æ—¶è®¡æ•°
+reg  [21:0] cnt;//å¾…æœºæ¨¡å¼å¯„å­˜å™¨å»¶æ—¶é…ç½®è®¡æ•°
 
-reg  O_cfg_done_r;//´ı»úÄ£Ê½¼Ä´æÆ÷ÅäÖÃÍê³ÉĞÅºÅ
-reg  iic_req;//ÇëÇó²Ù×÷I2C¿ØÖÆÆ÷ĞÅºÅ
-wire ic_busy; //I2C¿ØÖÆÆ÷Ã¦ĞÅºÅ 
+reg  O_cfg_done_r;//å¾…æœºæ¨¡å¼å¯„å­˜å™¨é…ç½®å®Œæˆä¿¡å·
+reg  iic_req;//è¯·æ±‚æ“ä½œI2Cæ§åˆ¶å™¨ä¿¡å·
+wire ic_busy; //I2Cæ§åˆ¶å™¨å¿™ä¿¡å· 
 wire   O_iic_bus_error;
-reg  [31:0] wr_data;     //Ğ´Êı¾İ¼Ä´æÆ÷
-reg  [1 :0] TS_S = 2'd0; //×´Ì¬»ú¼Ä´æÆ÷
-reg  [7 :0] reg_index;   //¼Ä´æË÷Òı            
+reg  [31:0] wr_data;     //å†™æ•°æ®å¯„å­˜å™¨
+reg  [1 :0] TS_S = 2'd0; //çŠ¶æ€æœºå¯„å­˜å™¨
+reg  [7 :0] reg_index;   //å¯„å­˜ç´¢å¼•            
                                              
-reg [23:0] REG_DATA;    //¼Ä´æÆ÷Êı¾İ
-reg [7:0]  REG_SIZE;    //¼Ä´æÆ÷ÊıÁ¿
+reg [23:0] REG_DATA;    //å¯„å­˜å™¨æ•°æ®
+reg [7:0]  REG_SIZE;    //å¯„å­˜å™¨æ•°é‡
 
-wire [23:0] REG_DATA_REG; //¼Ä´æÆ÷Êı¾İ
-reg  [23:0] REG_DATA_ST;  //´ı»ú¼Ä´æÆ÷Êı¾İ
-reg  [23:0] REG_DATA_AE;  //AE¼Ä´æÆ÷Êı¾İ
+wire [23:0] REG_DATA_REG; //å¯„å­˜å™¨æ•°æ®
+reg  [23:0] REG_DATA_ST;  //å¾…æœºå¯„å­˜å™¨æ•°æ®
+reg  [23:0] REG_DATA_AE;  //AEå¯„å­˜å™¨æ•°æ®
 
-wire [7 :0] REG_SIZE_REG; //¼Ä´æÆ÷ÊıÁ¿
-wire [1 :0] REG_SIZE_ST = 2'd2;  //´ı»ú¼Ä´æÆ÷ÊıÁ¿
-wire [2 :0] REG_SIZE_AE = 3'd4;  //AE¼Ä´æÆ÷ÊıÁ¿
+wire [7 :0] REG_SIZE_REG; //å¯„å­˜å™¨æ•°é‡
+wire [1 :0] REG_SIZE_ST = 2'd2;  //å¾…æœºå¯„å­˜å™¨æ•°é‡
+wire [2 :0] REG_SIZE_AE = 3'd6;  //AEå¯„å­˜å™¨æ•°é‡ï¼ˆREGHOLD å¼€ã€SHR0 ä½/é«˜ã€å¢ç›Š ä½/é«˜ã€REGHOLD å…³ï¼‰  //AEå¯„å­˜å™¨æ•°é‡
 
 
-//ÄÚ²¿¼ÆÊıÆ÷²úÉúÒ»¸öÑÓ³Ù¸´Î»
+//å†…éƒ¨è®¡æ•°å™¨äº§ç”Ÿä¸€ä¸ªå»¶è¿Ÿå¤ä½
 always@(posedge I_clk or negedge I_rst_n)  
-    if(I_rst_n == 1'b0) //¸´Î»³õÊ¼»¯¼Ä´æÆ÷
+    if(I_rst_n == 1'b0) //å¤ä½åˆå§‹åŒ–å¯„å­˜å™¨
         rst_cnt<= 8'd0; 
     else if(rst_cnt[7] == 1'b0)
        rst_cnt <= rst_cnt + 1'b1; 
@@ -52,7 +53,7 @@ always@(posedge I_clk or negedge I_rst_n)
        rst_cnt <= rst_cnt; 
 	   
 always@(posedge I_clk or negedge I_rst_n)  begin
-    if(I_rst_n == 1'b0) //¸´Î»³õÊ¼»¯¼Ä´æÆ÷
+    if(I_rst_n == 1'b0) //å¤ä½åˆå§‹åŒ–å¯„å­˜å™¨
          cnt <= 0;
     else if(cnt == 1000_000)
          cnt <= 0;
@@ -86,7 +87,7 @@ always@(posedge I_clk or negedge I_rst_n)begin
 end
 
 always@(posedge I_clk ) begin 
-    if(rst_cnt[7] == 1'b0)begin //¸´Î»³õÊ¼»¯¼Ä´æÆ÷
+    if(rst_cnt[7] == 1'b0)begin //å¤ä½åˆå§‹åŒ–å¯„å­˜å™¨
         reg_index  <= 9'd0;
         iic_req    <= 1'b0;
         wr_data    <= 32'd0;
@@ -97,75 +98,75 @@ always@(posedge I_clk ) begin
     end
     else begin
         case(TS_S)
-        0:if(reg_index == REG_SIZE && O_cfg_done == 1'b0) begin//Èç¹ûÅäÖÃÍê³É
-            O_cfg_done <= 1'b1;       //ÉèÖÃ cfg_done±ê×¼
+        0:if(reg_index == REG_SIZE && O_cfg_done == 1'b0) begin//å¦‚æœé…ç½®å®Œæˆ
+            O_cfg_done <= 1'b1;       //è®¾ç½® cfg_doneæ ‡å‡†
         end 
-        else if(reg_index == REG_SIZE && O_cfg_done == 1'b1 && O_cfg_done_r == 1'b0) begin//Èç¹ûÅäÖÃÍê³É
-            O_cfg_done_r <= 1'b1;       //ÉèÖÃ cfg_done±ê×¼
+        else if(reg_index == REG_SIZE && O_cfg_done == 1'b1 && O_cfg_done_r == 1'b0) begin//å¦‚æœé…ç½®å®Œæˆ
+            O_cfg_done_r <= 1'b1;       //è®¾ç½® cfg_doneæ ‡å‡†
         end 
-        else if(cnt== 1000_000)begin
+        else if(cnt== 1000_000 && O_ae_cfg_done)begin   //[æ”¹] AE æ­£åœ¨å†™çš„æ—¶å€™ä¸æ’è¿›æ¥
             O_cfg_done_r <= 0;
             reg_index   <= 0;
         end
-		else if(reg_index == REG_SIZE && O_cfg_done == 1'b1 && O_cfg_done_r == 1'b1) begin//Èç¹ûÅäÖÃÍê³É
-            O_ae_cfg_done <= 1'b1;       //ÉèÖÃ cfg_done±ê×¼
+		else if(reg_index == REG_SIZE && O_cfg_done == 1'b1 && O_cfg_done_r == 1'b1 && !O_ae_cfg_done) begin //[æ”¹] åªåœ¨åˆšå†™å®Œæ—¶æˆç«‹//å¦‚æœé…ç½®å®Œæˆ
+            O_ae_cfg_done <= 1'b1;       //è®¾ç½® cfg_doneæ ‡å‡†
         end 
-        else if(I_ae_req)begin
+        else if(I_ae_req && O_cfg_done_r)begin   //[æ”¹] è¯·æ±‚æ˜¯ç”µå¹³ï¼ˆmc_ae ä¿æŒåˆ°è¿™é‡Œå¼€å§‹å†™ï¼‰ï¼›å¾…æœºå¯„å­˜å™¨å†™å®Œæ‰æ¥
             O_ae_cfg_done <= 0;
             reg_index   <= 0;
         end
         else if((O_cfg_done&O_cfg_done_r&O_ae_cfg_done) == 1'b0)
-            TS_S <= 2'd1;           //ÏÂÒ»¸ö×´Ì¬
-        1:if(!iic_busy)begin        //µ±×ÜÏß·ÇÃ¦£¬²Å¿ÉÒÔ²Ù×÷I2C¿ØÖÆÆ÷
-            iic_req  <= 1'b1;       //ÇëÇó²Ù×÷I2C¿ØÖÆÆ÷
-			wr_data[7  :0] <= CAM_ID;           //Æ÷¼şµØÖ·   
-			wr_data[15 :8] <= REG_DATA[23:16];  //¼Ä´æÆ÷µØÖ·-¸ß8bit    
-			wr_data[23:16] <= REG_DATA[15: 8];  //¼Ä´æÆ÷µØÖ·-µÍ8bit  
-            wr_data[31:24] <= REG_DATA[7 : 0];  //¼Ä´æÆ÷Êı¾İ
-            TS_S      <= 2'd2; //ÏÂÒ»¸ö×´Ì¬
+            TS_S <= 2'd1;           //ä¸‹ä¸€ä¸ªçŠ¶æ€
+        1:if(!iic_busy)begin        //å½“æ€»çº¿éå¿™ï¼Œæ‰å¯ä»¥æ“ä½œI2Cæ§åˆ¶å™¨
+            iic_req  <= 1'b1;       //è¯·æ±‚æ“ä½œI2Cæ§åˆ¶å™¨
+			wr_data[7  :0] <= CAM_ID;           //å™¨ä»¶åœ°å€   
+			wr_data[15 :8] <= REG_DATA[23:16];  //å¯„å­˜å™¨åœ°å€-é«˜8bit    
+			wr_data[23:16] <= REG_DATA[15: 8];  //å¯„å­˜å™¨åœ°å€-ä½8bit  
+            wr_data[31:24] <= REG_DATA[7 : 0];  //å¯„å­˜å™¨æ•°æ®
+            TS_S      <= 2'd2; //ä¸‹ä¸€ä¸ªçŠ¶æ€
         end    
         2:if(iic_busy)begin
-             iic_req  <= 1'b0;  //ÖØÖÃ iic_req =0
-             TS_S     <= 2'd3;  //ÏÂÒ»¸ö×´Ì¬
+             iic_req  <= 1'b0;  //é‡ç½® iic_req =0
+             TS_S     <= 2'd3;  //ä¸‹ä¸€ä¸ªçŠ¶æ€
         end
-        3:if(!iic_busy)begin  //µ±×ÜÏß·ÇÃ¦£¬²Å¿ÉÒÔ²Ù×÷I2C¿ØÖÆÆ÷ 
-			reg_index<= reg_index + 1'b1;//¼Ä´æÆ÷Ë÷Òı¼Ó1
-			TS_S    <= 2'd0;//»Øµ½³õÊ¼×´Ì¬
+        3:if(!iic_busy)begin  //å½“æ€»çº¿éå¿™ï¼Œæ‰å¯ä»¥æ“ä½œI2Cæ§åˆ¶å™¨ 
+			reg_index<= reg_index + 1'b1;//å¯„å­˜å™¨ç´¢å¼•åŠ 1
+			TS_S    <= 2'd0;//å›åˆ°åˆå§‹çŠ¶æ€
         end 
         endcase
    end
 end
 
-//Àı»¯I2C¿ØÖÆÄ£¿é
+//ä¾‹åŒ–I2Cæ§åˆ¶æ¨¡å—
 uii2c#
 (
-.WMEN_LEN(4),     //×î´óÖ§³ÖÒ»´ÎĞ´Èë4BYTE(°üº¬Æ÷¼şµØÖ·)
-.RMEN_LEN(1),     //×î´óÖ§³ÖÒ»´Î¶Á³ö1BYTE
-.CLK_DIV(CLK_DIV) //100KHZ I2C×ÜÏßÊ±ÖÓ
+.WMEN_LEN(4),     //æœ€å¤§æ”¯æŒä¸€æ¬¡å†™å…¥4BYTE(åŒ…å«å™¨ä»¶åœ°å€)
+.RMEN_LEN(1),     //æœ€å¤§æ”¯æŒä¸€æ¬¡è¯»å‡º1BYTE
+.CLK_DIV(CLK_DIV) //100KHZ I2Cæ€»çº¿æ—¶é’Ÿ
 )
 uii2c_inst
 (
-.I_clk(I_clk),//ÏµÍ³Ê±ÖÓ
-.I_rstn(rst_cnt[7]),//ÏµÍ³¸´Î»
-.O_iic_scl(O_cam_scl),//I2C SCL×ÜÏßÊ±ÖÓ
-.IO_iic_sda(IO_cam_sda),//I2C SDAÊı¾İ×ÜÏß
-.I_wr_data(wr_data),//Ğ´Êı¾İ¼Ä´æÆ÷
-.I_wr_cnt(8'd4),    //ĞèÒªĞ´µÄÊı¾İBYTES
-.O_rd_data(),       //¶ÁÊı¾İ¼Ä´æÆ÷
-.I_rd_cnt(8'd0),    //ĞèÒª¶ÁµÄÊı¾İBYTES
-.I_iic_mode(1'b0),  //¶ÁÄ£Ê½ÉèÖÃ
-.I_iic_req(iic_req),//I2C¿ØÖÆÆ÷ÇëÇó
-.O_iic_busy(iic_busy),//I2C¿ØÖÆÆ÷Ã¦
+.I_clk(I_clk),//ç³»ç»Ÿæ—¶é’Ÿ
+.I_rstn(rst_cnt[7]),//ç³»ç»Ÿå¤ä½
+.O_iic_scl(O_cam_scl),//I2C SCLæ€»çº¿æ—¶é’Ÿ
+.IO_iic_sda(IO_cam_sda),//I2C SDAæ•°æ®æ€»çº¿
+.I_wr_data(wr_data),//å†™æ•°æ®å¯„å­˜å™¨
+.I_wr_cnt(8'd4),    //éœ€è¦å†™çš„æ•°æ®BYTES
+.O_rd_data(),       //è¯»æ•°æ®å¯„å­˜å™¨
+.I_rd_cnt(8'd0),    //éœ€è¦è¯»çš„æ•°æ®BYTES
+.I_iic_mode(1'b0),  //è¯»æ¨¡å¼è®¾ç½®
+.I_iic_req(iic_req),//I2Cæ§åˆ¶å™¨è¯·æ±‚
+.O_iic_busy(iic_busy),//I2Cæ§åˆ¶å™¨å¿™
 .O_iic_bus_error(O_iic_bus_error)
 );
 
 
-//Àı»¯CAMµÄ¼Ä´æÆ÷ÅäÖÃ±í
+//ä¾‹åŒ–CAMçš„å¯„å­˜å™¨é…ç½®è¡¨
 uiimx415reg uiimx415reg_inst
 (
-.REG_SIZE(REG_SIZE_REG),  //¼Ä´æÆ÷ÊıÁ¿
-.REG_INDEX(reg_index),    //¼Ä´æË÷Òı
-.REG_DATA(REG_DATA_REG)   //¼Ä´æÆ÷Êı¾İ
+.REG_SIZE(REG_SIZE_REG),  //å¯„å­˜å™¨æ•°é‡
+.REG_INDEX(reg_index),    //å¯„å­˜ç´¢å¼•
+.REG_DATA(REG_DATA_REG)   //å¯„å­˜å™¨æ•°æ®
 );  
 
 always@(*)
@@ -175,12 +176,15 @@ always@(*)
 		default:REG_DATA_ST = {16'h0000, 8'h00};
    endcase
 
+//[æ”¹] AEï¼šREGHOLD åŒ…ä½ï¼Œæ›å…‰å’Œå¢ç›Šåœ¨åŒä¸€å¸§ç”Ÿæ•ˆï¼ˆæ•°æ®æ‰‹å†Œ Register Holdï¼‰ï¼›SHR0[19:16] ä¿æŒåˆå§‹å€¼ 0
 always@(*)
    case(reg_index)
-		0:		REG_DATA_AE = {16'h3090, I_ae_data}; 
-		1:		REG_DATA_AE = {16'h3092, I_ae_data}; 
-		2:		REG_DATA_AE = {16'h3094, I_ae_data}; 
-		3:		REG_DATA_AE = {16'h3096, I_ae_data}; 
+		0:		REG_DATA_AE = {16'h3001, 8'h01};           //REGHOLD = 1
+		1:		REG_DATA_AE = {16'h3050, I_ae_shr0[7:0]};  //SHR0[7:0]
+		2:		REG_DATA_AE = {16'h3051, I_ae_shr0[15:8]}; //SHR0[15:8]
+		3:		REG_DATA_AE = {16'h3090, I_ae_gain};       //GAIN_PGC_0[7:0]
+		4:		REG_DATA_AE = {16'h3091, 8'h00};           //GAIN_PGC_0[8]
+		5:		REG_DATA_AE = {16'h3001, 8'h00};           //REGHOLD = 0
 		default:REG_DATA_AE = {16'h0000, 8'h00};
    endcase
 

@@ -22,9 +22,12 @@ set_pin_assignment	{ O_dsi_rst_n }	{ LOCATION = T10; IOSTANDARD = LVCMOS33; DRIV
 # ---- CEP 排针（2×20，间距 2.54，3.3V；脚 1 = 3V3，脚 2 = GND，脚 3~38 = 信号 CEP_L1_P ... CEP_L18_N）----
 # 尾巴：步进驱动器 UART，只发不收（CEP 脚 15 = CEP_L7_P → 驱动器 R/A/H 脚；空闲为高，所以上拉）。脚 16（E16）不用了
 set_pin_assignment	{ O_step_tx }	{ LOCATION = E17; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
-# 喂食检测：霍尔传感器模块的输出（CEP 脚 17 = CEP_L8_P）。磁铁靠近 = 高电平。输入脚下拉：没接传感器时读 0，不会误触发；
-# 模块请用 3.3V 供电（输出才是 3.3V 电平，FPGA 的 IO 不耐 5V）。你的模块反过来（靠近输出低）就在 mctop.v 里把 mc_hall 例化处的 .I_hall (I_hall) 改成 .I_hall (~I_hall)（本脚的下拉也要换成上拉 / 外加上拉，否则没接传感器时会误触发）。
-set_pin_assignment	{ I_hall }	{ LOCATION = B17; IOSTANDARD = LVCMOS33; PULLTYPE = PULLDOWN; }
+# 喂食检测：霍尔传感器模块的输出（CEP 脚 17 = CEP_L8_P），模块接 CEP 脚 1 的 3.3V。磁铁靠近 = 低电平（2026-10-06 上板确认）。
+# 上拉：没接模块时读 1 = 没喂食，不会误触发。
+set_pin_assignment	{ I_hall_n }	{ LOCATION = B17; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+# MSPM0 串口（115200 8N1）：CEP 脚 3 = CEP_L1_P → MSPM0 PA13（它收），CEP 脚 4 = CEP_L1_N ← MSPM0 PA14（它发）。都上拉：空闲为高，没接 = 空闲。
+set_pin_assignment	{ O_m0_tx }	{ LOCATION = L15; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+set_pin_assignment	{ I_m0_rx }	{ LOCATION = L16; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
 
 # ---- 音频：板载 ES8388（引脚来自硬件手册 / 厂商例程 09_aud8388_loop 的 SDA.adc）----
 # MCLK = 100 MHz ÷ 8 = 12.5 MHz；SCLK/LRCK/DSDIN 同源。I2C 的 SDA 在板上有 10k 上拉，FPGA 内部不用上拉。

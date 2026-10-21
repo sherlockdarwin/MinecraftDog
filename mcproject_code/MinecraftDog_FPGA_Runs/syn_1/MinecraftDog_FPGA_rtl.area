@@ -16,23 +16,23 @@ Gate Statistics
   #xor                    188
   #xnor                     0
   #buf                      0
-  #not                   3223
+  #not                   3224
   #bufif1                   2
   #MX21                  5136
   #FADD                     0
-  #DFF                  13243
+  #DFF                  13242
   #LATCH                    0
-#MACRO_ADD                488
+#MACRO_ADD                484
 #MACRO_EQ                 501
 #MACRO_MULT                 8
-#MACRO_MUX               6885
+#MACRO_MUX               6882
 #MACRO_OTHERS               9
 
 Report Hierarchy Area:
 +-----------------------------------------------------------------------------------------------------------------------------------------+
 |Instance                                                         |Module                                         |gates  |seq    |macros |
 +-----------------------------------------------------------------------------------------------------------------------------------------+
-|top                                                              |mctop                                          |13408  |13243  |1006   |
+|top                                                              |mctop                                          |13409  |13242  |1002   |
 |  u_alive_csi                                                    |mc_activity_mon                                |4      |9      |2      |
 |  u_alive_isp                                                    |mc_activity_mon                                |3      |9      |2      |
 |  u_audio                                                        |mc_audio                                       |2167   |2376   |231    |
@@ -50,7 +50,7 @@ Report Hierarchy Area:
 |    u_sd                                                         |mc_sd_spi                                      |472    |251    |25     |
 |  u_behavior                                                     |mc_behavior                                    |23     |4      |0      |
 |  u_bench                                                        |mc_bench                                       |6      |6      |4      |
-|  u_cam                                                          |mc_cam_if                                      |3635   |3338   |201    |
+|  u_cam                                                          |mc_cam_if                                      |3636   |3337   |197    |
 |    u_ae_set                                                     |ae_set                                         |9      |55     |10     |
 |      key_u1                                                     |key                                            |3      |26     |5      |
 |      key_u2                                                     |key                                            |2      |8      |2      |
@@ -59,14 +59,14 @@ Report Hierarchy Area:
 |      uiimx415reg_inst                                           |uiimx415reg                                    |2594   |0      |0      |
 |    u_crop                                                       |mc_crop                                        |12     |71     |12     |
 |    u_csi                                                        |csi_unpacket_4lane                             |5      |67     |6      |
-|    u_isp                                                        |isp_top                                        |244    |2339   |98     |
+|    u_isp                                                        |isp_top                                        |245    |2338   |94     |
 |      u_awb                                                      |awb                                            |137    |937    |36     |
 |        signal_delay_d                                           |signal_delay                                   |28     |163    |15     |
 |          blk_mem_gen_awb_delay_signal_d                         |blk_mem_gen_awb_delay_signal                   |2      |0      |1      |
 |            ram_f84573da5ab5_Inst                                |ram_f84573da5ab5                               |0      |0      |1      |
 |      u_data_96bit_to_128bit                                     |data_96bit_to_128bit                           |5      |228    |1      |
-|      u_demosaic                                                 |demosaic                                       |102    |1174   |61     |
-|        bilinear_interpolation_d                                 |bilinear_interpolation                         |0      |609    |24     |
+|      u_demosaic                                                 |demosaic                                       |103    |1173   |57     |
+|        bilinear_interpolation_d                                 |bilinear_interpolation                         |1      |608    |20     |
 |        raw_matrix_3x3_buffer_d                                  |raw_matrix_3x3_buffer                          |102    |565    |37     |
 |          mipi_to_raw_converter_r0                               |mipi_to_raw_converter                          |0      |35     |0      |
 |          two_line_buffer[1]$line_buffer_demosaic_r1             |line_buffer_demosaic                           |17     |24     |5      |

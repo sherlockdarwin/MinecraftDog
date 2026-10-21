@@ -2,12 +2,11 @@
 // =============================================================================
 // mc_mixer.v  屏幕画面合成（像素时钟域）——取代厂商 mixer.v
 //
-// 一、版面（竖屏，800×1280；坐标单位像素，u 向右、v 向下）：上半相机、中间一条状态带、下半留给避障
-//     相机窗口     u 0~799，  v 0~559          800×560，不拉伸不变形；整幅相机画面是传感器正中的裁切
-//     状态带       v 560~719：
-//       状态方块   v 568~607，u = 40 + 90k     8 个 80×40 的方块（绿 = 对应状态位为 1，红 = 0），k = 0~7
-//       文字区     u 40~759， v 616~711        TXT_COLS × TXT_ROWS（45 列 × 3 行），每字符 16×32 像素，黑底白字
-//     下半         v 720~1279（800×560）黑色，留给避障的处理画面 + 画框（和相机窗口一样大）
+// 一、版面（竖屏，800×1280；坐标单位像素，u 向右、v 向下；实际数值由 mctop 配置区传入）：上面相机、紧接着状态带、下面留给避障
+//     相机窗口     u 0~799，  v 0~447          800×448：传感器完整视场等比缩小（mc_scale），不拉伸
+//       状态方块   v 456~495，u = 40 + 90k     8 个 80×40 的方块（绿 = 对应状态位为 1，红 = 0），k = 0~7
+//       文字区     u 40~759， v 504~599        TXT_COLS × TXT_ROWS（45 列 × 3 行），每字符 16×32 像素，黑底白字
+//     避障画面     u 0~799，  v OBS_V0~OBS_V0+449  160×90 的处理结果放大 5 倍 + 红框（mc_obs_view），上方 10 行是建议方向的绿条
 //   相机画面取数：厂商 video_out（顺序读，O_rd_en），读使能之后第 2 个时钟像素有效。
 //
 // 二、没有相机帧（I_win_en = 0）时窗口里是黑色（背景色），状态方块和文字照常显示；I_win_en 在帧起始处锁存，
@@ -16,7 +15,6 @@
 // 三、其他
 //   · 背景默认黑色（BG_PATTERN = 0）；想用厂商的测试图案排查屏幕链路时改成 1，图案由 video_tpg 产生。
 //   · 文字层盖在最上面；写字走 I_txt_bus（见 mc_osd_text.v / mc_osd_dash.v），与本模块无关。
-//   · RB_SWAP：首次点屏发现红蓝反了，改这个参数即可。
 //
 // 流水线（总延迟 6 拍，所有信号等量延迟，对屏幕没有影响）：
 //   第 0 拍：S_x/S_y（面板坐标）和读使能 → 第 1 拍：画布坐标 S_u/S_v（竖屏下就是 S_x/S_y，同时是文字层的输入）
@@ -26,22 +24,26 @@ module mc_mixer #(
     parameter PANEL_W   = 800,      // 面板宽
     parameter PANEL_H   = 1280,     // 面板高
     parameter IMG_W     = 800,      // 相机窗口宽（像素）
-    parameter IMG_H     = 560,      // 相机窗口高
-    parameter SQ_V0     = 568,      // 状态方块起始行
+    parameter IMG_H     = 448,      // 相机窗口高
+    parameter SQ_V0     = 456,      // 状态方块起始行
     parameter SQ_U0     = 40,       // 第 0 个方块的起始列
     parameter SQ_W      = 80,
     parameter SQ_H      = 40,
     parameter SQ_PITCH  = 90,       // 相邻方块间距
     parameter TXT_U0    = 40,       // 文字框左上角 u
-    parameter TXT_V0    = 616,      // 文字框左上角 v
+    parameter TXT_V0    = 504,      // 文字框左上角 v
     parameter TXT_COLS  = 45,       // 文字框每行字符数
-    parameter TXT_ROWS  = 3,        // 文字框行数
+    parameter TXT_ROWS  = 4,        // 文字框行数
     parameter TXT_SH    = 1,        // 字符放大倍数 = 2^TXT_SH（1 → 每个字符 16×32 像素）
     parameter [23:0] TXT_FG = 24'hFFFFFF,   // 文字颜色
     parameter [23:0] TXT_BG = 24'h000000,   // 文字框底色
     parameter TXT_BG_EN = 1,        // 1：文字框有底色（盖住背景）；0：只画笔画，背景透出来
     parameter BG_PATTERN = 0,       // 0：背景黑色；1：背景用 video_tpg 的测试图案
-    parameter RB_SWAP   = 0         // 1：输出前交换 R 与 B
+    parameter [10:0] OBS_V0 = 11'd830,  // 避障画面起始行
+    parameter [7:0]  REF_X0 = 8'd56,    // 地面参考区（网格坐标，画黄框；要和 mc_obs 的一致）
+    parameter [7:0]  REF_X1 = 8'd103,
+    parameter [6:0]  REF_Y0 = 7'd82,
+    parameter [6:0]  REF_Y1 = 7'd89
 )(
     input  wire        I_clk,       // 像素时钟 = DSI 字节时钟
 
@@ -55,6 +57,13 @@ module mc_mixer #(
 
     input  wire        I_txt_clk,   // 文字写入时钟（系统 100 MHz）
     input  wire [19:0] I_txt_bus,   // 文字写入总线 {we,row,col,char}（见 mc_osd_text.v）
+
+    input  wire        I_obs_wclk,  // 避障画面写入（相机像素时钟域，见 mc_obs_core）
+    input  wire [24:0] I_obs_wbus,
+    input  wire        I_obs_pub_bank,
+    input  wire        I_obs_pub_valid,
+    input  wire [5:0]  I_obs_go,
+    output wire        O_obs_disp_bank,
 
     output wire        O_rd_en,     // → 厂商 video_out：读一个相机像素
     input  wire [23:0] I_rd_data,   // ← 厂商 video_out：相机像素 {R,G,B}，O_rd_en 之后第 2 个时钟有效
@@ -161,6 +170,30 @@ mc_osd_text #(
 );
 
 // ---------------------------------------------------------------------------
+// 避障画面（输入是第 1 拍的画布坐标；O_hit/O_rgb 晚 4 拍 = 第 5 拍）
+// ---------------------------------------------------------------------------
+wire        S_obs_hit;
+wire [23:0] S_obs_rgb;
+
+mc_obs_view #(
+    .V0     (OBS_V0),
+    .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1)
+) u_obs_view (
+    .I_clk       (I_clk),
+    .I_vsync     (I_vsync),
+    .I_u         (S_u),
+    .I_v         (S_v),
+    .O_hit       (S_obs_hit),
+    .O_rgb       (S_obs_rgb),
+    .I_wclk      (I_obs_wclk),
+    .I_wbus      (I_obs_wbus),
+    .I_pub_bank  (I_obs_pub_bank),
+    .I_pub_valid (I_obs_pub_valid),
+    .I_go        (I_obs_go),
+    .O_disp_bank (O_obs_disp_bank)
+);
+
+// ---------------------------------------------------------------------------
 // 对齐流水线 + 合成：各路都延迟到第 5 拍再合成
 // ---------------------------------------------------------------------------
 reg        S_vs_1, S_vs_2, S_vs_3, S_vs_4, S_vs_5;
@@ -176,6 +209,7 @@ wire        S_txt_ovr = (TXT_BG_EN != 0) ? S_txt_hit : S_txt_on;     // 文字�
 wire [23:0] S_bg      = (BG_PATTERN != 0) ? S_bg_5 : 24'h000000;
 wire [23:0] S_pix = S_txt_ovr ? (S_txt_on ? TXT_FG : TXT_BG) :
                     S_win_5   ? S_rd_5 :
+                    S_obs_hit ? S_obs_rgb :
                     S_sqa_5   ? (S_sqo_5 ? C_ON : C_OFF) :
                                 S_bg;
 
@@ -193,7 +227,7 @@ always @(posedge I_clk) begin
     O_vsync <= S_vs_5;
     O_hsync <= S_hs_5;
     O_de    <= S_de_5;
-    O_data  <= (RB_SWAP != 0) ? {S_pix[7:0], S_pix[15:8], S_pix[23:16]} : S_pix;
+    O_data  <= S_pix;
 end
 
 endmodule

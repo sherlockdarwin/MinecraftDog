@@ -1,0 +1,483 @@
+`timescale 1ns / 1ps
+// 测试 mc_obs_core（分类 + 去噪 + 列扫描 / 扇区 / 合框 / 距离 / 选方向 + 送显示的写总线和双缓冲）。
+//   测试台自己按规格写一份模型（数组 + 循环，不照 RTL 的流水结构）：
+//     分类：Y=(R+2G+B)>>2，Cb=B−Y，Cr=R−Y，色度格 = 限幅(⌊(c+64)/8⌋, 0, 15)，亮度格 = Y>>4；
+//           每帧结束：Hc ← Hc − ⌊Hc/4⌋ + Σ3×3 邻格的本帧参考区计数（≤ 4095），Hy 同理（±2 格）；地面 = Hc ≥ 12 且 Hy ≥ 12。
+//     去噪：3×3 里 ≥ 5 个障碍（越界复制边上的点）。
+//     列扫描：只看第 ROW_MIN 行以下；每列最靠下的一段连续 ≥ 2 行的障碍 → 上沿、下沿。
+//     扇区 / 合框 / 距离（实数公式：离地 174 mm、下倾 15°）/ 两帧取小 / 最近障碍 /
+//     选方向：方向 b = 4~12（扇区 b−1、b 的分界线）；扇区 j 挡住 b ⇔ 距离 ≤ floor(15 / sin(地面上 j 靠近 b 的那条边和 b 的夹角))（挨着的两个扇区多远都挡）；
+//             b 能走多远 = 挡住它的最近距离（没挡 = 255）；按 8,7,9,6,10,5,11,4,12 的顺序取最远（最多 150），< 35 停。地面角度 = atan(列偏移 × cos15° / F)。
+//   核对：每帧 O_done 后的方向 / 距离输出；送显示的写总线：发布的那一块画面（亮度高 7 位 + 去噪后的障碍位）和框表逐字节；
+//         写总线从不写显示端正在显示的那一块；显示端没跟上时这一帧不写、不发布。
+//   场景（8 帧）：地面带噪声、上方是墙；蓝 / 红两个相邻且上下重叠的障碍（合成一个框）、跨过 1.5 m 线的暗色障碍（上沿截在 ROW_MIN）、
+//         只有 ROW_MIN 前后 2 行的绿带（只算到 1 行 → 不算障碍）、贴左边界的品红障碍、单点噪声（被去掉）、障碍逐帧下移（两帧取小）、
+//         显示端不跟（跳帧）、参考区里放东西（模型跟着学）、没有障碍（直走）、全挡住（停）。
+//   边界场景（第 9~14 帧，无噪声的精确颜色，见 special）：第 9 帧往参考区里放几种颜色各 16 个（其中一种 X 放在参考区 4 条边上），
+//         之后几帧不放，模型按 16 → 12 → 9 衰减：正好等于门限 12 的那一帧必须判地面、9 必须判障碍；
+//         色度格 0 / 15 的邻格不能绕回另一头、Cb 量化正好 15 不能被压成 14、亮度邻格 ±2 的两头和最后一格（15）都要算到；
+//         去噪的左边界复制、下边界复制、一帧最后一个点（3×3 里正好差它一个就过半）。
+//   扫描 / 选方向的边界（第 15~21 帧，每个场景放两帧，让"和上一帧取近"稳定）：最右边的方向（12）是唯一最好的、
+//         方向 4 和 12 一样远（中间的都被正前方的障碍挡住）、最好的方向正好 35 cm（不停）、两个扇区的上下范围正好挨着（合成一个框）、
+//         只有最后一列碰到最后一行（一帧最后一个点）、只有 2 行高的障碍 + 扇区最后一列独有的最高 / 最低点、障碍距离正好等于车宽门限（算挡住）。
+module tb_obs_core;
+
+reg clk = 0, rst_n = 0;
+always #5 clk = ~clk;
+
+reg         v = 0;
+reg  [6:0]  row = 0;
+reg  [7:0]  col = 0;
+reg  [23:0] rgb = 0;
+reg         disp_bank = 0;
+wire [24:0] wbus;
+wire        pub_bank, pub_valid, done, stop;
+wire [5:0]  go;
+wire [127:0] sec_dist;
+wire [3:0]  go_head;
+wire [71:0] head_free;
+wire        res_tog;
+wire signed [6:0] go_deg, near_deg;
+wire [7:0]  go_free, near_cm;
+
+mc_obs_core dut (
+    .I_clk(clk), .I_rst_n(rst_n), .I_valid(v), .I_row(row), .I_col(col), .I_rgb(rgb),
+    .O_wbus(wbus), .O_pub_bank(pub_bank), .O_pub_valid(pub_valid), .O_go(go), .I_disp_bank(disp_bank),
+    .O_done(done), .O_sec_dist(sec_dist), .O_go_head(go_head), .O_go_deg(go_deg), .O_go_free(go_free),
+    .O_stop(stop), .O_near_cm(near_cm), .O_near_deg(near_deg), .O_head_free(head_free), .O_res_tog(res_tog)
+);
+
+integer errors = 0;
+always @(errors) if (errors > 25) begin #1; $display("FAIL  tb_obs_core: too many errors"); $finish; end
+
+// ---------------- 几何（独立按公式算）----------------
+real PI, F;
+integer LUT_D [0:89];
+integer SEC_DEG [0:15], HEAD_DEG [0:15];
+integer THR [0:255];                   // 车宽门限：[方向 × 16 + 扇区]
+integer ROW_MIN;
+function integer rnd; input real x; rnd = (x < 0) ? -$rtoi(-x + 0.5) : $rtoi(x + 0.5); endfunction
+task init_geom;
+    integer r, k, b, j, e, t;
+    real a, dd, ct, g;
+    begin
+        PI = 3.14159265358979;
+        F = 960.0 / $tan(36.0 * PI / 180.0);
+        ROW_MIN = -1;
+        for (r = 0; r < 90; r = r + 1) begin
+            a = 15.0 * PI / 180.0 + $atan((12.0 * r + 5.5 - 539.5) / F);
+            if (a <= 0.5 * PI / 180.0) LUT_D[r] = 255;
+            else begin
+                dd = 17.4 / $tan(a);
+                LUT_D[r] = (rnd(dd) > 255) ? 255 : rnd(dd);
+            end
+            if (ROW_MIN < 0 && LUT_D[r] <= 150) ROW_MIN = r;
+        end
+        ct = $cos(15.0 * PI / 180.0);                         // 地面角度：列偏移 × cos(下倾) / F
+        for (k = 0; k < 16; k = k + 1) SEC_DEG[k] = rnd($atan(((10.0 * k + 4.5) * 12.0 + 5.5 - 959.5) * ct / F) * 180.0 / PI);
+        for (b = 0; b < 16; b = b + 1) HEAD_DEG[b] = rnd($atan((120.0 * b - 960.0) * ct / F) * 180.0 / PI);
+        for (b = 0; b < 16; b = b + 1)
+            for (j = 0; j < 16; j = j + 1) begin
+                if (j == b - 1 || j == b) THR[b * 16 + j] = 255;
+                else begin
+                    e = (j >= b) ? j : j + 1;                     // 扇区 j 靠近方向 b 的那条边
+                    g = $atan((120.0 * e - 960.0) * ct / F) - $atan((120.0 * b - 960.0) * ct / F);
+                    if (g < 0) g = -g;
+                    t = $rtoi(15.0 / $sin(g));
+                    THR[b * 16 + j] = (t > 255) ? 255 : t;
+                end
+            end
+    end
+endtask
+
+// ---------------- 场景 ----------------
+// 边界场景的颜色：{R,G,B}，注释是 (Cb 格, Cr 格) / 亮度格（Y = (R+2G+B)/4，格 = Y/16）
+localparam [23:0] C_X  = {8'd100, 8'd132, 8'd148},  // (10,4) / 8：色度只有它自己（地面在 (3~5, 9~12) / 7~8）
+                  C_Z  = {8'd238, 8'd217, 8'd188},  // 地面色度 / 13：亮度只有它自己
+                  C_W  = {8'd119, 8'd98,  8'd69},   // 地面色度 / 6（亮度格错用 Y[6:3] 时是 12，只剩 Z 撑着）
+                  C_V  = {8'd207, 8'd186, 8'd157},  // 地面色度 / 11：只靠 2 格外的 Z（亮度邻格最后一个）
+                  C_U  = {8'd251, 8'd230, 8'd201},  // 地面色度 / 14：第 13 帧起靠亮度格 15 的 K
+                  C_K  = {8'd253, 8'd242, 8'd223},  // (5,9) 地面附近 / 15
+                  C_R1 = {8'd36,  8'd110, 8'd0},    // (0,4) / 4
+                  C_P1 = {8'd36,  8'd48,  8'd124},  // (15,4)：Cb+1 绕回 0 才会碰到 R1
+                  C_R2 = {8'd66,  8'd33,  8'd124},  // (15,8)
+                  C_P2 = {8'd66,  8'd95,  8'd0},    // (0,8)：Cb−1 绕回 15 才会碰到 R2
+                  C_R3 = {8'd100, 8'd24,  8'd108},  // (13,12)
+                  C_P3 = {8'd100, 8'd16,  8'd124},  // (15,12)，Cb 量化前正好 15：压成 14 才会碰到 R3
+                  C_R4 = {8'd124, 8'd33,  8'd66},   // (8,15)
+                  C_P4 = {8'd0,   8'd95,  8'd66},   // (8,0)：Cr−1 绕回 15 才会碰到 R4
+                  C_R5 = {8'd28,  8'd88,  8'd52},   // (6,3)
+                  C_P5 = {8'd20,  8'd92,  8'd52},   // (6,2)：只靠 Cr+1 那个邻格（R5）
+                  C_O  = {8'd20,  8'd20,  8'd20};   // 暗：障碍
+function [24:0] special;                // {有, 颜色}
+    input integer f, r, c;
+    begin
+        special = 25'd0;
+        if (f >= 9 && f <= 14) begin
+            if (r >= 40 && r <= 45) begin                                    // 测试块 6×6（参考区外）
+                if (c >= 4   && c <= 9)   special = {1'b1, C_X};
+                if (c >= 14  && c <= 19)  special = {1'b1, C_Z};
+                if (c >= 24  && c <= 29)  special = {1'b1, C_W};
+                if (c >= 34  && c <= 39)  special = {1'b1, C_P1};
+                if (c >= 44  && c <= 49)  special = {1'b1, C_P2};
+                if (c >= 54  && c <= 59)  special = {1'b1, C_P3};
+                if (c >= 64  && c <= 69)  special = {1'b1, C_P4};
+                if (c >= 74  && c <= 79)  special = {1'b1, C_P5};
+                if (c >= 84  && c <= 89)  special = {1'b1, C_V};
+                if (c >= 94  && c <= 99)  special = {1'b1, C_U};
+                if (c >= 104 && c <= 109) special = {1'b1, C_K};
+            end
+            // 左边界：(61,0) 的 3×3（左邻复制自己）正好 5 个障碍；左邻错拿第 1 列只有 4 个
+            if (((r == 60 || r == 61) && c == 0) || (r == 62 && c == 1)) special = {1'b1, C_O};
+            // 下边界：(89,141) 的 3×3（下邻复制自己）只有 2 个障碍；下邻错拿第 86 行就有 5 个
+            if ((r == 86 && c >= 139 && c <= 145) || (r == 88 && (c == 140 || c == 141))) special = {1'b1, C_O};
+            // 右下角：(89,159) 的 3×3 不算它自己有 4 个障碍，它自己占 4 份
+            if ((r == 88 && c == 159) || (r == 89 && c == 158)) special = {1'b1, C_O};
+        end
+        if (f == 9) begin                                                    // 教模型：每种 16 个
+            if ((c == 56 || c == 103) && r >= 83 && r <= 86) special = {1'b1, C_X};   // X 在参考区 4 条边上（不含角）
+            if ((r == 82 || r == 89) && c >= 60 && c <= 63) special = {1'b1, C_X};
+            if (c >= 70 && c <= 85) begin
+                if (r == 83) special = {1'b1, C_R4};
+                if (r == 84) special = {1'b1, C_R1};
+                if (r == 85) special = {1'b1, C_Z};
+                if (r == 86) special = {1'b1, C_R2};
+                if (r == 87) special = {1'b1, C_R3};
+                if (r == 88) special = {1'b1, C_R5};
+            end
+        end
+        if (f == 13 && r == 85 && c >= 70 && c <= 85) special = {1'b1, C_K};
+        if (f == 15) begin                    // 扇区 3~6 在 40 cm、扇区 9 在 103 cm：只有方向 12（+19°）不被挡
+            if (r >= 50 && r <= 61 && c >= 30 && c <= 69) special = {1'b1, C_O};
+            if (r >= 30 && r <= 34 && c >= 90 && c <= 99) special = {1'b1, C_O};
+        end
+        if (f == 16 && r >= 35 && r <= 42 && c >= 70 && c <= 89) special = {1'b1, C_O};   // 正前方（扇区 7、8）71 cm：方向 5~11 被挡，4 和 12 一样远
+        if (f == 17 && r >= 60 && r <= 67) special = {1'b1, C_O};             // 一整面墙，下沿第 67 行 = 35 cm
+        if (f == 18) begin                    // 扇区 1 的下沿 = 扇区 2 的上沿（第 60 行）
+            if (r >= 50 && r <= 60 && c >= 12 && c <= 17) special = {1'b1, C_O};
+            if (r >= 60 && r <= 70 && c >= 22 && c <= 27) special = {1'b1, C_O};
+        end
+        if (f == 19 && r >= 80 && c == 159) special = {1'b1, C_O};            // 只有最后一列碰到最后一行
+        if (f == 20) begin                    // 扇区 2 只有 2 行高的带子；扇区 7 的最高 / 最低点只在它的最后一列（79）
+            if ((r == 60 || r == 61) && c >= 21 && c <= 28) special = {1'b1, C_O};
+            if (r >= 55 && r <= 62 && c >= 70 && c <= 74) special = {1'b1, C_O};
+            if (r >= 45 && r <= 72 && (c == 79 || c == 80)) special = {1'b1, C_O};
+        end
+        if (f == 21 && r >= 40 && r <= 48 && c >= 40 && c <= 49) special = {1'b1, C_O};   // 只有扇区 4，58 cm = 方向 8 的车宽门限（正好算挡住）
+    end
+endfunction
+function [7:0] cl; input integer x; cl = (x < 0) ? 8'd0 : (x > 255) ? 8'd255 : x; endfunction
+function [23:0] scene;
+    input integer f, r, c;
+    integer n0, n1, n2, br, bg, bb;
+    reg [31:0] h;
+    begin
+        h = (r * 7919 + c * 104729 + f * 31) * 32'd2654435761;
+        n0 = h[20:17] % 13 - 6; n1 = h[24:21] % 13 - 6; n2 = h[28:25] % 13 - 6;
+        br = 150; bg = 130; bb = 100;                                          // 地面
+        if (r < 14) begin br = 90; bg = 95; bb = 105; end                       // 墙
+        if (f == 7 && r >= 75) begin br = 40; bg = 160; bb = 200; end           // 全挡住
+        if (f >= 2 && f <= 8 && f != 6 && f != 7) begin
+            if (c >= 30 && c <= 49 && r >= 50 + 2 * (f - 2) && r <= 70 + 2 * (f - 2)) begin br = 40; bg = 60; bb = 170; end   // 蓝（逐帧下移）
+            if (c >= 50 && c <= 57 && r >= 40 && r <= 60) begin br = 190; bg = 40; bb = 40; end                                // 红
+            if (c >= 120 && c <= 139 && r >= 22 && r <= 33) begin br = 20; bg = 20; bb = 20; end                               // 暗
+            if (c >= 100 && c <= 109 && (r == ROW_MIN - 1 || r == ROW_MIN)) begin br = 40; bg = 150; bb = 60; end              // 绿带
+            if (c <= 6 && r >= 75 && r <= 85) begin br = 170; bg = 50; bb = 160; end                                           // 品红（左边界）
+            if (c == 80 && r == 60) begin br = 40; bg = 60; bb = 170; end                                                      // 单点
+        end
+        if (f == 5 && r >= 84 && r <= 86 && c >= 70 && c <= 75) begin br = 200; bg = 200; bb = 40; end                       // 参考区里有东西
+        scene = {cl(br + n0), cl(bg + n1), cl(bb + n2)};
+        if (special(f, r, c) >> 24) scene = special(f, r, c);
+    end
+endfunction
+
+// ---------------- 模型 ----------------
+integer Hc [0:255], Hy [0:15], Ac [0:255], Ay [0:15];
+reg     RAW [0:14399], FLT [0:14399];
+reg [6:0] Y7 [0:14399];
+integer DPREV [0:15];
+integer m_has [0:15], m_top [0:15], m_bot [0:15], m_x0 [0:15], m_x1 [0:15];
+integer b_v [0:15], b_top [0:15], b_bot [0:15], b_x0 [0:15], b_x1 [0:15];
+integer m_f [0:15];
+integer e_go_head, e_go_free, e_stop, e_near, e_near_k;
+integer HF [0:15];                     // 每个方向能走多远
+
+function integer fdiv8; input integer x; fdiv8 = (x + 1024) / 8 - 128; endfunction       // ⌊x/8⌋（x 可以是负数）
+function integer q16; input integer x; integer t; begin t = fdiv8(x + 64); q16 = (t < 0) ? 0 : (t > 15) ? 15 : t; end endfunction
+
+task model_frame;                       // 用当前模型给这一帧分类，再更新模型
+    input integer f;
+    integer r, c, y, cb, cr, bc, by, i, j, k, s, cnt, rr, cc, a, b, best, run_len, run_start, ltop, lbot, lhas;
+    reg [23:0] p;
+    integer act, mt, mb, mx0, mx1, id, wv, wcap, order;
+    begin
+        for (i = 0; i < 256; i = i + 1) Ac[i] = 0;
+        for (i = 0; i < 16; i = i + 1) Ay[i] = 0;
+        for (r = 0; r < 90; r = r + 1)
+            for (c = 0; c < 160; c = c + 1) begin
+                p = scene(f, r, c);
+                y = (p[23:16] + 2 * p[15:8] + p[7:0]) / 4;
+                cb = p[7:0] - y; cr = p[23:16] - y;
+                bc = q16(cb) * 16 + q16(cr); by = y / 16;
+                RAW[r * 160 + c] = !(Hc[bc] >= 12 && Hy[by] >= 12);
+                Y7[r * 160 + c] = y / 2;
+                if (c >= 56 && c <= 103 && r >= 82 && r <= 89) begin Ac[bc] = Ac[bc] + 1; Ay[by] = Ay[by] + 1; end
+            end
+        // 模型更新
+        for (i = 0; i < 256; i = i + 1) begin
+            s = 0;
+            for (a = -1; a <= 1; a = a + 1)
+                for (b = -1; b <= 1; b = b + 1)
+                    if (i / 16 + a >= 0 && i / 16 + a <= 15 && i % 16 + b >= 0 && i % 16 + b <= 15) s = s + Ac[(i / 16 + a) * 16 + i % 16 + b];
+            Hc[i] = Hc[i] - Hc[i] / 4 + s;
+            if (Hc[i] > 4095) Hc[i] = 4095;
+        end
+        for (i = 0; i < 16; i = i + 1) begin
+            s = 0;
+            for (a = -2; a <= 2; a = a + 1) if (i + a >= 0 && i + a <= 15) s = s + Ay[i + a];
+            Hy[i] = Hy[i] - Hy[i] / 4 + s;
+            if (Hy[i] > 4095) Hy[i] = 4095;
+        end
+        // 去噪
+        for (r = 0; r < 90; r = r + 1)
+            for (c = 0; c < 160; c = c + 1) begin
+                cnt = 0;
+                for (a = -1; a <= 1; a = a + 1)
+                    for (b = -1; b <= 1; b = b + 1) begin
+                        rr = (r + a < 0) ? 0 : (r + a > 89) ? 89 : r + a;
+                        cc = (c + b < 0) ? 0 : (c + b > 159) ? 159 : c + b;
+                        cnt = cnt + RAW[rr * 160 + cc];
+                    end
+                FLT[r * 160 + c] = (cnt >= 5);
+            end
+        // 列扫描 → 扇区
+        for (k = 0; k < 16; k = k + 1) begin m_has[k] = 0; m_top[k] = 127; m_bot[k] = 0; m_x0[k] = 0; m_x1[k] = 0; end
+        for (c = 0; c < 160; c = c + 1) begin
+            lhas = 0; ltop = 0; lbot = 0; run_len = 0; run_start = 0;
+            for (r = ROW_MIN; r < 90; r = r + 1) begin
+                if (FLT[r * 160 + c]) begin
+                    if (run_len == 0) run_start = r;
+                    run_len = run_len + 1;
+                    if (run_len >= 2) begin lhas = 1; ltop = run_start; lbot = r; end
+                end else run_len = 0;
+            end
+            k = c / 10;
+            if (lhas) begin
+                if (!m_has[k]) m_x0[k] = c;
+                m_x1[k] = c;
+                if (ltop < m_top[k]) m_top[k] = ltop;
+                if (lbot > m_bot[k]) m_bot[k] = lbot;
+                m_has[k] = 1;
+            end
+        end
+        // 合框
+        act = 0; id = 0;
+        for (k = 0; k < 16; k = k + 1) b_v[k] = 0;
+        for (k = 0; k <= 16; k = k + 1) begin
+            if (k < 16 && m_has[k] && act && m_top[k] <= mb && mt <= m_bot[k]) begin
+                if (m_top[k] < mt) mt = m_top[k];
+                if (m_bot[k] > mb) mb = m_bot[k];
+                mx1 = m_x1[k];
+                b_v[k] = id + 1;                                        // 暂存框号 + 1
+            end else begin
+                if (act) for (j = 0; j < 16; j = j + 1) if (b_v[j] == id + 1) begin b_top[j] = mt; b_bot[j] = mb; b_x0[j] = mx0; b_x1[j] = mx1; end
+                if (k < 16 && m_has[k]) begin
+                    if (act) id = id + 1;
+                    act = 1; mt = m_top[k]; mb = m_bot[k]; mx0 = m_x0[k]; mx1 = m_x1[k];
+                    b_v[k] = id + 1;
+                end else begin
+                    if (act) id = id + 1;
+                    act = 0;
+                end
+            end
+        end
+        // 距离、两帧取小
+        for (k = 0; k < 16; k = k + 1) begin
+            a = m_has[k] ? LUT_D[m_bot[k]] : 255;
+            m_f[k] = (a < DPREV[k]) ? a : DPREV[k];
+            DPREV[k] = a;
+        end
+        // 选方向
+        e_go_free = 0; e_go_head = 8;
+        for (order = 0; order < 9; order = order + 1) begin
+            s = (order % 2 == 0) ? 8 + order / 2 : 8 - (order + 1) / 2;
+            wv = 255;
+            for (j = 0; j < 16; j = j + 1) if (m_f[j] <= THR[s * 16 + j] && m_f[j] < wv) wv = m_f[j];
+            HF[s] = wv;
+            wcap = (wv > 150) ? 150 : wv;
+            if (wcap > e_go_free) begin e_go_free = wcap; e_go_head = s; end
+        end
+        e_stop = (e_go_free < 35);
+        e_near = 255; e_near_k = 0;
+        for (k = 0; k < 16; k = k + 1) if (m_f[k] < e_near) begin e_near = m_f[k]; e_near_k = k; end
+    end
+endtask
+
+// ---------------- 写总线镜像（显示端的两块缓冲）----------------
+reg [7:0] IMG [0:1][0:14399];
+reg [7:0] BOX [0:1][0:63];
+integer   nw_img = 0, nw_box = 0, bad_bank = 0;
+integer   ndone = 0;
+always @(posedge clk) if (done) ndone = ndone + 1;
+// 时序前提（测试台自己守住）：模型更新时不来点；扫描在收结果的时候不收新点
+integer   n_late_class = 0, n_late_scan = 0;
+always @(posedge clk) if (v && dut.u_class.O_busy) n_late_class = n_late_class + 1;
+always @(posedge clk) if (dut.S_m_v && dut.u_scan.S_st !== 3'd1) n_late_scan = n_late_scan + 1;
+always @(posedge clk) begin
+    if (wbus[24]) begin
+        if (wbus[23] === disp_bank) bad_bank = bad_bank + 1;
+        if (!wbus[22]) begin IMG[wbus[23]][wbus[21:8]] = wbus[7:0]; nw_img = nw_img + 1; end
+        else            begin BOX[wbus[23]][wbus[13:8]] = wbus[7:0]; nw_box = nw_box + 1; end
+    end
+end
+
+// ---------------- 送一帧 ----------------
+task send_frame;
+    input integer f;
+    integer r, c;
+    begin
+        repeat (6000) @(posedge clk);                             // 硬件上：上一帧末尾 + 消隐 + 新一帧前 12 行（约 1 万拍）
+        for (r = 0; r < 90; r = r + 1) begin
+            for (c = 0; c < 160; c = c + 1) begin
+                @(posedge clk); v <= 1'b1; row <= r; col <= c; rgb <= scene(f, r, c);
+                @(posedge clk); v <= 1'b0; rgb <= {$random} % 24'hFFFFFF;
+                @(posedge clk);
+            end
+            repeat (1500) @(posedge clk);
+        end
+    end
+endtask
+
+task check_frame;
+    input integer f, expect_pub;          // expect_pub：这一帧应该送显示
+    integer k, r, c, nbad, pb, nimg0, nbox0, t, nd0;
+    reg old_pub, old_tog;
+    begin
+        nimg0 = nw_img; nbox0 = nw_box; old_pub = pub_bank; nd0 = ndone; old_tog = res_tog;
+        send_frame(f);
+        t = 0;
+        while (ndone == nd0 && t < 20000) begin @(posedge clk); t = t + 1; end
+        if (ndone != nd0 + 1) begin $display("FAIL frame %0d: no O_done", f); errors = errors + 1; end
+        model_frame(f);
+        repeat (5) @(posedge clk);
+        // 方向 / 距离
+        for (k = 0; k < 16; k = k + 1)
+            if (sec_dist[8*k +: 8] !== m_f[k]) begin $display("FAIL frame %0d sector %0d distance %0d, expected %0d", f, k, sec_dist[8*k +: 8], m_f[k]); errors = errors + 1; end
+        for (k = 4; k <= 12; k = k + 1)
+            if (head_free[8*(k-4) +: 8] !== HF[k]) begin $display("FAIL frame %0d heading %0d free %0d, expected %0d", f, k, head_free[8*(k-4) +: 8], HF[k]); errors = errors + 1; end
+        if (res_tog === old_tog) begin $display("FAIL frame %0d: result toggle did not flip", f); errors = errors + 1; end
+        if (go_head !== e_go_head || go_free !== e_go_free || stop !== e_stop || go_deg !== HEAD_DEG[e_go_head]) begin
+            $display("FAIL frame %0d plan: heading %0d free %0d stop %b deg %0d, expected %0d %0d %0d %0d", f, go_head, go_free, stop, go_deg, e_go_head, e_go_free, e_stop, HEAD_DEG[e_go_head]);
+            errors = errors + 1;
+        end
+        if (near_cm !== e_near || near_deg !== ((e_near == 255) ? 0 : SEC_DEG[e_near_k])) begin
+            $display("FAIL frame %0d nearest: %0d cm %0d deg, expected %0d %0d", f, near_cm, near_deg, e_near, (e_near == 255) ? 0 : SEC_DEG[e_near_k]);
+            errors = errors + 1;
+        end
+        // 送显示
+        $display("frame %0d: go heading %0d (%0d deg) free %0d stop %0d near %0d cm (%0d deg)", f, go_head, go_deg, go_free, stop, near_cm, near_deg);
+        if (expect_pub) begin
+            if (pub_bank === old_pub || pub_valid !== 1'b1) begin $display("FAIL frame %0d: not published", f); errors = errors + 1; end
+            if (nw_img - nimg0 != 14400 || nw_box - nbox0 != 64) begin $display("FAIL frame %0d: %0d image / %0d box writes", f, nw_img - nimg0, nw_box - nbox0); errors = errors + 1; end
+            pb = pub_bank;
+            nbad = 0;
+            for (r = 0; r < 90; r = r + 1)
+                for (c = 0; c < 160; c = c + 1)
+                    if (IMG[pb][r * 160 + c] !== {Y7[r * 160 + c], FLT[r * 160 + c]}) begin
+                        if (nbad < 4) $display("FAIL frame %0d view (%0d,%0d) = %h, expected %h", f, c, r, IMG[pb][r * 160 + c], {Y7[r * 160 + c], FLT[r * 160 + c]});
+                        nbad = nbad + 1;
+                    end
+            for (k = 0; k < 16; k = k + 1) begin
+                if (BOX[pb][4*k][7] !== (b_v[k] != 0)) begin $display("FAIL frame %0d box %0d valid %b, expected %0d", f, k, BOX[pb][4*k][7], b_v[k] != 0); nbad = nbad + 1; end
+                else if (b_v[k] != 0 && (BOX[pb][4*k][6:0] !== b_top[k] || BOX[pb][4*k+1] !== b_bot[k] || BOX[pb][4*k+2] !== b_x0[k] || BOX[pb][4*k+3] !== b_x1[k])) begin
+                    $display("FAIL frame %0d box %0d = %0d %0d %0d %0d, expected %0d %0d %0d %0d", f, k, BOX[pb][4*k][6:0], BOX[pb][4*k+1], BOX[pb][4*k+2], BOX[pb][4*k+3], b_top[k], b_bot[k], b_x0[k], b_x1[k]);
+                    nbad = nbad + 1;
+                end
+            end
+            if (go !== {1'b1, e_stop[0], e_go_head[3:0]}) begin $display("FAIL frame %0d O_go %b", f, go); nbad = nbad + 1; end
+            if (nbad != 0) errors = errors + 1;
+        end else begin
+            if (pub_bank !== old_pub) begin $display("FAIL frame %0d: published although the display had not caught up", f); errors = errors + 1; end
+            if (nw_img != nimg0 || nw_box != nbox0) begin $display("FAIL frame %0d: %0d writes although the display had not caught up", f, nw_img - nimg0 + nw_box - nbox0); errors = errors + 1; end
+        end
+    end
+endtask
+
+integer i, nbox_seen;
+task want;                               // 场景检查：模型的分类（raw = 0 地面 / 1 障碍，flt = 去噪后）
+    input integer f, r, c, flt, e;
+    input [8*24:1] what;
+    if ((flt ? FLT[r * 160 + c] : RAW[r * 160 + c]) != e) begin
+        $display("FAIL scene setup: frame %0d %0s should be %0s", f, what, e ? "obstacle" : "ground"); errors = errors + 1;
+    end
+endtask
+task want_frame;                         // 第 9~14 帧都应该成立的
+    input integer f;
+    begin
+        want(f, 42, 26, 0, 0, "W"); want(f, 42, 36, 0, 1, "P1"); want(f, 42, 46, 0, 1, "P2"); want(f, 42, 56, 0, 1, "P3"); want(f, 42, 66, 0, 1, "P4");
+        want(f, 61, 0, 1, 1, "left edge (61,0)"); want(f, 89, 141, 1, 0, "bottom edge (89,141)"); want(f, 89, 159, 1, 0, "corner (89,159)");
+    end
+endtask
+initial begin
+    init_geom;
+    for (i = 0; i < 256; i = i + 1) Hc[i] = 0;
+    for (i = 0; i < 16; i = i + 1) begin Hy[i] = 0; DPREV[i] = 255; end
+    repeat (5) @(posedge clk);
+    rst_n = 1;
+    repeat (400) @(posedge clk);                                   // 上电清表
+    if (pub_valid !== 1'b0) begin $display("FAIL published before any frame"); errors = errors + 1; end
+
+    check_frame(1, 1); disp_bank = pub_bank;                     // 第 1 帧：模型是空的 → 全是障碍
+    check_frame(2, 1); disp_bank = pub_bank;
+    nbox_seen = 0; for (i = 0; i < 16; i = i + 1) nbox_seen = nbox_seen + (b_v[i] != 0);
+    if (nbox_seen < 5) begin $display("FAIL scene setup: only %0d sectors boxed in frame 2", nbox_seen); errors = errors + 1; end
+    if (!(b_v[3] != 0 && b_v[3] == b_v[5])) begin $display("FAIL scene setup: blue and red should merge into one box"); errors = errors + 1; end
+    if (m_has[10]) begin $display("FAIL scene setup: the 2-row green band should not count"); errors = errors + 1; end
+    check_frame(3, 1);                                           // 显示端不跟
+    check_frame(4, 0); disp_bank = pub_bank;                     // → 这一帧不送显示
+    check_frame(5, 1); disp_bank = pub_bank;
+    check_frame(6, 1); disp_bank = pub_bank;
+    check_frame(6, 1); disp_bank = pub_bank;                     // 两帧都没有障碍（两帧取小以后才算没有）
+    if (e_stop || e_go_head != 8 || e_near != 255) begin $display("FAIL scene setup: frame 6 should be clear straight ahead"); errors = errors + 1; end
+    check_frame(7, 1); disp_bank = pub_bank;
+    if (!e_stop) begin $display("FAIL scene setup: frame 7 should stop"); errors = errors + 1; end
+    check_frame(8, 1); disp_bank = pub_bank;
+    // 边界场景：第 9 帧教，之后 16 → 12 → 9
+    check_frame(9, 1);  disp_bank = pub_bank; want_frame(9);
+    want(9, 42, 6, 0, 1, "X (model empty)");
+    check_frame(10, 1); disp_bank = pub_bank; want_frame(10);
+    want(10, 42, 6, 0, 0, "X (16)"); want(10, 42, 16, 0, 0, "Z (16)"); want(10, 42, 76, 0, 0, "P5 (16)"); want(10, 42, 86, 0, 0, "V"); want(10, 42, 106, 0, 0, "K (16)");
+    check_frame(11, 1); disp_bank = pub_bank; want_frame(11);
+    want(11, 42, 6, 0, 0, "X (exactly 12)"); want(11, 42, 16, 0, 0, "Z (exactly 12)"); want(11, 42, 96, 0, 0, "U (exactly 12)");
+    check_frame(12, 1); disp_bank = pub_bank; want_frame(12);
+    want(12, 42, 6, 0, 1, "X (9)"); want(12, 42, 16, 0, 1, "Z (9)"); want(12, 42, 76, 0, 1, "P5 (9)");
+    check_frame(13, 1); disp_bank = pub_bank; want_frame(13);
+    want(13, 42, 96, 0, 1, "U (7)"); want(13, 42, 106, 0, 1, "K (7)");
+    check_frame(14, 1); disp_bank = pub_bank; want_frame(14);
+    want(14, 42, 96, 0, 0, "U (bin 15 neighbour)"); want(14, 42, 106, 0, 0, "K (22)"); want(14, 42, 86, 0, 1, "V");
+    // 扫描 / 选方向的边界：每个场景放两帧
+    check_frame(15, 1); disp_bank = pub_bank; check_frame(15, 1); disp_bank = pub_bank;
+    if (e_go_head != 12 || HF[11] == 255) begin $display("FAIL scene setup: frame 15 only heading 12 should be free"); errors = errors + 1; end
+    check_frame(16, 1); disp_bank = pub_bank; check_frame(16, 1); disp_bank = pub_bank;
+    if (e_go_head != 4 || HF[12] != 255 || HF[11] == 255 || HF[5] == 255) begin $display("FAIL scene setup: frame 16 should pick heading 4 over the equally free heading 12"); errors = errors + 1; end
+    check_frame(17, 1); disp_bank = pub_bank; check_frame(17, 1); disp_bank = pub_bank;
+    if (e_go_free != 35 || e_stop) begin $display("FAIL scene setup: frame 17 should be exactly 35 cm, go"); errors = errors + 1; end
+    check_frame(18, 1); disp_bank = pub_bank; check_frame(18, 1); disp_bank = pub_bank;
+    if (m_bot[1] != 60 || m_top[2] != 60 || b_v[1] == 0 || b_v[1] != b_v[2] || b_bot[1] != 70) begin $display("FAIL scene setup: frame 18 touching sectors should merge"); errors = errors + 1; end
+    check_frame(19, 1); disp_bank = pub_bank; check_frame(19, 1); disp_bank = pub_bank;
+    if (m_bot[15] != 89 || m_has[14]) begin $display("FAIL scene setup: frame 19 only column 159 should reach row 89"); errors = errors + 1; end
+    check_frame(20, 1); disp_bank = pub_bank; check_frame(20, 1); disp_bank = pub_bank;
+    if (!m_has[2] || m_bot[2] != 61 || m_top[7] > 47 || m_bot[7] < 70) begin $display("FAIL scene setup: frame 20"); errors = errors + 1; end
+    check_frame(21, 1); disp_bank = pub_bank; check_frame(21, 1); disp_bank = pub_bank;
+    if (m_f[4] != 58 || THR[8 * 16 + 4] != 58 || HF[8] != 58 || e_go_head != 9) begin $display("FAIL scene setup: frame 21 sector 4 should block heading 8 exactly at its threshold"); errors = errors + 1; end
+    if (n_late_class != 0 || n_late_scan != 0) begin $display("FAIL testbench timing: %0d points during the model update, %0d while the scan was busy", n_late_class, n_late_scan); errors = errors + 1; end
+    if (bad_bank != 0) begin $display("FAIL %0d writes went to the bank being displayed", bad_bank); errors = errors + 1; end
+
+    if (errors == 0) $display("PASS  tb_obs_core");
+    else             $display("FAIL  tb_obs_core: %0d error(s)", errors);
+    $finish;
+end
+
+initial begin #200_000_000; $display("FAIL  tb_obs_core: timeout"); $finish; end
+
+endmodule
