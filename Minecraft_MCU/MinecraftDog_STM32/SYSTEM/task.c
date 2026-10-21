@@ -114,23 +114,28 @@ void Task_Motor_Drive(void)
     }
 }
 
-/* 板载 LED (PA8): 和 FPGA 链路通 = 1 秒闪一次, 不通 = 快闪。
+/* 板载 LED (PA8), 20 ms 看一次 (远处看, 比屏幕 1 秒一刷及时): 信标在左边或正前方亮, 在右边灭,
+ * 收不到 UWB 快闪。用的是和发给 FPGA / 跟随同一个 UWB_GetTarget() 结果, 正常模式和跟随测试模式都一样。
  * 要在 CubeMX 里把 PA8 设成 GPIO_Output、User Label 填 LED 才会生效;
  * 没配的话 main.h 里没有 LED_Pin, 这个任务什么也不做。 */
 void Task_LED(void)
 {
 #ifdef LED_Pin
-    static uint8_t ticks = 0U;
-    uint8_t half_period = FPGAMLK_LinkAlive(Get_Time()) ? 5U : 1U;
+    static uint32_t last_toggle_ms = 0U;
+    uint32_t now = Get_Time();
+    GPIO_PinState off_level = (TASK_LED_ON_LEVEL == GPIO_PIN_SET) ? GPIO_PIN_RESET : GPIO_PIN_SET;
+    UWB_Target target;
 
-    if (FollowMode_IsActive()) {    /* 【跟随测试模式】LED 归 follow_mode.c 管 (2 秒变一次) */
+    if (!UWB_GetTarget(now, &target)) {
+        if ((uint32_t) (now - last_toggle_ms) >= TASK_LED_LOST_TOGGLE_MS) {
+            last_toggle_ms = now;
+            HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+        }
         return;
     }
 
-    if (++ticks >= half_period) {
-        ticks = 0U;
-        HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-    }
+    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin,
+                      (target.azimuth_deg <= TASK_LED_FRONT_DEG) ? TASK_LED_ON_LEVEL : off_level);
 #endif
 }
 

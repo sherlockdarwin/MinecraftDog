@@ -4,15 +4,13 @@
 
 /* 【跟随测试模式】说明和删除方法见 follow_mode.h。 */
 
-static bool     s_follow_mode_active = false;
-static uint32_t s_led_toggle_ms      = 0U;
+static bool s_follow_mode_active = false;
 
-static void FollowMode_Enter(uint32_t now_ms)
+static void FollowMode_Enter(void)
 {
     Follow_Init();          /* 清掉上次的斜坡状态, 先停车 */
     Follow_Enable(1U);
     s_follow_mode_active = true;
-    s_led_toggle_ms      = now_ms;
     LCD_ShowString(0U, 112U, "UWB FOLLOW MODE ", LCD_GREEN, LCD_BLACK, 16U);
 }
 
@@ -26,7 +24,7 @@ static void FollowMode_Exit(void)
 void FollowMode_Process(uint32_t now_ms)
 {
     if (Key1_Long_Press() && !s_follow_mode_active) {
-        FollowMode_Enter(now_ms);
+        FollowMode_Enter();
     }
 
     if (Key2_Long_Press() && s_follow_mode_active) {
@@ -42,13 +40,6 @@ void FollowMode_Process(uint32_t now_ms)
     (void) Key1_Short_Press();
 
     Follow_Process(now_ms);
-
-#ifdef LED_Pin
-    if ((uint32_t) (now_ms - s_led_toggle_ms) >= FOLLOW_MODE_LED_TOGGLE_MS) {
-        s_led_toggle_ms = now_ms;
-        HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-    }
-#endif
 }
 
 bool FollowMode_IsActive(void)

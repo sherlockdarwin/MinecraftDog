@@ -98,8 +98,13 @@ void PWM_Control_Car(int16_t L_motor_speed, int16_t R_motor_speed)
         return;
     }
 
+#if MOTOR_SWAP_LR
+    sl = speed_limit(R_motor_speed, -MAX_SPEED, MAX_SPEED);    /* 左右轮接反了, 见 motor.h */
+    sr = speed_limit(L_motor_speed, -MAX_SPEED, MAX_SPEED);
+#else
     sl = speed_limit(L_motor_speed, -MAX_SPEED, MAX_SPEED);
     sr = speed_limit(R_motor_speed, -MAX_SPEED, MAX_SPEED);
+#endif
 
     sl = Motor_Ignore_Dead_Zone(sl);
     sr = Motor_Ignore_Dead_Zone(sr);

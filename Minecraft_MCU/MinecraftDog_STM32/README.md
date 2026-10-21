@@ -1,255 +1,203 @@
 ## MinecraftDog STM32F103RCT6
 
-### 功能
-
-跟随 + 避障的决策全在 FPGA, STM32 只做传感器和执行器:
-
-1. **UWB 定位**: 三个基站 (左 / 前 / 右) 各接一个串口, 中断收字节, 解 0x2001 定位帧 (37 字节, XOR 校验)。
-   取角度最靠近自己正前方的那个基站, 换算成车体坐标 (左负右正) 的角度 + 距离; 500 ms 没新数据 = 收不到 UWB。
-2. **发给 FPGA**: 有新 UWB 数据就用 DMA 发主人的角度、距离; 收不到 UWB 就发"丢失"。
-3. **收 FPGA 的命令**: DMA 环形缓冲收两个轮子的 PWM, 解包后驱动电机。
-4. **停车保护**: 收不到 UWB / 200 ms 没收到完整的 FPGA 帧 / FPGA 发来停车, 任何一条成立就关电机锁停车。
-5. **电机驱动**: 两路 PWM (9 kHz, 0~8000) + 4 个方向脚, 带死区补偿和方向极性开关。
-6. **编码器**: TIM8 / TIM2 硬件计数, 速度和里程函数都在 `encoder.c`, 现在控制里没用到。
-7. **按键试电机**: 短按 KEY1 两轮走 3 秒, 第一次前进、下一次后退, 轮流来; 不用接 FPGA。
-8. **LED**: 和 FPGA 通 = 1 秒闪一次, 不通 = 快闪; 跟随测试模式 = 2 秒变一次。
-9. **跟随测试模式**: 长按 KEY1 (1 秒) 进入, 不经过 FPGA, 只用 UWB 跟随 (`follow.c`); 长按 KEY2 (1 秒) 退出。
-10. **屏幕** (1.44 寸 128x128 彩色 LCD, ST7735S, 软件 SPI): 显示 UWB 方向 / 角度 / 距离和 FPGA 的轮子命令, 1 秒刷新一次。
-11. **步进电机** (尾巴, ZDT X42S): 上电 / 复位 1 秒后自动回到初始位置; 短按 KEY2 摇一个来回 (左 45° → 中 → 右 45° → 中)。
+机器狗的单片机端 (绿深 STM32F103RCT6 板, 8 MHz 晶振, 72 MHz)。跟随 + 避障决策在 FPGA, STM32 负责:
+UWB 定位 → 发给 FPGA; 收 FPGA 的两轮 PWM → 驱动电机; 步进电机 (尾巴); 屏幕。
+另有一个**跟随测试模式** (长按 KEY1): 不经过 FPGA, 用 STM32 自己的 `follow.c` 跟着 UWB 走, 用来调跟随算法。
+**下一步是 FPGA 端**: 把这里调好的跟随移植进 `mc_follow`, 见最后一节 [FPGA 端要改的](#fpga-端要改的-下一步-还没动)。
 
 ### 目录
 
 | 位置 | 内容 |
 | --- | --- |
-| `Core/` `Drivers/` | CubeMX 生成。`main.c` 只在 USER CODE 里调 `bsp_init()` / `Scheduler_Run()` |
-| `SYSTEM/` | `AllHeader.h`、`bsp.c` (模块初始化)、`delay.c` (SysTick 微秒延时 + 秒表)、`task.c` (协作式调度表, 1 ms 时基 = `HAL_GetTick()`) |
-| `HARDWARE/MLK/` | FPGA 串口 (USART3, DMA 收发), 解包变量在 `fpgamlk.c` 顶部 |
-| `HARDWARE/UWB/` | 三个 UWB 基站 (USART2 / UART4 / UART5, 接收中断) |
-| `HARDWARE/MOTOR/` | 电机 PWM + 方向、编码器 |
-| `HARDWARE/STEPPER/` | `stepper.c` ZDT X42S 串口协议 (USART1); `tail.c` 上电回零 + 摇摆的动作表 |
-| `HARDWARE/LCD/` | 1.44 寸 ST7735S 彩屏, 软件 SPI (PB4~PB9) |
-| `HARDWARE/KEY/` | KEY1 / KEY2 |
-| `ALGORITHM/` | `follow.c` UWB 跟随算法; `follow_mode.c` 跟随测试模式 (长按 KEY1 / KEY2 进出) |
+| `Core/` `Drivers/` | CubeMX 生成; `main.c` 只在 USER CODE 里调 `bsp_init()` / `Scheduler_Run()` |
+| `SYSTEM/` | `bsp.c` 初始化, `task.c` 调度表 (1 ms 时基 = `HAL_GetTick()`), `delay.c`, `AllHeader.h` |
+| `HARDWARE/UWB/` | 三个 UWB 基站, 接收中断 + 解帧 |
+| `HARDWARE/MLK/` | FPGA 串口, DMA 收发 + 解包 |
+| `HARDWARE/MOTOR/` | 电机 PWM + 方向, 编码器 |
+| `HARDWARE/STEPPER/` | `stepper.c` ZDT X42S 串口命令, `tail.c` 上电回零 + 摇摆 |
+| `HARDWARE/LCD/` | 1.44 寸 ST7735S 彩屏, 软件 SPI |
+| `HARDWARE/KEY/` | 两个按键, 消抖 / 短按 / 长按 |
+| `ALGORITHM/` | `follow.c` UWB 跟随算法, `follow_mode.c` 跟随测试模式 |
 
 ### 引脚
 
-| 功能 | 引脚 | 外设 |
+| 功能 | 引脚 | 外设 / CubeMX 设置 |
 | --- | --- | --- |
-| FPGA | PB10 TX -> FPGA CEP 脚 4; PB11 RX <- CEP 脚 3; GND 接 CEP 脚 2 | USART3, RX DMA1 CH3 (Circular), TX DMA1 CH2 |
-| UWB 左 / 前 / 右 | PA3 / PC11 / PD2 收 (PA2 / PC10 / PC12 发, 预留) | USART2 / UART4 / UART5, 接收中断 |
-| 步进电机 | PA9 TX -> 驱动器 R/A/H; PA10 RX <- 驱动器 TX (可不接); GND 共地 | USART1, 115200, 发送阻塞, 接收中断 (只看应答) |
-| 左 / 右轮 PWM | PA6 / PA7 | TIM3 CH1 / CH2, 9 kHz, 0~8000 |
-| AIN1 AIN2 BIN1 BIN2 | PB12 PB13 PB14 PB15 | GPIO 输出 |
-| 左编码器 A / B | PC6 / PC7 | TIM8 编码器 |
-| 右编码器 A / B | PA15 / PB3 | TIM2 编码器 (部分重映射, 要 SYS = Serial Wire) |
-| LCD (板子顶上 LCD 排针) | SC PB8 = SCL, DI PB9 = SDA, CS PB7, RST PB6 = RES, RS PB5 = DC, BLK PB4 | GPIO 输出, 软件 SPI |
-| KEY1 / KEY2 | PC9 / PC8 | 输入, 按下 = 低 |
-| LED | PA8 | GPIO 输出 |
+| FPGA | PB10 TX → CEP 脚 4, PB11 RX ← CEP 脚 3, GND → CEP 脚 2 | USART3 115200; RX DMA1 CH3 Circular, TX DMA1 CH2; RX 上拉 |
+| UWB 左 / 前 / 右 | 基站 TX → PA3 / PC11 / PD2 (PA2 / PC10 / PC12 预留) | USART2 / UART4 / UART5 115200, 接收中断; RX 上拉 |
+| 步进电机 | PA9 TX → 驱动器 R/A/H, PA10 RX ← 驱动器 TX (可不接) | USART1 115200; RX 上拉 |
+| 电机 PWM A / B 路 | PA6 / PA7 | TIM3 CH1 / CH2, 9 kHz, 满量程 8000 |
+| 电机方向 A / B 路 | PB12 PB13 / PB14 PB15 | GPIO 推挽, 初始 Low |
+| 左编码器 | PA15 / PB3 | TIM2 编码器 (部分重映射, 要 SYS = Serial Wire) |
+| 右编码器 | PC6 / PC7 | TIM8 编码器 |
+| LCD | SCL PB8, SDA PB9, CS PB7, RES PB6, DC PB5, BLK PB4 (板子顶上 LCD 排针) | GPIO 推挽, Label `LCD_*`, 初始 Low |
+| KEY1 / KEY2 | PC9 / PC8 | 输入上拉, 按下 = 低 |
+| LED | PA8 | GPIO 推挽, Label `LED`; 按低电平亮写的 |
 | SWD | PA13 / PA14 | |
 
-### CubeMX 里每个引脚的设置 (上拉 / 下拉)
+**接反了、在代码里换回来的** (不用重新接线):
+- 电机: A 路实际接右轮 → `motor.h` 的 `MOTOR_SWAP_LR = 1`。FPGA 发来的左右轮命令也经过这里。
+- 编码器: 同样左右反了 → `encoder.h` 的 `ENCODER_SWAP_LR = 1`。
+- 电机前进 / 后退方向: `MOTOR_L_DIR_INVERT` / `MOTOR_R_DIR_INVERT` (都是 1, 已实测)。
 
-| 引脚 | 模式 | 上下拉 | 为什么 |
-| --- | --- | --- | --- |
-| 串口收 PA3 / PC11 / PD2 / PB11 / PA10 | 串口 RX | **上拉** | 线没接或模块没上电时不乱收字节 |
-| 串口发 PA2 / PC10 / PC12 / PB10 / PA9 | 串口 TX | 不用 (F1 的复用输出不能设) | 推挽输出, 自己就能出高低电平 |
-| PB12~PB15 (AIN / BIN) | GPIO_Output 推挽, 初始 Low | 不用 | 推挽输出自己就能出高低电平; 初始 Low = 电机不转 |
-| PB4~PB9 (LCD) | GPIO_Output 推挽, 初始 Low | 不用 | 同上; 初始 Low 让背光 (BLK) 先灭, 清好屏再亮; SCL / SDA 的输出速度代码里会改成 High, CubeMX 里不用管 |
-| PA8 (LED) | GPIO_Output 推挽 | 不用 | |
-| PC8 / PC9 (KEY) | GPIO_Input | **上拉** | 按键按下接地; 按了没反应就改下拉, 同时改 `key.h` 的 `KEY_PRESSED_LEVEL` |
-| PC6 / PC7 / PA15 / PB3 (编码器) | 定时器编码器输入 | 不用 | 编码器自己是推挽输出; 手转轮子计数不变 (开漏输出的编码器) 再改上拉 |
-| PA6 / PA7 (PWM) | 定时器 PWM 输出 | 不用 | |
+UWB 基站供电: 带转接板 (TX RX 5V GND) 接 5 V, 裸模块接 3.3 V; 数据线 3.3 V; 三个约 1 A, 从车上 5 V 降压取电; 必须共地。
 
-**建议把 PA6 / PA7 钉住**: 芯片图上在 PA6 上点右键 → Signal Pinning (出现小图钉), PA7 也一样。
-不钉的话, 以后打开别的外设 (比如 SPI1) CubeMX 可能自己把电机 PWM 挪到别的脚上。
-
-### 任务
+### 任务 (`task.c`)
 
 | 任务 | 周期 | 做什么 |
 | --- | --- | --- |
 | `Task_UWB_Poll` | 5 ms | 解析 UWB 帧 |
-| `Task_FPGA_Rx` | 5 ms | 解 FPGA 帧 (`#+3000-0500*` / `#S*`); 串口出错时重启接收 DMA |
-| `Task_Motor_Drive` | 5 ms | 按 FPGA 命令驱动电机; UWB 丢 / 200 ms 没帧 / `#S*` 立即停车; 按键试电机 |
-| `Task_FPGA_Tx` | 20 ms | 新 UWB 数据发 `$l12350&`, 收不到 UWB 发 `$S&` (100 ms 重发) |
-| `Task_Key_Scan` | 10 ms | 按键消抖 (长按 = 1 秒) |
-| `Task_Follow_Mode` | 20 ms | 跟随测试模式: 长按进出, 模式里跑 `Follow_Process()` |
-| `Task_Tail` | 10 ms | 步进电机: 上电回零; 短按 KEY2 摇一个来回 |
-| `Task_LED` | 100 ms | 和 FPGA 链路通 = 1 秒闪一次, 不通 = 快闪 |
-| `Task_UWB_Display` | 1000 ms | 刷屏 (软件 SPI, 约 20 ms, 放在任务表最后) |
-
-### 按键
+| `Task_FPGA_Rx` | 5 ms | 解 FPGA 帧; 串口出错时重启接收 DMA |
+| `Task_Motor_Drive` | 5 ms | 执行 FPGA 命令; UWB 丢 / 200 ms 没帧 / `#S*` 立即停车; KEY1 试电机 |
+| `Task_FPGA_Tx` | 20 ms | 有新 UWB 数据发 `$l12350&`, 收不到发 `$S&` (100 ms 重发) |
+| `Task_Key_Scan` | 10 ms | 按键消抖, 长按 = 1 秒 |
+| `Task_Follow_Mode` | 20 ms | 跟随测试模式 |
+| `Task_Tail` | 10 ms | 步进电机上电回零; KEY2 摇摆 |
+| `Task_LED` | 20 ms | 信标在左边或正前方 (≤ +5°) 亮, 右边灭, 收不到 UWB 快闪; 亮灭反了改 `task.h` 的 `TASK_LED_ON_LEVEL` |
+| `Task_UWB_Display` | 1000 ms | 刷屏 (放最后, 阻塞约 20 ms) |
 
 | 按键 | 短按 | 长按 1 秒 |
 | --- | --- | --- |
-| KEY1 (PC9) | 试电机: 两轮 ±3000 走 3 秒, 第一次前进、下一次后退; 测试中再按 = 停 | 进入跟随测试模式 |
-| KEY2 (PC8) | 步进电机摇一个来回 | 退出跟随测试模式 |
+| KEY1 | 试电机: 两轮 ±3000 走 3 秒, 前进 / 后退轮流; 再按停 | 进入跟随测试模式 |
+| KEY2 | 步进电机摇一个来回 | 退出跟随测试模式 |
 
-哪个轮子转反了, 改 `motor.h` 的 `MOTOR_L_DIR_INVERT` / `MOTOR_R_DIR_INVERT`。
+### UWB
 
-### UWB 接线和排查
+- **定位**: 左 / 前 / 右三个 120° 定向基站, 安装角 -90° / 0° / +90° (`uwb.h`)。每个基站约 40 帧/秒。
+  车体角度**左负右正**。500 ms 没新数据 = 收不到。合成方法 (`UWB_GetTarget`):
+  - 每个基站只有两根天线, 分不清前后: 背后来的信号会**镜像**到前面。左、右基站背靠背, 所以只测得出
+    "偏离车头多少度", 分不出左右 (信标在右前 60°, 左基站镜像后读成左前 60°)。
+    以前"选本地角度最小的基站"会时不时选中这个镜像 → 人在右边屏幕却显示 left (已修)。
+  - **左右只听前基站**: 连续 3 帧在 ±60° 以内、同一边才换边; 再往外 (人在侧面) 前基站在测角边缘、
+    读数会乱跳, 沿用上一次的左右 (人换边只能经过正前 / 正后, 那时前基站一定看得准)。
+  - **角度**: 前基站和信标那一侧的侧基站, 谁的读数离自己正前方近用谁; 用侧基站时 |读数 + 安装角| 再配上左右。
+  - 限制: 正后方 135° 以外会被当成正前方; 一上电人就正在侧面 90° 或前基站一直收不到时, 左右只能猜。
+- **解帧** (`uwb.c`): 4 个 `FF` 帧头, 第 9~10 字节命令码 `0x2001` 就收 37 字节, 校验 = 前 36 字节异或。
+  **不检查长度字段和版本号**: 实测基站发的版本是 `0x0102`, 规格书写 `0x0100`, 以前因此一帧都解不出来;
+  厂家例程 (`示例代码/STM32F1-Usart`) 也只看帧头 + 命令码。
+- **屏幕排查** (中间小字, 左 / 前 / 右, 后 4 位):
+  `rx` 收到的字节 (正常每路每秒约 1480), `ok` 解出的帧 (约 40/秒), `ck` 校验错;
+  `F len / ver / xor / calc` 是前基站最近一帧的长度字段、版本号、帧里的校验、算出来的异或。
+  `rx` 不涨 = 线没接对 (基站 TX 要接 STM32 RX) 或没共地; `rx` 涨 `ok` 不涨 = 看 `ck` 和黄字。
 
-基站 (规格书 V2.2): 带转接板的 4 针是 **TX RX 5V GND**, 5V 脚接 5 V; 裸模块 VCC 接 3.3 V。数据线都是 3.3 V。
-三个基站电流大约按 1 A 留余量, 从车上 5 V 降压那路取电, 别从开发板的 3V3 / 电脑 USB 取。
+### UWB 跟随 (跟随测试模式, `follow.c` / `follow.h`)
 
-| 基站 | 转接板 TX (Pin1) 接 | 转接板 RX (Pin2) 接 (可不接) |
-| --- | --- | --- |
-| 左 | PA3 | PA2 |
-| 前 | PC11 | PC10 |
-| 右 | PD2 | PC12 |
+**思路** (每 20 ms):
+1. 收不到 UWB / 距离 > 20 m / 距离 ≤ 3 m → 停车。
+2. 角度平滑: 每次只跟上新角度的 1/3 (约 50 ms), 去掉抖动。
+3. 偏超过 90° 并保持 0.3 秒 (人在侧面 / 后面) → 原地转 (两轮 ±2200), 转到 40° 以内再往前走。
+4. 否则往前走: 前进 = 3000 + (距离 - 300 cm) × 10, 最多 5000。
+   转向按**前进的比例**算 (弯的急缓和车速无关): ±5° 以内不拐; 超出部分每 1° 转前进的 0.3%, 最多 9%;
+   转向每 20 ms 最多变 12 (慢慢打方向)。左 = 前进 + 转向, 右 = 前进 - 转向。
+5. 两轮各自斜坡: 每 20 ms 最多加 200 / 减 400。
 
-GND 一定要和 STM32 共地。基站的 **TX 接 STM32 的 RX**, 不是 TX 接 TX。
+**调参** (`follow.h`):
 
-指示灯 (规格书 5.1 / 5.5): 基站红灯常亮 = 上电; **绿灯闪 (500 ms 翻转一次) = 信标在线**, 这时基站就在主动发定位帧 (约 40 次/秒),
-不用做任何设置。手环信标要双击按键进跟随模式 (绿灯常亮)。
-
-屏幕中间的小字 (左 / 前 / 右, 只显示后 4 位):
-
-| 行 | 含义 |
+| 现象 | 改什么 (现在的值) |
 | --- | --- |
-| `rx` | 收到的字节数, 正常每路每秒约 1480 (40 帧 × 37 字节) |
-| `ok` | 解出的定位帧, 正常每路每秒约 40 |
-| `ck` | 校验 (异或) 不对的帧 |
-| `F len .... ver ....` | 前基站最近一个定位帧的长度字段 / 版本号 (规格书写的是 0025 / 0100) |
-| `F xor .. calc ..` | 前基站最近一个定位帧里的校验字节 / 程序算出来的异或, 两个一样才算 `ok` |
+| 走不动 / 太慢 | 加大 `FOLLOW_START_PWM` (3000) |
+| 原地转不动 | 加大 `FOLLOW_PIVOT_PWM` (2200) |
+| 左右摆头 | 加大 `FOLLOW_ANGLE_DEADBAND_DEG` (5) 或 `FOLLOW_ANGLE_FILTER` (3) |
+| 弯太急 / 转向不灵敏 | 减小 / 加大 `FOLLOW_TURN_MAX_PER10K` (900 = 9%) 或 `FOLLOW_TURN_PER10K_PER_DEG` (30 = 0.3%) |
+| 打方向太猛 / 太慢 (过于谨慎) | 减小 / 加大 `FOLLOW_TURN_STEP_PWM` (12) |
+| 拐不过来、人到侧面跟不上 | 加大 `FOLLOW_TURN_MAX_PER10K`, 或减小 `FOLLOW_PIVOT_ENTER_DEG` (90) |
+| 突然原地转 | 加大 `FOLLOW_PIVOT_CONFIRM_MS` (300) |
+| 停车距离 | `FOLLOW_STOP_DISTANCE_CM` (300) |
 
-| 现象 | 原因 |
-| --- | --- |
-| `rx` 一直是 0 | 线上没数据: 基站 TX 没接到对应的 STM32 RX 脚 / TX 接成了 TX / 没共地 |
-| `rx` 在涨, `ok` 和 `ck` 都不涨 | 一个 `FF FF FF FF` + `20 01` 的帧都没找到: 波特率不对或者线上全是乱码 |
-| `rx` 在涨, `ck` 在涨 | 找到了帧但校验不对: 把 `F xor` 那两行拍给我 |
-| `ok` 在涨, 屏上还是 `UWB no signal` | 不应该出现, 拍给我 |
+**调参记录** (1 kg 左右的车, 都是 2026-10 上车实测):
+1. MSPM0 原参数 (起步 600、转向 = 角度 × 35): 5 m 外才推得动, 一直原地打转。
+2. 起步 2200、转向 × 40、死区 5°: 能走了, 拐弯太快、左右摆头。
+3. 死区 15°、转向最多前进的 30%: 弯还是太急, 1 米宽走廊来不及回正。
+4. 死区 15°、0.4%/度、最多 10%: 先直走, 偏到 15° 外才猛打方向。
+5. 死区 5°、0.2%/度、最多 6%、方向盘慢打: 好多了, 偶尔突然原地转。
+6. 原地转从 75° 改成 90° 并保持 0.3 秒。
+7. 修好 UWB 左右不分以后有点转向不灵敏: 0.25%/度、最多 8%, 起步 3000。
+8. 距离系数 10、平滑 1/3、0.3%/度: 没有大转弯了, 但有点过于谨慎。
+9. 方向盘每 20 ms 最多变 15 (原来 10)、转向最多 10% (原来 8%): 摇摆明显, 又有突变。
+10. 取 8 和 9 的中间: 每 20 ms 最多变 12、最多 9% (当前, 待上车试)。
 
-解析按厂家例程 (`示例代码/STM32F1-Usart`) 的做法: 找 4 个 `FF` 帧头, 看第 9~10 字节的命令码, `0x2001` 就收 37 字节;
-**长度字段和版本号不检查** (规格书里定位帧写版本 0x0100、心跳帧写 0x0101, 本身就对不上), 但保留了异或校验。
-用规格书 6.2 节的两个例子帧验证过 (25 cm / 18°、98 cm / -39°), 也测过版本号 / 长度字段不一样、帧头前多一个 `FF` 的情况。
+**删掉跟随测试模式**: 搜 `FollowMode`, 删 `follow_mode.c/.h`、`AllHeader.h` 的 include、`task.c/.h` 的 `Task_Follow_Mode` 和任务表那一行、
+`Task_Motor_Drive` 里的 `FollowMode_IsActive()` 判断。
 
-### 跟随测试模式 (试 UWB 跟随算法, 不接 FPGA 也能用)
+### 和 FPGA 的通讯 (USART3, 115200 8N1, ASCII, 位数不够补 0)
 
-- **长按 KEY1 1 秒** 进入: 电机只听 `follow.c` 的 `Follow_Process()`, FPGA 的命令不管;
-  LED 每 2 秒变一次, 屏幕最下面一行显示 `UWB FOLLOW MODE`。模式里短按 KEY1 不起作用; 短按 KEY2 照样让步进电机摇摆。
-- **长按 KEY2 1 秒** 退出: 立即停车, 回到正常的 FPGA 模式。
-- 算法 (不避障, 按 1 kg 左右的车调过): 收不到 UWB 或距离 > 20 m 停车; 3 m 以内停车; 否则
-  - 角度超过 45° 原地转 (两轮 ±2800), 转到 25° 以内再往前走;
-  - 前进 = 2200 + (距离 - 300 cm) × 8, 最多 5000 (3.5 m 是 2600, 5 m 是 3800, 6.5 m 以外 5000);
-  - 角度在 ±5° 以内当正前方; 转向 = 角度 × 40, 但最多是前进的一半 (内侧轮不会停, 不会原地打转);
-  - 左 = 前进 + 转向, 右 = 前进 - 转向, 限 ±6500; 每 20 ms 最多加 200 / 减 400。
-- 参数都在 `follow.h`: 走不动就加大 `FOLLOW_START_PWM`; 原地转不动就加大 `FOLLOW_PIVOT_PWM`;
-  转弯太慢加大 `FOLLOW_ANGLE_KP_PWM_PER_DEG`, 来回摆头就减小它或加大 `FOLLOW_ANGLE_DEADBAND_DEG`;
-  室内试觉得 3 m 太远就改 `FOLLOW_STOP_DISTANCE_CM`。
-- 原来的 MSPM0 参数 (起步 600、转向 × 35) 上车实测: 5 m 以外才推得动, 一直原地打转。
-  FPGA 的 `mc_follow` 用的还是这套老数值, 走 FPGA 模式会有一样的问题, 那边也要按这里的思路改。
-- **不要了就删掉** (搜 `FollowMode` 能找全): `follow_mode.c/.h`、`AllHeader.h` 里 include 它的那一行、
-  `task.c/.h` 里的 `Task_Follow_Mode` 和任务表那一行、`Task_Motor_Drive` / `Task_LED` 里的 `FollowMode_IsActive()` 判断。
-
-### 步进电机 (尾巴, ZDT X42S 第二代闭环, Emm 固件)
-
-做法和 FPGA 的 `mc_tail.v` 一样, 命令字节按《ZDT_X42S 用户手册 V1.0.5》第 5 章和官方例程 `Emm_V5.c` 核对过。
-驱动器用出厂设置: `P_Serial = UART_FUN`、`UartBaud = 115200`、`ID_Addr = 1`、`Checksum = 0x6B`、细分 16 (一圈 3200 脉冲)。
-
-- **上电 / 复位回零**: 上电 1 秒后 解除保护 `01 0E 52 6B` → 使能 `01 F3 AB 01 00 6B` → 单圈就近回零 `01 9A 00 00 6B`
-  → 等 2 秒 → 设坐标零点 `01 0A 6D 6B`。之后"绝对位置 0" = 初始位置。
-- **回零零点要先在驱动器上存一次** (掉电不丢): 驱动器断电, 用手把尾巴拧到初始位置, 上电后驱动器菜单 `O_Set` → `Set O`;
-  或者在代码里调一次 `Stepper_SetOrigin(1, 1)` (`01 93 88 01 6B`)。没存过的话, 回零会转到出厂的零点。
-- **摇摆** (短按 KEY2): 中 → 左 45° → 中 → 右 45° → 中, 绝对位置、10 RPM。每段 = 走完时间 + 停顿:
-  走 45° 要 0.75 秒; 到了左 / 右两头只停 0.05 秒就往回摆, 回到中间停 0.5 秒。一个来回约 4.1 秒。
-  回零没做完或者正在摇的时候按了不理。
-- 参数在 `tail.h`:
-
-| 参数 | 默认 | 作用 |
+| 方向 | 帧 | 含义 / 频率 |
 | --- | --- | --- |
-| `TAIL_SWING_DEG` | 45 | 摆幅 (度), 45° = 400 脉冲 |
-| `TAIL_RPM` | 10 | 摇摆转速; 走完时间 `TAIL_MOVE_MS` 按摆幅和转速自动算 |
-| `TAIL_SIDE_PAUSE_MS` | 50 | 摆到左 / 右两头后停多久 |
-| `TAIL_CENTER_PAUSE_MS` | 500 | 回到中间停多久 |
-| `TAIL_LEFT_IS_CCW` | 1 | 向左 = 电机逆时针; 摆反了改成 0 |
-| `TAIL_GEAR_X100` | 100 | 减速比 × 100 (尾巴直接装在电机轴上 = 100) |
+| STM32 → FPGA | `$` + `l`/`r` + 角度 2 位 + 距离 3 位 + `&` | 主人在左 / 右多少度、多远 cm, 如 `$l12350&`; 超过 99° / 999 cm 发 99 / 999; 有新 UWB 数据就发 |
+| STM32 → FPGA | `$S&` | 收不到 UWB; 刚丢立刻发, 之后 100 ms 一帧 |
+| FPGA → STM32 | `#` + 左轮 (符号 + 4 位) + 右轮 (符号 + 4 位) + `*` | 两轮 PWM, 正 = 前进, 满量程 8000, 如 `#+3000-0500*`; 20 ms 一帧 |
+| FPGA → STM32 | `#S*` | 立即停车 |
 
-- 停顿太短、电机还没走到下一条命令就来了, 会提前掉头 (摆幅变小一点), 那就把停顿加大一点。
-- **看驱动器有没有收到** (Live Expressions): `g_stepper_tx_count` 发出的条数; `g_stepper_reply` 最近一条应答
-  (`01 FD 02 6B` = 收到, `9F` = 动作做完, `E2` = 条件不满足, 比如堵转保护 / 没使能 / 欠压), `g_stepper_reply_count` 应答条数;
-  `g_tail_state` 0 等上电 / 1 回零中 / 2 空闲 / 3 摇摆中。应答要接了 PA10 才看得到。
-- 板子 USB 口要是 CH340 串口下载 (接在 PA9/PA10 上), 驱动器的 TX **不要**接 PA10 (两个输出会打架), 只接 PA9 → 驱动器就能用。
-- FPGA 那边也有一路尾巴串口 (CEP 脚 15), 两个别同时接到驱动器上。
+- 超时: FPGA 300 ms 收不到 `$…&` 当 UWB 丢; STM32 200 ms 收不到完整 `#…*` 停车。
+- 解包: `#` 重新开始一帧, 帧外字节丢掉, 格式不对整帧丢; 结果在 `fpgamlk.c` 顶部的 `g_fpga_*` 变量。
 
-### 屏幕 (1.44 寸 128x128 彩色 LCD, ST7735S)
+### 步进电机 (尾巴, ZDT X42S 第二代闭环, Emm 固件, `tail.h`)
 
-这块屏是 **SPI 接口的彩色 LCD**, 不是 OLED: 引脚上的 SCL / SDA 是 SPI 的时钟 / 数据, BLK 是背光。
-只接电源和 SCL/SDA 时背光亮了但屏没初始化, 所以是全白。
+- 驱动器用出厂设置: 串口 115200、地址 1、校验 `0x6B`、细分 16 (3200 脉冲/圈)。命令字节对照过手册第 5 章和官方 `Emm_V5.c`。
+- 上电 / 复位 1 秒后回零: 解除保护 → 使能 → 单圈就近回零 → 等 2 秒 → 设坐标零点。
+  **回零零点要先在驱动器上存一次**: 断电、手拧到初始位置、上电、菜单 `O_Set` → `Set O` (或调 `Stepper_SetOrigin(1, 1)`)。
+- 短按 KEY2: 中 → 左 45° → 中 → 右 45° → 中, 10 RPM; 两头停 50 ms, 中间停 500 ms。
+- 参数: 摆幅 `TAIL_SWING_DEG`、转速 `TAIL_RPM`、停顿 `TAIL_SIDE_PAUSE_MS` / `TAIL_CENTER_PAUSE_MS`、摆反了改 `TAIL_LEFT_IS_CCW`。
+- 排查 (Live Expressions): `g_tail_state` (0 等上电 / 1 回零 / 2 空闲 / 3 摇摆)、`g_stepper_tx_count`、`g_stepper_reply`
+  (`xx 02 6B` 收到, `9F` 做完, `E2` 条件不满足, `EE` 格式错; 要接 PA10 才有)。
 
-**接线** (屏的引脚 -> 板子顶上 LCD 排针的丝印; 两边顺序不一样, 用杜邦线一根根对着接):
+### 屏幕 (1.44 寸 128x128 TFT, ST7735S, 软件 SPI)
 
-| 屏 | 排针丝印 | 引脚 |
+- 是 SPI 彩色 LCD, 不是 OLED (BLK = 背光)。硬件 SPI 的脚被电机 / 编码器占了, 板子 LCD 排针的 PB8/PB9 本来也没有 SPI 功能。
+- 显示: 第 1~2 行 UWB 方向 / 角度 / 距离, 第 3~4 行 FPGA 状态和轮子命令, 中间小字 UWB 排查, 最下面跟随测试模式。
+- 偏了 / 倒了 / 颜色反了: 改 `lcd.h` 的 `LCD_X_OFFSET` / `LCD_Y_OFFSET` / `LCD_ROTATE_180` / `LCD_BGR` / `LCD_INVERT`。
+
+### CubeMX / 工程注意
+
+- 不能改掉: USART3_RX DMA = Circular、USART3 中断打开; USART1/2、UART4/5 中断打开 (在 `stm32f1xx_it.c` 的 USER CODE 0
+  里直接调 `Stepper_IRQHandler()` / `UWB_IRQHandler()` 后 return); TIM3 Period = 7999; I2C1 Disable; "Keep User Code" 勾上。
+- 建议把 PA6 / PA7 钉住 (右键 → Signal Pinning), 否则开别的外设时 CubeMX 可能把电机 PWM 挪走。
+- 源码目录: `Core` `Drivers` `ALGORITHM` `HARDWARE` `SYSTEM`; include: `../` `../SYSTEM` `../HARDWARE` `../HARDWARE/MOTOR` `../HARDWARE/UWB`。
+  CubeMX 重新生成会删掉"整个根目录当源码"的设置, **新 .c 文件必须放进上面这几个文件夹**。
+- 重新生成前关掉编辑器里的 `main.c`, 生成后 F5 刷新, 否则旧内容一保存就盖掉 USER CODE。
+
+### 未完成 / 已知问题
+
+- FPGA 的跟随 (`mc_follow`) 还是 MSPM0 的老参数, 走 FPGA 模式会推不动、打转, 见下一节。
+- 编码器前进时计数的正负 (`ENCODER_*_FORWARD_SIGN`) 没验证, 现在控制里没用编码器。
+- 跟随测试模式不避障。
+
+### FPGA 端要改的 (下一步, 还没动)
+
+FPGA 工程在 `../../mcproject_code/src/`: `rtl/app/mc_follow.v` (跟随 + 避障决策)、`rtl/comm/mc_m0_link.v` (和单片机的串口)、
+`rtl/mctop.v` (配置区 `FOLLOW_*` 约 119 行, 接线)、`doc/obstacle.md` §5 §6、仿真 `sim/tb_follow.v` `sim/tb_m0_link.v`。
+
+**STM32 这边已经做好、FPGA 不用管的**:
+- 三基站合成在 STM32 做, FPGA 收到的就是车体角 (左负右正, 最多 99°) 和距离; 协议不变 (上面"和 FPGA 的通讯")。
+- 电机左右对调、正反转都在 STM32 换, FPGA 只管发"左轮 / 右轮、正 = 前进"。
+- 安全: STM32 200 ms 收不到完整 `#…*` 就停车; UWB 丢了 STM32 自己也停车。
+- 屏幕第 3~4 行显示 FPGA 发来的 `RUN` / `STOP` 和两轮命令, 上板时直接看。
+
+**`mc_follow` 现在 vs STM32 上车调好的** (`follow.h`):
+
+| 项 | `mc_follow` 现在 (MSPM0 老参数) | STM32 调好的 |
 | --- | --- | --- |
-| GND | GND | |
-| VCC | 3V3 | |
-| SCL | SC | PB8 |
-| SDA | DI | PB9 |
-| RES | RST | PB6 |
-| DC | RS | PB5 |
-| CS | CS | PB7 |
-| BLK | BLK | PB4 |
+| 前进 | (距离 − 300) × 4, 限 600 ~ 6000 | 3000 + (距离 − 300) × 10, 最多 5000 |
+| 转向 | 角度 × 35 (绝对 PWM, 20° 就 700) | 前进 × min((\|角度\| − 5) × 0.3%, 9%); 每 20 ms 最多变 12 |
+| 死区 / 平滑 | 没有 | ±5° 不拐; 角度每 20 ms 跟上 1/3 |
+| 原地转 | \|角度\| > 35° 马上转, 转向 = 角度 × 35 | > 90° 保持 0.3 秒才转, 两轮 ±2200, 回到 40° 以内退出 (要有记忆) |
+| 斜坡 | 加 200 / 减 400 | 一样 |
+| 避障 | 9 个方向 (±19°) 里挑离主人最近、能走 ≥ 60 cm 的; 前进 ≤ (能走多远 − 35) × 50 | 没有 |
 
-**CubeMX**: I2C1 的 Mode 改成 **Disable**; PB4~PB9 都设成 **GPIO_Output**, User Label 依次填
-`LCD_BLK`(PB4) `LCD_DC`(PB5) `LCD_RES`(PB6) `LCD_CS`(PB7) `LCD_SCL`(PB8) `LCD_SDA`(PB9), 推挽、不上下拉, 初始电平 Low。
+**要你决定的**:
+1. **原地转的角度**: FPGA 是 35° (相机看得到的范围) 就原地转; 车上试过 75° 原地转都会"突然旋转", 90° + 0.3 秒才好。
+   建议: 35° ~ 90° 照样边走边按比例转 (转得慢, 那边会慢慢进到相机视野), > 90° 才原地转。
+2. **GO 时转向用哪个角度**: 现在用选中的避障方向 (9 档, 每档约 4.75°, 最多 ±19°), 主人在 30° 时也只按 19° 转, 而且一档一档跳。
+   建议: 选中的就是离主人最近的方向 (没挡路) 时用主人的平滑角度, 真绕障碍时才用方向角。
+3. **尾巴归谁**: 驱动器现在接在 STM32 (USART1 PA9, 测试用); FPGA 也有 `mc_tail` (`O_step_tx` = CEP 15 / E17, 喂食时摇)。
+   最后只能有一个接驱动器。
+4. `mc_behavior` 的 `I_near` / `I_bark` 现在接 0, 可以接 `u_m0` 的 `O_tgt_ok` / `O_tgt_cm` (5 m 以内摇尾巴, 丢了叫)。
 
-**为什么用软件 SPI, 不用 SPI1**: CubeMX 里 SPI1 没变红, 但它只有两组脚能用:
-
-| SPI1 | SCK | MOSI | 占用 |
-| --- | --- | --- | --- |
-| 默认 | PA5 | **PA7** | PA7 = 右轮 PWM (TIM3_CH2) |
-| 重映射 | **PB3** | PB5 | PB3 = 右编码器 B (TIM2_CH2) |
-
-它没变红是因为 CubeMX 觉得可以把电机 PWM (TIM3) 挪到 PB4/PB5 给它让路, 那样电机要重新接线, 还和屏的 BLK / DC 撞了。
-而且板子 LCD 排针的 SC / DI 是 PB8 / PB9, 这两个脚本来就没有 SPI 功能 (数据手册表 5), 板子设计时就是按软件 SPI 走的。
-软件 SPI 每秒刷 5 行字约 20 ms, 够用。
-
-- 没配这 6 个 Label 时屏的函数全是空操作, 工程照样编译。
-- 初始化命令和显存偏移参考 Adafruit-ST7735-Library 的 1.44 寸 (green tab)。开机先把整块显存清黑再开背光, 不闪白屏。
-- 显示: 第 1 行 UWB 方向 + 角度, 第 2 行距离, 第 3 / 4 行 FPGA 状态和轮子命令,
-  中间 5 行小字是 UWB 排查 (见"UWB 接线和排查"), 最下面一行跟随测试模式。
-- 不同厂家的屏偏一两个点: 改 `lcd.h` 的 `LCD_X_OFFSET` / `LCD_Y_OFFSET`; 字上下颠倒: `LCD_ROTATE_180` 改 1;
-  红蓝颠倒: 改 `LCD_BGR`; 底色是白的 (颜色反了): 改 `LCD_INVERT`。
-
-### 和 FPGA 的通讯协议
-
-UART 115200 8N1, ASCII, **位数不够前面补 0**。
-接线: FPGA CEP 脚 3 (FPGA 发) -> **PB11**; **PB10** -> CEP 脚 4 (FPGA 收); GND 接 CEP 脚 2。
-
-| 方向 | 帧 | 含义 | 什么时候发 |
-| --- | --- | --- | --- |
-| STM32 -> FPGA | `$` + `l`/`r` + 角度 2 位 + 距离 3 位 + `&` | 主人在左 (`l`) / 右 (`r`) 多少度、多远 (cm)。例 `$l12350&` = 左 12°、350 cm; `$r00150&` = 正前方、150 cm。角度超过 99° 发 99, 距离超过 999 cm 发 999 | 每次有新 UWB 数据 (最快 20 ms 一帧) |
-| STM32 -> FPGA | `$S&` | 收不到 UWB | 刚丢时立刻发, 之后每 100 ms 一帧 |
-| FPGA -> STM32 | `#` + 左轮 (符号 + 4 位) + 右轮 (符号 + 4 位) + `*` | 两个轮子的 PWM, 正 = 前进, 满量程 8000 (就是 `PWM_Control_Car(左, 右)` 的参数)。例 `#+3000-0500*` = 左 +3000、右 -500 | FPGA 每 20 ms 一帧 |
-| FPGA -> STM32 | `#S*` | 马上停车 | 停车期间每 20 ms 一帧 |
-
-- 超时: FPGA 那边 300 ms 收不到 `$…&` 就当 UWB 丢了; STM32 这边 200 ms 收不到完整的 `#…*` 就停车。
-- 解包规则 (`fpgamlk.c`): 收到 `#` 就重新开始一帧, 帧外的字节丢掉; `S` 大小写都行;
-  格式不对的整帧丢掉 (计数在 `g_fpga_error_count`); 超过 ±8000 的按 ±8000 算。
-- 解包结果 (`fpgamlk.c` 顶部, 调试时在 Live Expressions 里看):
-
-| 变量 | 含义 |
-| --- | --- |
-| `g_fpga_left_pwm` / `g_fpga_right_pwm` | 最近一帧的左 / 右轮命令 |
-| `g_fpga_stop` | 1 = 最近一帧是 `#S*` (上电还没收到帧时也是 1) |
-| `g_fpga_last_ms` / `g_fpga_frame_count` | 最近一帧的时刻 / 累计帧数 |
-| `g_fpga_error_count` / `g_fpga_uart_error_count` | 格式错的帧数 / 串口硬件错误次数 (每次都会自动重启接收) |
-| `g_fpga_uwb_lost` / `g_fpga_tx_angle_deg` / `g_fpga_tx_distance_cm` / `g_fpga_tx_count` | 最近发给 FPGA 的内容和累计发出的帧数 |
-
-### CubeMX 里不能改掉的设置
-
-- USART3_RX DMA Mode = **Circular**; USART3 global interrupt **打开** (DMA 发送靠它结束, 串口出错也靠它报告)。
-- USART1 / USART2 / UART4 / UART5 global interrupt 打开。它们的中断在 `stm32f1xx_it.c` 的 USER CODE 0 里直接调
-  `Stepper_IRQHandler()` / `UWB_IRQHandler()` 后 `return`, 不走 HAL。
-- TIM3 Period = 7999 (PWM 满量程 8000, 和 FPGA 发来的命令同一个刻度)。
-- I2C1 保持 Disable (PB6 / PB7 给屏用)。
-- 重新生成代码时 Project Manager 里要保持 "Keep User Code when re-generating"。
-
-### 工程设置 (CubeMX 重新生成后还在)
-
-- `.cproject` 的源码目录: `Core` `Drivers` (CubeMX 自带) + `ALGORITHM` `HARDWARE` `SYSTEM`。
-- include 路径: `../` `../SYSTEM` `../HARDWARE` `../HARDWARE/MOTOR` `../HARDWARE/UWB`。
-- CubeMX 重新生成时会把"整个工程根目录当源码"这种设置删掉, 只保留按文件夹加的源码目录,
-  所以 **新建 .c 文件要放进这几个文件夹里**, 别放工程根目录 (放了不会被编译)。
-- 新建文件夹要编译: Properties -> C/C++ General -> Paths and Symbols -> Source Location -> Add Folder。
-- 重新生成前先关掉编辑器里打开的 `main.c` 等 CubeMX 文件, 生成完在工程上按 F5 刷新;
-  不然编辑器里的旧内容一保存, 就会把 USER CODE 里的 `bsp_init()` / `Scheduler_Run()` 盖掉。
+**移植时注意**:
+- 定点: 别在 Verilog 里除 10000 和 3。转向比例换成 /4096 (0.3% ≈ 12/4096, 9% ≈ 369/4096, 乘完 `>>> 12`);
+  平滑 1/3 ≈ 乘 85 再 `>>> 8`, 或者直接用 1/4 (右移 2, 车上 4 也能用, 稍慢)。平滑角度存 ×16 (至少 12 位有符号)。
+- 原地转要两个寄存器: "正在原地转" (进 90° 出 40° 的迟滞) 和 "超过 90° 多少个 20 ms" (0.3 秒 = 15 个)。现在 `mc_follow` 每 20 ms 从头判断, 没有记忆。
+- 转向变化率 (每 20 ms ±12) 也要一个寄存器记上一次的转向; 原地转时清零。
+- `tb_follow.v` 里的独立模型要跟着改。
+- 文档 / 注释里的接线还是 MSPM0 (PA13 / PA14), 现在是 STM32: FPGA `O_m0_tx` (L15, CEP 脚 3) → STM32 PB11; STM32 PB10 → `I_m0_rx` (L16, CEP 脚 4); GND → CEP 脚 2。Verilog 不用改。
+- 对照: STM32 的跟随测试模式就是"不避障版本"的参考答案, 同一个地方先试 STM32 模式, 再试 FPGA 模式, 看屏幕上两轮命令差多少。

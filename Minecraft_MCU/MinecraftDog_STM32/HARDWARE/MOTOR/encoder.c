@@ -2,12 +2,17 @@
 
 #include "tim.h"
 
-/* 硬件计数: TIM8 = 左轮, TIM2 = 右轮 (CubeMX 里都是 Encoder Mode TI1 and TI2, 0~65535)。
+/* 硬件计数: 哪个定时器是左轮看 encoder.h 的 ENCODER_SWAP_LR (CubeMX 里都是 Encoder Mode TI1 and TI2, 0~65535)。
  * 不再用中断数边沿, temp_count 也就用不上了; encoder_update() 用"这次读数 - 上次读数"
  * 算本周期计数, 按 int16_t 相减自动处理 65535 <-> 0 的回绕
  * (前提: 两次 encoder_update 之间单轮不超过 32767 个计数)。 */
+#if ENCODER_SWAP_LR
+#define ENCODER_LEFT_TIM   (&htim2)     /* PA15 / PB3 */
+#define ENCODER_RIGHT_TIM  (&htim8)     /* PC6 / PC7 */
+#else
 #define ENCODER_LEFT_TIM   (&htim8)
 #define ENCODER_RIGHT_TIM  (&htim2)
+#endif
 
 static ENCODER_RES motorL_encoder;
 static ENCODER_RES motorR_encoder;

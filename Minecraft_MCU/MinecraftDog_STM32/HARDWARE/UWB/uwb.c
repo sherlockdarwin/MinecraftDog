@@ -37,6 +37,11 @@ typedef struct {
 
 static UWB_Channel g_uwb_channels[UWB_ANCHOR_COUNT];
 
+/* 信标在车的哪一边: -1 左, +1 右, 0 还不知道。只由前基站定, 全部基站都收不到时清零。 */
+static int8_t   g_uwb_side       = 0;
+static int8_t   g_uwb_side_votes = 0;    /* 前基站连续几帧在 ±60° 以内: 正 = 右, 负 = 左 */
+static uint32_t g_uwb_side_frame = 0U;   /* 已经数过的前基站帧号 (UWB_GetTarget 一帧会被调好几次) */
+
 /* 左 = USART2 (PA3 收), 前 = UART4 (PC11 收), 右 = UART5 (PD2 收) */
 static UART_HandleTypeDef *const g_uwb_uart[UWB_ANCHOR_COUNT] = {
     &huart2,
@@ -236,12 +241,44 @@ bool UWB_GetMeasurement(UWB_Anchor source, UWB_Measurement *measurement)
     return measurement->valid;
 }
 
+static const UWB_Measurement *UWB_FreshOrNull(UWB_Anchor source, uint32_t now_ms)
+{
+    const UWB_Measurement *measurement = &g_uwb_channels[source].latest;
+
+    if (!measurement->valid ||
+        ((uint32_t) (now_ms - measurement->update_time_ms) > UWB_DATA_TIMEOUT_MS)) {
+        return NULL;
+    }
+
+    return measurement;
+}
+
+/* 三个基站合成一个方向 (车体角: 左负右正, 0 = 正前方)。
+ *
+ * 每个基站只有两根天线 (相位差测角), 分不清信号从它前面还是背后来: 背后来的会镜像到前面
+ * (背后偏 30° 读成前面偏 30°), 规格书说的"约 180° 都能测到"里一半是镜像。于是:
+ *   左、右基站: 背靠背装, 只测得出信标"偏离车头多少度", 分不出在左还是在右。
+ *     信标在右前 60° 时, 左基站从背后收到, 镜像后换成车体角正好是"左前 60°", 和右基站的读数
+ *     离各自正前方一样近 —— 以前"选离自己正前方最近的基站"会时不时选中它, 屏幕就显示 left。
+ *   前基站: 分得出左右 (分不清前后)。
+ * 所以:
+ *   1. 左右 (正负号) 只听前基站: 连续 UWB_SIDE_CONFIRM_FRAMES 帧在 ±UWB_SIDE_TRUST_DEG 以内、
+ *      同一边才换边; 再往外前基站在测角边缘, 读数可能跳到另一边, 沿用上一次的左右
+ *      (信标要换边只能经过正前 / 正后, 那时前基站读数小, 一定会更新)。
+ *   2. 偏多少度: 前基站和"信标那一侧"的侧基站 (正对着信标; 它没数据才用另一侧的镜像读数),
+ *      谁的读数离自己正前方近就用谁 (天线正前方测角最准)。用前基站时角度就是它的读数。
+ * 一开始就收不到前基站时没法分左右, 按以前的办法猜 (离正前方近的那个侧基站在哪边就算哪边)。
+ * 正后方 135° 以外前基站读数最小、又分不清前后, 会被当成正前方 (两根天线的物理限制)。 */
 bool UWB_GetTarget(uint32_t now_ms, UWB_Target *target)
 {
-    uint32_t source;
-    uint16_t best_boresight_error = UINT16_MAX;
-    uint32_t best_age = UINT32_MAX;
-    const UWB_Measurement *best = NULL;
+    const UWB_Measurement *forward = UWB_FreshOrNull(UWB_ANCHOR_FORWARD, now_ms);
+    const UWB_Measurement *left    = UWB_FreshOrNull(UWB_ANCHOR_LEFT, now_ms);
+    const UWB_Measurement *right   = UWB_FreshOrNull(UWB_ANCHOR_RIGHT, now_ms);
+    const UWB_Measurement *side_anchor;
+    const UWB_Measurement *best;
+    uint16_t forward_error = 0U;
+    int8_t side;
+    int16_t azimuth;
 
     if (target == NULL) {
         return false;
@@ -249,31 +286,67 @@ bool UWB_GetTarget(uint32_t now_ms, UWB_Target *target)
 
     memset(target, 0, sizeof(*target));
 
-    for (source = 0U; source < (uint32_t) UWB_ANCHOR_COUNT; source++) {
-        const UWB_Measurement *candidate = &g_uwb_channels[source].latest;
-        uint32_t age;
-        uint16_t boresight_error;
+    if ((forward == NULL) && (left == NULL) && (right == NULL)) {
+        g_uwb_side       = 0;
+        g_uwb_side_votes = 0;
+        return false;
+    }
 
-        if (!candidate->valid) {
-            continue;
-        }
+    /* 1. 左右 */
+    if (forward != NULL) {
+        forward_error = UWB_AbsAngle(forward->azimuth_deg);
+    }
 
-        age = (uint32_t) (now_ms - candidate->update_time_ms);
-        if (age > UWB_DATA_TIMEOUT_MS) {
-            continue;
-        }
+    if ((forward != NULL) && (forward->frame_count != g_uwb_side_frame)) {
+        int8_t sign = (forward->azimuth_deg < 0) ? -1 : 1;
 
-        boresight_error = UWB_AbsAngle(candidate->azimuth_deg);
-        if ((best == NULL) || (boresight_error < best_boresight_error) ||
-            ((boresight_error == best_boresight_error) && (age < best_age))) {
-            best                 = candidate;
-            best_boresight_error = boresight_error;
-            best_age             = age;
+        g_uwb_side_frame = forward->frame_count;
+
+        if (forward_error > UWB_SIDE_TRUST_DEG) {
+            g_uwb_side_votes = 0;                   /* 测角边缘, 这帧不算, 连续也断了 */
+            if (g_uwb_side == 0) {
+                g_uwb_side = sign;                  /* 一开始信标就在侧面: 先按它猜 */
+            }
+        } else if (forward->azimuth_deg != 0) {
+            if ((g_uwb_side_votes * sign) <= 0) {
+                g_uwb_side_votes = 0;               /* 换了一边, 重新数 */
+            }
+            if ((g_uwb_side_votes * sign) < UWB_SIDE_CONFIRM_FRAMES) {
+                g_uwb_side_votes = (int8_t) (g_uwb_side_votes + sign);
+            }
+            if ((g_uwb_side == 0) ||
+                ((g_uwb_side_votes * sign) >= UWB_SIDE_CONFIRM_FRAMES)) {
+                g_uwb_side = sign;
+            }
         }
     }
 
-    if (best == NULL) {
-        return false;
+    side = g_uwb_side;
+    if (side == 0) {
+        side = ((right == NULL) ||
+                ((left != NULL) &&
+                 (UWB_AbsAngle(left->azimuth_deg) < UWB_AbsAngle(right->azimuth_deg)))) ? -1 : 1;
+    }
+
+    /* 2. 偏多少度 */
+    if (side < 0) {
+        side_anchor = (left != NULL) ? left : right;
+    } else {
+        side_anchor = (right != NULL) ? right : left;
+    }
+
+    if ((forward != NULL) &&
+        ((side_anchor == NULL) || (forward_error <= UWB_AbsAngle(side_anchor->azimuth_deg)))) {
+        best    = forward;
+        azimuth = forward->azimuth_deg;
+    } else {
+        /* 侧基站: 读数 + 安装角的绝对值 = 偏离车头多少度 (镜像读数也对), 正负号用第 1 步的 */
+        best    = side_anchor;
+        azimuth = (int16_t) UWB_AbsAngle(UWB_NormalizeAngle(
+            (int32_t) side_anchor->azimuth_deg + g_mount_offset_deg[side_anchor->source]));
+        if (side < 0) {
+            azimuth = (int16_t) -azimuth;
+        }
     }
 
     target->valid                = true;
@@ -282,8 +355,7 @@ bool UWB_GetTarget(uint32_t now_ms, UWB_Target *target)
     target->tag_id               = best->tag_id;
     target->distance_cm          = best->distance_cm;
     target->source_azimuth_deg   = best->azimuth_deg;
-    target->azimuth_deg          = UWB_NormalizeAngle(
-        (int32_t) best->azimuth_deg + g_mount_offset_deg[best->source]);
+    target->azimuth_deg          = azimuth;
     target->update_time_ms       = best->update_time_ms;
 
     return true;

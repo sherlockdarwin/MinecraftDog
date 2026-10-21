@@ -1,4 +1,4 @@
-../ALGORITHM/follow_mode.c:10:13:FollowMode_Enter	24	static
-../ALGORITHM/follow_mode.c:19:13:FollowMode_Exit	16	static
-../ALGORITHM/follow_mode.c:26:6:FollowMode_Process	16	static
-../ALGORITHM/follow_mode.c:54:6:FollowMode_IsActive	4	static
+../ALGORITHM/follow_mode.c:9:13:FollowMode_Enter	16	static
+../ALGORITHM/follow_mode.c:17:13:FollowMode_Exit	16	static
+../ALGORITHM/follow_mode.c:24:6:FollowMode_Process	16	static
+../ALGORITHM/follow_mode.c:45:6:FollowMode_IsActive	4	static

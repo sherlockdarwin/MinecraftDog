@@ -27,6 +27,12 @@
 #define UWB_RIGHT_MOUNT_OFFSET_DEG    (90)
 #endif
 
+/* 三基站合成 (UWB_GetTarget, 原理见 uwb.c): 左右只听前基站。前基站连续 UWB_SIDE_CONFIRM_FRAMES 帧
+ * 都在 ±UWB_SIDE_TRUST_DEG 以内、而且是同一边, 才换边; 再往外 (信标在侧面, 前基站在测角边缘,
+ * 偶尔会跳到另一边) 沿用上一次的左右。 */
+#define UWB_SIDE_TRUST_DEG            (60)
+#define UWB_SIDE_CONFIRM_FRAMES       (3)     /* 前基站每秒约 40 帧, 3 帧 = 75 ms */
+
 typedef enum {
     UWB_ANCHOR_LEFT = 0,
     UWB_ANCHOR_FORWARD,

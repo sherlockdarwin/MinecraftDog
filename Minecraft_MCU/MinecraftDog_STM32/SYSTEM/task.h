@@ -9,7 +9,7 @@
 #define TASK_FPGA_TX_PERIOD_MS   (20U)   /* UWB -> FPGA, 有新 UWB 数据才发 */
 #define TASK_KEY_SCAN_PERIOD_MS  (10U)
 #define TASK_FOLLOW_PERIOD_MS    (20U)   /* 【跟随测试模式】长按 KEY1 进入, 长按 KEY2 退出 */
-#define TASK_LED_PERIOD_MS       (100U)  /* PA8 板载 LED 指示 FPGA 链路 */
+#define TASK_LED_PERIOD_MS       (20U)   /* PA8 板载 LED 指示信标在左还是在右 */
 #define TASK_LCD_PERIOD_MS       (1000U) /* 屏幕刷新 (1.44 寸 LCD, 放在任务表最后) */
 #define TASK_TAIL_PERIOD_MS      (10U)   /* 步进电机 (尾巴): 上电回零 + 短按 KEY2 摇摆 */
 
@@ -17,6 +17,13 @@
  * 轮流来; 测试中再按 KEY1 立即停。测试期间不理 FPGA 的命令。 */
 #define TASK_MOTOR_TEST_PWM      (3000)
 #define TASK_MOTOR_TEST_MS       (3000U)
+
+/* 板载 LED (PA8): 信标在左边或正前方 (车体角 ≤ +TASK_LED_FRONT_DEG) 亮, 在右边灭,
+ * 收不到 UWB 快闪 (每 TASK_LED_LOST_TOGGLE_MS 变一次)。
+ * 亮灭反了 (右边亮、左边灭) 就把 TASK_LED_ON_LEVEL 改成 GPIO_PIN_SET。 */
+#define TASK_LED_FRONT_DEG       (5)     /* 和跟随的死区一样: ±5° 算正前方 */
+#define TASK_LED_LOST_TOGGLE_MS  (100U)
+#define TASK_LED_ON_LEVEL        GPIO_PIN_RESET   /* 板载 LED 一般是低电平亮 */
 
 typedef struct {
     uint32_t interval;
