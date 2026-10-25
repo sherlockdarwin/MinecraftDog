@@ -1,0 +1,23 @@
+Location         : E:\FPGA\MinecraftDog\Minecraft_MLKfpgacode\mcproject_code\MinecraftDog_FPGA_Runs\phy_1
+Running with     : Tang Dynasty v6.2.175876
+                   Copyright (c) 2012-2025 Anlogic Inc.
+Top Model        : mctop
+Device           : PH1P35MDG324
+Speed            : 3
+
+Timing Mode      : final
+Setup            : WNS   107ps  TNS        0ps  NUM_FEPS     0
+Hold             : WNS    20ps  TNS        0ps  NUM_FEPS     0
+
+Flow Statistics  :
+---------------------------------------------------------------------------------------------------
+     command     |  #calls  |  wall time   |  cpu time(s)  |  used memory(mb)  |  peak memory(mb)  
+---------------------------------------------------------------------------------------------------
+      place      |    1     |  3m3s(60%)   |   599(74%)    |       1458        |       1478        
+      route      |    1     |  1m49s(35%)  |   191(23%)    |       2309        |       2309        
+    fix_hold     |    1     |    9s(2%)    |     9(1%)     |       2309        |       2309        
+  import_device  |    1     |    2s(0%)    |     2(0%)     |        332        |        332        
+    import_db    |    1     |    1s(0%)    |     0(0%)     |        621        |        621        
+---------------------------------------------------------------------------------------------------
+      total      |    5     |     5m4s     |      801      |       2309        |       2309        
+---------------------------------------------------------------------------------------------------
