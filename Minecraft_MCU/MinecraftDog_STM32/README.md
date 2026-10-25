@@ -1,7 +1,8 @@
 ## MinecraftDog STM32F103RCT6
 
 机器狗的单片机端 (绿深 STM32F103RCT6 板, 8 MHz 晶振, 72 MHz)。跟随 + 避障决策在 FPGA, STM32 负责:
-UWB 定位 → 发给 FPGA; 收 FPGA 的两轮 PWM → 驱动电机; 屏幕。步进电机 (尾巴) 程序只用来单独测驱动器, 车上尾巴归 FPGA。
+UWB 定位 → 发给 FPGA; 收 FPGA 的两轮 PWM → 驱动电机; 屏幕; 步进电机 (尾巴): 主人 (信标) 在 3 m 以内就摇。
+**2026-10-25 起尾巴只归 STM32** (FPGA 不再接驱动器): 驱动器 R/A/H 接 PA9, FPGA 的 CEP 脚 15 不要再接驱动器。
 另有一个**跟随测试模式** (长按 KEY1): 不经过 FPGA, 用 STM32 自己的 `follow.c` 跟着 UWB 走, 用来调跟随算法。
 FPGA 端 (2026-10-21) 已把这里调好的跟随移植进 `mc_follow`, 加了避障, 见最后一节 [FPGA 端](#fpga-端-2026-10-21-已改完)。
 
@@ -14,7 +15,7 @@ FPGA 端 (2026-10-21) 已把这里调好的跟随移植进 `mc_follow`, 加了�
 | `HARDWARE/UWB/` | 三个 UWB 基站, 接收中断 + 解帧 |
 | `HARDWARE/MLK/` | FPGA 串口, DMA 收发 + 解包 |
 | `HARDWARE/MOTOR/` | 电机 PWM + 方向, 编码器 |
-| `HARDWARE/STEPPER/` | `stepper.c` ZDT X42S 串口命令, `tail.c` 上电回零 + 摇摆 |
+| `HARDWARE/STEPPER/` | `stepper.c` ZDT X42S 串口命令, `tail.c` 上电回零 + 摇摆 (什么时候摇在 `task.c` 的 `Task_Tail`) |
 | `HARDWARE/LCD/` | 1.44 寸 ST7735S 彩屏, 软件 SPI |
 | `HARDWARE/KEY/` | 两个按键, 消抖 / 短按 / 长按 |
 | `ALGORITHM/` | `follow.c` UWB 跟随算法, `follow_mode.c` 跟随测试模式 |
@@ -52,7 +53,7 @@ UWB 基站供电: 带转接板 (TX RX 5V GND) 接 5 V, 裸模块接 3.3 V; 数�
 | `Task_FPGA_Tx` | 20 ms | 有新 UWB 数据发 `$l12350&`, 收不到发 `$S&` (100 ms 重发) |
 | `Task_Key_Scan` | 10 ms | 按键消抖, 长按 = 1 秒 |
 | `Task_Follow_Mode` | 20 ms | 跟随测试模式 |
-| `Task_Tail` | 10 ms | 步进电机上电回零; KEY2 摇摆 |
+| `Task_Tail` | 10 ms | 步进电机上电回零; 主人 3 m 以内一直摇; KEY2 摇摆 |
 | `Task_LED` | 20 ms | 信标在左边或正前方 (≤ +5°) 亮, 右边灭, 收不到 UWB 快闪; 亮灭反了改 `task.h` 的 `TASK_LED_ON_LEVEL` |
 | `Task_UWB_Display` | 1000 ms | 刷屏 (放最后, 阻塞约 20 ms) |
 
@@ -136,15 +137,21 @@ UWB 基站供电: 带转接板 (TX RX 5V GND) 接 5 V, 裸模块接 3.3 V; 数�
 - 驱动器用出厂设置: 串口 115200、地址 1、校验 `0x6B`、细分 16 (3200 脉冲/圈)。命令字节对照过手册第 5 章和官方 `Emm_V5.c`。
 - 上电 / 复位 1 秒后回零: 解除保护 → 使能 → 单圈就近回零 → 等 2 秒 → 设坐标零点。
   **回零零点要先在驱动器上存一次**: 断电、手拧到初始位置、上电、菜单 `O_Set` → `Set O` (或调 `Stepper_SetOrigin(1, 1)`)。
-- 短按 KEY2: 中 → 左 45° → 中 → 右 45° → 中, 10 RPM; 两头停 50 ms, 中间停 500 ms。
+- **主人走近就摇** (`task.c` 的 `Task_Tail`, 参数在 `task.h`): UWB 距离 < 3 m (`TASK_TAIL_NEAR_CM`) 并保持 0.3 秒
+  (`TASK_TAIL_NEAR_CONFIRM_MS`, 偶尔跳一帧近的不算) 就一个来回接一个来回地摇; 走远到 ≥ 3.2 m (`TASK_TAIL_FAR_CM`)
+  或收不到 UWB, 摇完当前这个来回 (停在正中) 就停。3 m ~ 3.2 m 之间保持原状 (回差)。正常模式和跟随测试模式都一样。
+  距离用的是和发给 FPGA 同一个 `UWB_GetTarget()`; 跟随在 ≤ 3 m 停车, 所以一般是车停在主人身边时摇。
+- 一个来回 (也是短按 KEY2): 中 → 左 45° → 中 → 右 45° → 中, 10 RPM; 两头停 50 ms, 中间停 500 ms, 一个来回约 4 秒。
+  回零没做完 / 正在摇的时候再触发不理。嫌摇得慢就加大 `TAIL_RPM`、减小 `TAIL_CENTER_PAUSE_MS` (`tail.h`)。
 - 参数: 摆幅 `TAIL_SWING_DEG`、转速 `TAIL_RPM`、停顿 `TAIL_SIDE_PAUSE_MS` / `TAIL_CENTER_PAUSE_MS`、摆反了改 `TAIL_LEFT_IS_CCW`。
+- 屏幕第 2 行下面一行小字: `tail BOOT/HOME/IDLE/WAG` + `near` (主人在 3 m 以内, 绿字) / `far`。
 - 排查 (Live Expressions): `g_tail_state` (0 等上电 / 1 回零 / 2 空闲 / 3 摇摆)、`g_stepper_tx_count`、`g_stepper_reply`
   (`xx 02 6B` 收到, `9F` 做完, `E2` 条件不满足, `EE` 格式错; 要接 PA10 才有)。
 
 ### 屏幕 (1.44 寸 128x128 TFT, ST7735S, 软件 SPI)
 
 - 是 SPI 彩色 LCD, 不是 OLED (BLK = 背光)。硬件 SPI 的脚被电机 / 编码器占了, 板子 LCD 排针的 PB8/PB9 本来也没有 SPI 功能。
-- 显示: 第 1~2 行 UWB 方向 / 角度 / 距离, 第 3~4 行 FPGA 状态和轮子命令, 中间小字 UWB 排查, 最下面跟随测试模式。
+- 显示: 第 1~2 行 UWB 方向 / 角度 / 距离, 下面一行小字尾巴状态, 第 3~4 行 FPGA 状态和轮子命令, 中间小字 UWB 排查, 最下面跟随测试模式。
 - 偏了 / 倒了 / 颜色反了: 改 `lcd.h` 的 `LCD_X_OFFSET` / `LCD_Y_OFFSET` / `LCD_ROTATE_180` / `LCD_BGR` / `LCD_INVERT`。
 
 ### CubeMX / 工程注意
@@ -172,7 +179,7 @@ UWB 基站供电: 带转接板 (TX RX 5V GND) 接 5 V, 裸模块接 3.3 V; 数�
 - 原来要决定的几件事:
   1. 原地转: 照 STM32, |角度| > 90° 保持 0.3 秒才原地转, < 40° 退出; 35° ~ 90° 边走边转。
   2. 转向用的角度: 不挡路时用主人的平滑角度 (= `follow.c`), 挡路绕行时才用选中的方向。
-  3. 尾巴归 FPGA: 驱动器 R/A/H 接 CEP 脚 15, **STM32 的 PA9 拔掉**。FPGA 发的命令和 `stepper.c` 逐字节一样,
-     动作参数照 `tail.h` (45°、10 RPM、两头停 50 ms、中间停 500 ms)。
+  3. ~~尾巴归 FPGA~~ **2026-10-25 改回 STM32**: 驱动器 R/A/H 接回 PA9, CEP 脚 15 拔掉; FPGA 的 `mc_tail` 不再用
+     (FPGA 那边喂食时摇尾巴也就没有了)。
   4. `mc_behavior` 的 `I_near` / `I_bark` 还是接 0 (没要求)。
 - STM32 这边不用改: 协议、超时、电机左右对调 / 正反转都不变。

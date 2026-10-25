@@ -139,15 +139,55 @@ void Task_LED(void)
 #endif
 }
 
-/* 步进电机 (尾巴): 上电 / 复位 1 秒后自动回零; 短按 KEY2 摇一个来回
- * (中 -> 左 45° -> 中 -> 右 45° -> 中), 见 HARDWARE/STEPPER/tail.h。 */
-void Task_Tail(void)
+static bool s_tail_owner_near = false;   /* 主人在 3 m 以内 (屏幕上显示) */
+
+/* 主人在不在身边 (参数和回差见 task.h 的 TASK_TAIL_*):
+ *   距离 < 3 m 一直保持 0.3 秒 -> 在; 距离 ≥ 3.2 m 或收不到 UWB -> 马上不在; 中间保持原状。
+ * 用的是和发给 FPGA 同一个 UWB_GetTarget() 的距离。 */
+static bool Task_Tail_OwnerNear(uint32_t now)
 {
-    if (Key2_Short_Press()) {
-        (void) Tail_Wag();      /* 回零没做完或者正在摇, 这次按键不理 */
+    static bool     near         = false;
+    static bool     near_pending = false;   /* 已经 < 3 m, 在等 0.3 秒确认 */
+    static uint32_t near_since   = 0U;
+    UWB_Target target;
+
+    if (!UWB_GetTarget(now, &target) || (target.distance_cm >= TASK_TAIL_FAR_CM)) {
+        near         = false;
+        near_pending = false;
+        return false;
     }
 
-    Tail_Process(Get_Time());
+    if (target.distance_cm >= TASK_TAIL_NEAR_CM) {
+        near_pending = false;               /* 3 m ~ 3.2 m: 保持原状, 确认要重新数 */
+        return near;
+    }
+
+    if (!near) {
+        if (!near_pending) {
+            near_pending = true;
+            near_since   = now;
+        } else if ((uint32_t) (now - near_since) >= TASK_TAIL_NEAR_CONFIRM_MS) {
+            near = true;
+        }
+    }
+
+    return near;
+}
+
+/* 步进电机 (尾巴, 只归 STM32 管, FPGA 不再接驱动器): 上电 / 复位 1 秒后自动回零;
+ * 主人在 3 m 以内就一个来回接一个来回地摇 (中 -> 左 45° -> 中 -> 右 45° -> 中), 走远了摇完当前来回停在正中;
+ * 短按 KEY2 也摇一个来回。见 HARDWARE/STEPPER/tail.h。 */
+void Task_Tail(void)
+{
+    uint32_t now = Get_Time();
+
+    s_tail_owner_near = Task_Tail_OwnerNear(now);
+
+    if (Key2_Short_Press() || s_tail_owner_near) {
+        (void) Tail_Wag();      /* 回零没做完或者正在摇, 这次不理 (主人还在身边的话下一拍再试) */
+    }
+
+    Tail_Process(now);
 }
 
 /* "+3000" 写进 text[0..4] */
@@ -165,7 +205,8 @@ static void Task_FormatWheel(char *text, int16_t value)
 /* 屏幕 (1.44 寸 128x128 LCD, 8x16 字, 一行 16 个字):
  *     y =   0  UWB 方向 + 角度      "left   45 deg"   / "UWB no signal"
  *     y =  16  距离                 "dist   3.50 m"   / "waiting..."
- *     y =  40  FPGA 状态            "FPGA RUN" / "FPGA STOP" / "FPGA no link"
+ *     y =  32  尾巴 (小字 6x8)      "tail WAG   near" / "tail IDLE  far", 见 Task_Tail_Display
+ *     y =  40  FPGA 状态           "FPGA RUN" / "FPGA STOP" / "FPGA no link"
  *     y =  56  FPGA 的轮子命令      "L+3000 R-0500"   (RUN 时才有)
  *     y =  72 ~ 111  UWB 排查 (小字 6x8, 见 Task_UWB_StatsDisplay)
  *     y = 112  跟随测试模式         由 follow_mode.c 写
@@ -292,7 +333,25 @@ static void Task_UWB_StatsDisplay(void)
     Task_ShowSmallLine(104U, xor_line, LCD_YELLOW);
 }
 
-/* 1 秒刷新一次屏幕: UWB 方向 / 角度 / 距离 + FPGA 命令 + UWB 收数统计。没接屏幕时什么也不做。 */
+/* 尾巴 (小字): 状态 BOOT 等驱动器上电 / HOME 回零 / IDLE 空闲 / WAG 摇摆, 后面 near = 主人在 3 m 以内。
+ * 主人走近了却一直不是 near = 看距离那一行; near 了却一直不是 WAG = 回零没做完, 或者驱动器没接 PA9。 */
+static void Task_Tail_Display(void)
+{
+    static const char state_name[][5] = {"BOOT", "HOME", "IDLE", "WAG "};
+    char line[] = "tail ????  far ";
+    Tail_State state = g_tail_state;
+
+    if ((uint32_t) state < (sizeof(state_name) / sizeof(state_name[0]))) {
+        memcpy(&line[5], state_name[state], 4U);
+    }
+    if (s_tail_owner_near) {
+        memcpy(&line[11], "near", 4U);
+    }
+
+    Task_ShowSmallLine(32U, line, s_tail_owner_near ? LCD_GREEN : LCD_WHITE);
+}
+
+/* 1 秒刷新一次屏幕: UWB 方向 / 角度 / 距离 + 尾巴 + FPGA 命令 + UWB 收数统计。没接屏幕时什么也不做。 */
 void Task_UWB_Display(void)
 {
     char dir_line[]  = "front   0 deg";
@@ -300,6 +359,7 @@ void Task_UWB_Display(void)
     UWB_Target target;
     uint16_t angle;
 
+    Task_Tail_Display();
     Task_FPGA_Display();
     Task_UWB_StatsDisplay();
 
