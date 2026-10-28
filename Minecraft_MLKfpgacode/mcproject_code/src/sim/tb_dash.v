@@ -104,7 +104,7 @@ task build_exp;                              // 按当前输入拼出整屏期�
         for (i = 0; i < CELLS; i = i + 1) exp_mem[i] = 8'h20;
         put(0, 0,  "GAIN ", 5);  put(0, 5, dec3(cam_gain), 3);
         put(0, 10, "HALL ", 5);  exp_mem[15] = hall ? "1" : "0";
-        put(0, 18, "TAIL ", 5);  put(0, 23, tail_name(tail_seq), 4);
+//      put(0, 18, "TAIL ", 5);  put(0, 23, tail_name(tail_seq), 4);   // 尾巴那一格注释掉了：tail_seq 怎么变，屏幕都不该变
         put(0, 28, "KEY ", 4);   put(0, 32, {(kp[0] ? "1" : "0"), (kp[1] ? "1" : "0"), (kp[2] ? "1" : "0")}, 3);
         put(0, 36, "UP ", 3);    put(0, 39, e_sec, 5);   put(0, 44, "s", 1);
         put(1, 0,  "SD ", 3);    put(1, 3, sd_name(aud_sd), 6);

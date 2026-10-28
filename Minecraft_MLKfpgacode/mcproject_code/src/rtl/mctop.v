@@ -12,7 +12,7 @@
 // 人机交互 / 执行器（M3）：
 //   SW1~SW3 ─► mc_key(短按/长按) ─► mc_bench(SW2/SW3 短按 → 相机亮度键)
 //   TF 卡 ─ WAV ─► mc_audio ─► ES8388 ─► 喇叭（背景音乐上电自动循环 + 进食音效，同时播）
-//   霍尔传感器 ─► mc_hall ─► mc_behavior（喂食：摇尾巴 + 进食音效；以后 UWB 的"距离 < 5 m 摇尾巴"、"丢了就叫"也接这里）─► mc_tail ─UART(只发)─► 步进驱动器（尾巴）/ mc_audio
+//   霍尔传感器 ─► mc_hall ─► mc_behavior（喂食：进食音效；以后 UWB 的"丢了就叫"也接这里）─► mc_audio（尾巴 mc_tail 2026-10-25 不用了，注释掉）
 //   各模块的状态 ─► mc_osd_dash ─文字写入总线─► mc_disp_if 里的文字层 ─► 画面中间状态带的 5 行文字
 //   STM32（UWB：主人在哪）─UART─► mc_m0_link ─► mc_follow（+ 避障结果）─► 两个轮子的 PWM ─UART─► STM32（电机）
 //   （轮子的控制放在另一块单片机上，这里没有电机驱动 / 编码器）
@@ -41,8 +41,8 @@ module mctop (
     output wire         O_dsi_pwm,          // R11 背光
     output wire         O_dsi_rst_n,        // T10 面板复位
 
-    // ---- 尾巴：步进电机（ZDT X42S，UART 115200 8N1，只发不收；括号里是 CEP 排针的物理脚号 / FPGA 管脚）----
-    output wire         O_step_tx,          // CEP 15 / E17   → 驱动器 R/A/H 脚（驱动器 GND 接 CEP 脚 2）
+    // ---- 尾巴：步进电机（ZDT X42S，UART 115200 8N1，只发不收）——2026-10-25 不用了，注释掉（恢复见第 4 节）----
+//  output wire         O_step_tx,          // CEP 15 / E17   → 驱动器 R/A/H 脚（驱动器 GND 接 CEP 脚 2）
 
     // ---- 喂食检测：霍尔传感器模块（CEP 排针，3.3V 供电；磁铁靠近输出低电平、离开输出高电平）----
     input  wire         I_hall_n,           // CEP 17 / B17   传感器输出（低 = 磁铁靠近；脚上开了上拉，没接模块 = 没喂食）
@@ -148,20 +148,19 @@ localparam       AVOID_W_PREV       = 1;
 // ---- 按键 ----
 localparam       KEY_LONG_MS     = 800;        // 长按判定时间
 localparam       RST_HOLD_MS     = 2000;       // SW1 按住多久整机复位；0 = 取消这个功能
-// ---- 尾巴（步进电机，见 mc_tail.v）----
-localparam       TAIL_SWING_DEG  = 45;         // 摆幅（度）（和 STM32 tail.h 一样：45°、10 RPM、两头停 50 ms、中间停 500 ms）
-localparam       TAIL_GEAR_X100  = 100;        // 减速比×100：尾巴直接装在电机轴上 = 100；电机转 3 圈尾巴转 1 圈 = 300
-localparam       TAIL_LEFT_CCW   = 1;          // 向左摆 = 电机逆时针；摆反了就改成 0
-localparam       TAIL_RPM        = 10;         // 摇摆转速（走完一段的时间按摆幅和转速自动算：45°、10 RPM = 750 ms）
-localparam       TAIL_SIDE_MS    = 50;         // 摆到左 / 右两头后停多久
-localparam       TAIL_CENTER_MS  = 500;        // 回到中间停多久
-localparam       TAIL_INIT_MS    = 1000;       // 上电（或整机复位）后等多久开始回零（等驱动器上电）
-localparam       TAIL_HOME_MS    = 2000;       // 发出"单圈就近回零"后等多久再把那里设为坐标零点（要大于回零走完的时间）
+// // ---- 尾巴（步进电机，见 mc_tail.v）----
+// localparam       TAIL_SWING_DEG  = 45;         // 摆幅（度）（和 STM32 tail.h 一样：45°、10 RPM、两头停 50 ms、中间停 500 ms）
+// localparam       TAIL_GEAR_X100  = 100;        // 减速比×100：尾巴直接装在电机轴上 = 100；电机转 3 圈尾巴转 1 圈 = 300
+// localparam       TAIL_LEFT_CCW   = 1;          // 向左摆 = 电机逆时针；摆反了就改成 0
+// localparam       TAIL_RPM        = 10;         // 摇摆转速（走完一段的时间按摆幅和转速自动算：45°、10 RPM = 750 ms）
+// localparam       TAIL_SIDE_MS    = 50;         // 摆到左 / 右两头后停多久
+// localparam       TAIL_CENTER_MS  = 500;        // 回到中间停多久
+// localparam       TAIL_INIT_MS    = 1000;       // 上电（或整机复位）后等多久开始回零（等驱动器上电）
+// localparam       TAIL_HOME_MS    = 2000;       // 发出"单圈就近回零"后等多久再把那里设为坐标零点（要大于回零走完的时间）
 // ---- 喂食检测（霍尔传感器，见 mc_hall.v / mc_behavior.v）----
 localparam       HALL_DEBOUNCE_MS = 20;        // 去抖时间
 // ---- 音频（见 mc_audio.v）----
-localparam [5:0] AUD_HP_VOL      = 6'd18;      // 耳机口音量：寄存器值 0~33，不是 dB；增益 = (值 − 30) × 1.5 dB（33 = +4.5 dB 最大，30 = 0 dB，18 = −18 dB）
-localparam [5:0] AUD_SPK_VOL     = 6'd18;      // 喇叭口音量（同上）。33 太响：喇叭尖叫、功放把电源拉低、屏幕变灰（10-23），从 18 开始往上试
+localparam [5:0] AUD_SPK_VOL     = 6'd18;      // 喇叭音量：寄存器值 0~33，不是 dB；增益 = (值 − 30) × 1.5 dB（33 = +4.5 dB 最大，30 = 0 dB，18 = −18 dB）。33 太响：喇叭尖叫、功放把电源拉低、屏幕变灰（10-23）。耳机口不用（ES8388 的耳机输出关了）
 localparam [6:0] AUD_BGM_CLIP    = 7'd1;       // 背景音乐 = TF 卡根目录的 1.wav（上电自动循环播放）
 localparam [6:0] AUD_EAT_CLIP    = 7'd2;       // 进食音效 = 2.wav
 localparam [6:0] AUD_BARK_CLIP   = 7'd3;       // 狗叫音效 = 3.wav
@@ -254,7 +253,7 @@ mc_key #(
 wire [1:0]  S_cam_key_n;                       // 相机亮度键（低有效脉冲，SW2/SW3 短按）
 wire        S_sfx_busy;
 wire        S_hall_fed;                                 // 霍尔：1 = 正在喂食（磁铁靠近）
-wire        S_beh_wag;                                  // 行为层：喂食时让尾巴摇一个来回
+// wire        S_beh_wag;                               // 行为层：喂食时让尾巴摇一个来回（尾巴注释掉了）
 wire        S_beh_sfx_play;                             // 行为层：触发音效
 wire [6:0]  S_beh_sfx_clip;
 wire        S_audio_ready;
@@ -270,30 +269,32 @@ mc_bench u_bench (
 
 // =============================================================================
 // 4. 尾巴：上电回零 / 摇摆（步进电机，UART 只发）
+//    2026-10-25 不用了，整段注释掉（mc_tail.v / mc_stepper_emm.v 文件还在）。恢复：去掉这一段和配置区 TAIL_* 的注释、
+//    端口 O_step_tx 的注释、mc_pin.adc 里 O_step_tx 那一行的注释，再把行为层的 I_tail_busy / O_tail_wag、文字面板的 I_tail_seq 接回来。
 // =============================================================================
-wire        S_tail_busy;
-wire [1:0]  S_tail_seq;                                 // 0 空闲 1 回零 2 摇摆（屏幕文字显示）
-
-mc_tail #(
-    .CLK_HZ       (100_000_000),
-    .BAUD         (115200),
-    .SWING_DEG    (TAIL_SWING_DEG),
-    .GEAR_X100    (TAIL_GEAR_X100),
-    .LEFT_IS_CCW  (TAIL_LEFT_CCW),
-    .RPM          (TAIL_RPM),
-    .SIDE_PAUSE_MS(TAIL_SIDE_MS),
-    .CENTER_PAUSE_MS(TAIL_CENTER_MS),
-    .HOME_MS      (TAIL_HOME_MS),
-    .INIT_DELAY_MS(TAIL_INIT_MS)
-) u_tail (
-    .I_clk       (S_clk_100m),
-    .I_rst_n     (S_rst_n_100m),
-    .I_tick_1ms  (S_tick_1ms),
-    .I_cmd_wag   (S_beh_wag),                       // 喂食时行为层给的
-    .O_busy      (S_tail_busy),
-    .O_seq       (S_tail_seq),
-    .O_tx        (O_step_tx)
-);
+// wire        S_tail_busy;
+// wire [1:0]  S_tail_seq;                                 // 0 空闲 1 回零 2 摇摆（屏幕文字显示）
+// 
+// mc_tail #(
+//     .CLK_HZ       (100_000_000),
+//     .BAUD         (115200),
+//     .SWING_DEG    (TAIL_SWING_DEG),
+//     .GEAR_X100    (TAIL_GEAR_X100),
+//     .LEFT_IS_CCW  (TAIL_LEFT_CCW),
+//     .RPM          (TAIL_RPM),
+//     .SIDE_PAUSE_MS(TAIL_SIDE_MS),
+//     .CENTER_PAUSE_MS(TAIL_CENTER_MS),
+//     .HOME_MS      (TAIL_HOME_MS),
+//     .INIT_DELAY_MS(TAIL_INIT_MS)
+// ) u_tail (
+//     .I_clk       (S_clk_100m),
+//     .I_rst_n     (S_rst_n_100m),
+//     .I_tick_1ms  (S_tick_1ms),
+//     .I_cmd_wag   (S_beh_wag),                       // 喂食时行为层给的
+//     .O_busy      (S_tail_busy),
+//     .O_seq       (S_tail_seq),
+//     .O_tx        (O_step_tx)
+// );
 
 // =============================================================================
 // 5. 图像通路：相机 → 帧缓存 → 屏幕
@@ -528,7 +529,6 @@ wire [1:0]  S_bgm_state;
 
 mc_audio #(
     .CLK_HZ    (100_000_000),
-    .HP_VOL    (AUD_HP_VOL),
     .SPK_VOL   (AUD_SPK_VOL),
     .BGM_CLIP  (AUD_BGM_CLIP)
 ) u_audio (
@@ -590,8 +590,8 @@ mc_behavior #(
     .I_audio_ready (S_audio_ready),
     .I_sfx_busy    (S_sfx_busy),
     .I_sfx_state   (S_sfx_state),
-    .I_tail_busy   (S_tail_busy),
-    .O_tail_wag    (S_beh_wag),
+    .I_tail_busy   (1'b0),                          // 尾巴注释掉了：当成一直空闲
+    .O_tail_wag    (),                              // 尾巴注释掉了：摇尾巴命令不接
     .O_sfx_play    (S_beh_sfx_play),
     .O_sfx_clip    (S_beh_sfx_clip)
 );
@@ -621,7 +621,7 @@ mc_osd_dash #(
     .I_obs_free    (S_obs_go_free),
     .I_obs_stop    (S_obs_stop),
     .I_hall        (S_hall_fed),
-    .I_tail_seq    (S_tail_seq),
+    .I_tail_seq    (2'd0),                          // 尾巴注释掉了（版面里那一格也注释掉了）
     .I_uwb_ok      (S_uwb_ok),
     .I_uwb_link    (S_uwb_link),
     .I_uwb_deg     (S_uwb_deg),

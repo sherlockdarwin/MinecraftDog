@@ -60,8 +60,8 @@ my @ITEMS = (
     { row => 0, col => 5,  num => 'gain', dig => 3 },
     { row => 0, col => 10, str => "HALL " },
     { row => 0, col => 15, num => 'hall', dig => 1 },
-    { row => 0, col => 18, str => "TAIL " },
-    { row => 0, col => 23, sel => 'tail' },
+#   { row => 0, col => 18, str => "TAIL " },          # 尾巴（步进电机）2026-10-25 不用了，这一格注释掉
+#   { row => 0, col => 23, sel => 'tail' },
     { row => 0, col => 28, str => "KEY " },
     { row => 0, col => 32, sel => 'keys' },
     { row => 0, col => 36, str => "UP " },
@@ -185,7 +185,7 @@ print <<"EOT";
 //         复位后约 1 ms 画第一遍，之后每 100 ms 刷新一遍。只有一页。
 //
 //   版面（45 列 × 5 行）：
-//     GAIN 050  HALL 0  TAIL IDLE KEY 000 UP 00123s     ← 相机增益 / 霍尔（1 = 磁铁靠近）/ 尾巴动作 / 三个键（SW1 SW2 SW3）/ 开机秒数
+//     GAIN 050  HALL 0            KEY 000 UP 00123s     ← 相机增益 / 霍尔（1 = 磁铁靠近）/（尾巴那一格 2026-10-25 注释掉了）/ 三个键（SW1 SW2 SW3）/ 开机秒数
 //     SD READY  CODEC OK    BGM PLAY  SFX IDLE EV+0     ← TF 卡（NO FAT 不是 FAT32 / BADFAT 参数不对 / RD ERR 读卡错）/ ES8388 / 背景音乐 / 音效 / 亮度档
 //     K1 SHORT  SW2/3 EV+/- SW1 2s reset EXP 2275       ← 最近一次按键事件 / 按键提示 / 曝光行数
 //     NEAR 045cm -12deg  GO   +06deg 150cm          ← 最近的障碍（255 = 1.5 m 内没有）/ 建议方向（STOP = 走不了）/ 那边能走多远
@@ -213,7 +213,7 @@ module mc_osd_dash #(
     input  wire [7:0]   I_obs_free,             //       那边能走多远（厘米）
     input  wire         I_obs_stop,             //       哪边都走不了
     input  wire         I_hall,                 // 霍尔传感器：1 = 磁铁靠近（正在喂食）
-    input  wire [1:0]   I_tail_seq,             // 尾巴动作：0 空闲 1 回零 2 摇摆
+    input  wire [1:0]   I_tail_seq,             // 尾巴动作：0 空闲 1 回零 2 摇摆（版面里那一格注释掉了，顶层接 0）
     input  wire         I_uwb_ok,               // 跟随：收到主人位置（mc_m0_link，100 MHz 域）
     input  wire         I_uwb_link,             //       300 ms 内收到过字节（和 STM32 的线是通的）
     input  wire [7:0]   I_uwb_deg,              //       主人的角度（度，有符号，左负右正）

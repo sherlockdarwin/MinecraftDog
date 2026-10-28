@@ -1,10 +1,10 @@
 `timescale 1ns / 1ps
 // =============================================================================
-// mc_audio.v  音频子系统：TF 卡里的 WAV → 板载 ES8388 → 耳机口 / 喇叭口（TT8642 功放）
+// mc_audio.v  音频子系统：TF 卡里的 WAV → 板载 ES8388 → 喇叭口（TT8642 功放；耳机口不用，ES8388 的耳机输出关掉了）
 //             两路同时播：背景音乐（循环，上电自动开始）+ 音效（触发一次播一遍）
 //
 //                                 ┌ 读文件 #0 ─ mc_wav_player #0 ─┐（背景音乐：BGM_CLIP.wav，循环）
-//   TF 卡 ─ mc_sd_spi ─ mc_sd_arb ─ mc_fat32                          ├─ mc_audio_mix ─ mc_i2s_tx ─► ES8388 ─► 耳机 / 喇叭
+//   TF 卡 ─ mc_sd_spi ─ mc_sd_arb ─ mc_fat32                          ├─ mc_audio_mix ─ mc_i2s_tx ─► ES8388 ─► 喇叭
 //   (SPI)   读扇区      轮流给      │（挂载 + 目录表一份）            │                               ▲ I2C 配置：mc_es8388_cfg
 //                                 └ 读文件 #1 ─ mc_wav_player #1 ─┘（音效：I_sfx_clip.wav，单次）
 //
@@ -27,8 +27,7 @@
 // =============================================================================
 module mc_audio #(
     parameter CLK_HZ      = 100_000_000,
-    parameter [5:0] HP_VOL  = 6'd21,                // 耳机音量 0 ~ 33（30 = 0 dB，33 = 最大 +4.5 dB；本项目在 mctop.v 配置成 33）
-    parameter [5:0] SPK_VOL = 6'd30,                // 喇叭音量 0 ~ 33（30 = 0 dB，33 = 最大 +4.5 dB；本项目在 mctop.v 配置成 33）
+    parameter [5:0] SPK_VOL = 6'd30,                // 喇叭音量 0 ~ 33（30 = 0 dB，33 = 最大 +4.5 dB；本项目在 mctop.v 的 AUD_SPK_VOL 配置）
     parameter [6:0] BGM_CLIP = 7'd1                 // 背景音乐是 TF 卡根目录的第几个 N.wav
 )(
     input  wire        I_clk,                       // 100 MHz
@@ -78,7 +77,6 @@ wire       S_cfg_done, S_cfg_err;
 
 mc_es8388_cfg #(
     .CLK_HZ  (CLK_HZ),
-    .HP_VOL  (HP_VOL),
     .SPK_VOL (SPK_VOL)
 ) u_cfg (
     .I_clk      (I_clk),
