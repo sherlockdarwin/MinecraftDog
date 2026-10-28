@@ -21,7 +21,8 @@ set_pin_assignment	{ O_dsi_rst_n }	{ LOCATION = T10; IOSTANDARD = LVCMOS33; DRIV
 
 # ---- CEP 排针（2×20，间距 2.54，3.3V；脚 1 = 3V3，脚 2 = GND，脚 3~38 = 信号 CEP_L1_P ... CEP_L18_N）----
 # 尾巴：步进驱动器 UART，只发不收（CEP 脚 15 = CEP_L7_P → 驱动器 R/A/H 脚；空闲为高，所以上拉）。脚 16（E16）不用了
-set_pin_assignment	{ O_step_tx }	{ LOCATION = E17; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+# 2026-10-25 尾巴不用了，和 mctop.v 的端口 O_step_tx 一起注释掉（脚 15 现在空着）
+# set_pin_assignment	{ O_step_tx }	{ LOCATION = E17; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
 # 喂食检测：霍尔传感器模块的输出（CEP 脚 17 = CEP_L8_P），模块接 CEP 脚 1 的 3.3V。磁铁靠近 = 低电平（2026-10-06 上板确认）。
 # 上拉：没接模块时读 1 = 没喂食，不会误触发。
 set_pin_assignment	{ I_hall_n }	{ LOCATION = B17; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }

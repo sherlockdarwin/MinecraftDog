@@ -28,7 +28,7 @@ end
 wire scl, done, errf;
 tri1 sda;
 
-mc_es8388_cfg #(.CLK_HZ(100_000_000), .I2C_HZ(100_000), .PWRUP_MS(3), .HP_VOL(6'd21), .SPK_VOL(6'd30)) dut (
+mc_es8388_cfg #(.CLK_HZ(100_000_000), .I2C_HZ(100_000), .PWRUP_MS(3), .SPK_VOL(6'd27)) dut (
     .I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick1ms), .O_scl(scl), .IO_sda(sda), .O_done(done), .O_err(errf)
 );
 
@@ -109,8 +109,8 @@ always @(posedge scl) begin
 end
 
 // ---------------- 期望的寄存器序列 ----------------
-reg [7:0] exp_reg [0:20];
-reg [7:0] exp_dat [0:20];
+reg [7:0] exp_reg [0:18];
+reg [7:0] exp_dat [0:18];
 initial begin
     exp_reg[0]  = 0;  exp_dat[0]  = 8'h80;
     exp_reg[1]  = 0;  exp_dat[1]  = 8'h00;
@@ -120,7 +120,7 @@ initial begin
     exp_reg[5]  = 2;  exp_dat[5]  = 8'h00;
     exp_reg[6]  = 3;  exp_dat[6]  = 8'hFF;
     exp_reg[7]  = 0;  exp_dat[7]  = 8'h06;
-    exp_reg[8]  = 4;  exp_dat[8]  = 8'h3C;
+    exp_reg[8]  = 4;  exp_dat[8]  = 8'h0C;                 // 只开喇叭输出 LOUT2/ROUT2
     exp_reg[9]  = 8;  exp_dat[9]  = 8'h00;
     exp_reg[10] = 23; exp_dat[10] = 8'h18;
     exp_reg[11] = 24; exp_dat[11] = 8'h02;
@@ -129,10 +129,8 @@ initial begin
     exp_reg[14] = 39; exp_dat[14] = 8'h90;
     exp_reg[15] = 42; exp_dat[15] = 8'h90;
     exp_reg[16] = 43; exp_dat[16] = 8'h80;
-    exp_reg[17] = 46; exp_dat[17] = 8'd21;
-    exp_reg[18] = 47; exp_dat[18] = 8'd21;
-    exp_reg[19] = 48; exp_dat[19] = 8'd30;
-    exp_reg[20] = 49; exp_dat[20] = 8'd30;
+    exp_reg[17] = 48; exp_dat[17] = 8'd27;                 // 喇叭音量（参数给的 27，不是默认值，接线错了看得出来）
+    exp_reg[18] = 49; exp_dat[18] = 8'd27;
 end
 
 integer i;
@@ -145,19 +143,19 @@ initial begin
         t_done = $realtime;
         repeat (2000) @(posedge clk);
         if (!done || errf) begin $display("FAIL [addr %h] expected done without error: done=%b err=%b", SLAVE_ADDR, done, errf); err = err + 1; end
-        if (n_wr != 21)    begin $display("FAIL [addr %h] %0d register writes, expected 21", SLAVE_ADDR, n_wr); err = err + 1; end
-        for (i = 0; i < 21 && i < n_wr; i = i + 1)
+        if (n_wr != 19)    begin $display("FAIL [addr %h] %0d register writes, expected 19", SLAVE_ADDR, n_wr); err = err + 1; end
+        for (i = 0; i < 19 && i < n_wr; i = i + 1)
             if (got_reg[i] !== exp_reg[i] || got_dat[i] !== exp_dat[i]) begin
                 $display("FAIL write %0d: R%0d = %h, expected R%0d = %h", i, got_reg[i], got_dat[i], exp_reg[i], exp_dat[i]);
                 err = err + 1;
             end
-        if (n_start != 21 || n_stop != 21) begin $display("FAIL start/stop count %0d/%0d, expected 21/21", n_start, n_stop); err = err + 1; end
+        if (n_start != 19 || n_stop != 19) begin $display("FAIL start/stop count %0d/%0d, expected 19/19", n_start, n_stop); err = err + 1; end
         if (bad_wave != 0) begin $display("FAIL %0d transactions did not have 3 acknowledged bytes", bad_wave); err = err + 1; end
         // SCL 周期应是 10 us（100 kHz）：绝大多数相邻上升沿的间隔是 10 us（只有每次事务的起始处有几个例外）
         if (n_good < 500 || n_other > 30) begin
             $display("FAIL SCL periods: %0d at 10 us, %0d other", n_good, n_other); err = err + 1;
         end
-        // 总时间：21 次写 × 约 0.3 ms + PWRUP 3 ms + 20 ms 复位等待 ≈ 30 ms
+        // 总时间：19 次写 × 约 0.3 ms + PWRUP 3 ms + 20 ms 复位等待 ≈ 30 ms
         if (t_done > 40_000_000 || t_done < 20_000_000) begin $display("FAIL configuration took %f ms", t_done / 1e6); err = err + 1; end
     end else begin
         wait (errf);
