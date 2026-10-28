@@ -5,47 +5,47 @@ Sections:
 Idx Name          Size      VMA       LMA       File off  Algn
   0 .isr_vector   000001e4  08000000  08000000  00001000  2**0
                   CONTENTS, ALLOC, LOAD, READONLY, DATA
-  1 .text         000079a0  080001e4  080001e4  000011e4  2**2
+  1 .text         00007b00  080001e4  080001e4  000011e4  2**2
                   CONTENTS, ALLOC, LOAD, READONLY, CODE
-  2 .rodata       000009b0  08007b84  08007b84  00008b84  2**2
+  2 .rodata       000009dc  08007ce4  08007ce4  00008ce4  2**2
                   CONTENTS, ALLOC, LOAD, READONLY, DATA
-  3 .ARM.extab    00000000  08008534  08008534  0000a080  2**0
+  3 .ARM.extab    00000000  080086c0  080086c0  0000a080  2**0
                   CONTENTS, READONLY
-  4 .ARM          00000000  08008534  08008534  0000a080  2**0
+  4 .ARM          00000000  080086c0  080086c0  0000a080  2**0
                   CONTENTS, READONLY
-  5 .preinit_array 00000000  08008534  08008534  0000a080  2**0
+  5 .preinit_array 00000000  080086c0  080086c0  0000a080  2**0
                   CONTENTS, ALLOC, LOAD, DATA
-  6 .init_array   00000004  08008534  08008534  00009534  2**2
+  6 .init_array   00000004  080086c0  080086c0  000096c0  2**2
                   CONTENTS, ALLOC, LOAD, READONLY, DATA
-  7 .fini_array   00000004  08008538  08008538  00009538  2**2
+  7 .fini_array   00000004  080086c4  080086c4  000096c4  2**2
                   CONTENTS, ALLOC, LOAD, READONLY, DATA
-  8 .data         00000080  20000000  0800853c  0000a000  2**2
+  8 .data         00000080  20000000  080086c8  0000a000  2**2
                   CONTENTS, ALLOC, LOAD, DATA
-  9 .bss          00000c74  20000080  080085bc  0000a080  2**3
+  9 .bss          00000c7c  20000080  08008748  0000a080  2**3
                   ALLOC
- 10 ._user_heap_stack 00000604  20000cf4  080085bc  0000acf4  2**0
+ 10 ._user_heap_stack 00000604  20000cfc  08008748  0000acfc  2**0
                   ALLOC
  11 .ARM.attributes 00000029  00000000  00000000  0000a080  2**0
                   CONTENTS, READONLY
- 12 .debug_info   00011879  00000000  00000000  0000a0a9  2**0
+ 12 .debug_info   000119f5  00000000  00000000  0000a0a9  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 0000389f  00000000  00000000  0001b922  2**0
+ 13 .debug_abbrev 000038e8  00000000  00000000  0001ba9e  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_aranges 00001268  00000000  00000000  0001f1c8  2**3
+ 14 .debug_aranges 00001278  00000000  00000000  0001f388  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_rnglists 00000e12  00000000  00000000  00020430  2**0
+ 15 .debug_rnglists 00000e1f  00000000  00000000  00020600  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  0001c859  00000000  00000000  00021242  2**0
+ 16 .debug_macro  0001c87d  00000000  00000000  0002141f  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   0001743a  00000000  00000000  0003da9b  2**0
+ 17 .debug_line   000174ed  00000000  00000000  0003dc9c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    0009b6a4  00000000  00000000  00054ed5  2**0
+ 18 .debug_str    0009b757  00000000  00000000  00055189  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  000f0579  2**0
+ 19 .comment      00000043  00000000  00000000  000f08e0  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00004530  00000000  00000000  000f05bc  2**2
+ 20 .debug_frame  000045ac  00000000  00000000  000f0924  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 0000007c  00000000  00000000  000f4aec  2**0
+ 21 .debug_line_str 0000007c  00000000  00000000  000f4ed0  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -64,7 +64,7 @@ Disassembly of section .text:
  80001fa:	bd10      	pop	{r4, pc}
  80001fc:	20000080 	.word	0x20000080
  8000200:	00000000 	.word	0x00000000
- 8000204:	08007b6c 	.word	0x08007b6c
+ 8000204:	08007ccc 	.word	0x08007ccc
 
 08000208 <frame_dummy>:
  8000208:	b508      	push	{r3, lr}
@@ -76,7 +76,7 @@ Disassembly of section .text:
  8000216:	bd08      	pop	{r3, pc}
  8000218:	00000000 	.word	0x00000000
  800021c:	20000084 	.word	0x20000084
- 8000220:	08007b6c 	.word	0x08007b6c
+ 8000220:	08007ccc 	.word	0x08007ccc
 
 08000224 <Follow_FilterAngle>:
 static int32_t s_follow_turn = 0;        /* 现在的转向量 (慢慢变到目标值) */
@@ -728,10 +728,10 @@ void Follow_Process(uint32_t now_ms)
  8000602:	637b      	str	r3, [r7, #52]	@ 0x34
             if (per10k > FOLLOW_TURN_MAX_PER10K) {
  8000604:	6b7b      	ldr	r3, [r7, #52]	@ 0x34
- 8000606:	f5b3 7f7a 	cmp.w	r3, #1000	@ 0x3e8
+ 8000606:	f5b3 7f61 	cmp.w	r3, #900	@ 0x384
  800060a:	dd02      	ble.n	8000612 <Follow_Process+0x1ca>
                 per10k = FOLLOW_TURN_MAX_PER10K;
- 800060c:	f44f 737a 	mov.w	r3, #1000	@ 0x3e8
+ 800060c:	f44f 7361 	mov.w	r3, #900	@ 0x384
  8000610:	637b      	str	r3, [r7, #52]	@ 0x34
             }
             turn = forward * per10k / 10000;
@@ -759,27 +759,27 @@ void Follow_Process(uint32_t now_ms)
         if (turn > s_follow_turn + FOLLOW_TURN_STEP_PWM) {
  8000634:	4b35      	ldr	r3, [pc, #212]	@ (800070c <Follow_Process+0x2c4>)
  8000636:	681b      	ldr	r3, [r3, #0]
- 8000638:	330f      	adds	r3, #15
+ 8000638:	330c      	adds	r3, #12
  800063a:	6bba      	ldr	r2, [r7, #56]	@ 0x38
  800063c:	429a      	cmp	r2, r3
  800063e:	dd04      	ble.n	800064a <Follow_Process+0x202>
             turn = s_follow_turn + FOLLOW_TURN_STEP_PWM;
  8000640:	4b32      	ldr	r3, [pc, #200]	@ (800070c <Follow_Process+0x2c4>)
  8000642:	681b      	ldr	r3, [r3, #0]
- 8000644:	330f      	adds	r3, #15
+ 8000644:	330c      	adds	r3, #12
  8000646:	63bb      	str	r3, [r7, #56]	@ 0x38
  8000648:	e009      	b.n	800065e <Follow_Process+0x216>
         } else if (turn < s_follow_turn - FOLLOW_TURN_STEP_PWM) {
  800064a:	4b30      	ldr	r3, [pc, #192]	@ (800070c <Follow_Process+0x2c4>)
  800064c:	681b      	ldr	r3, [r3, #0]
- 800064e:	3b0f      	subs	r3, #15
+ 800064e:	3b0c      	subs	r3, #12
  8000650:	6bba      	ldr	r2, [r7, #56]	@ 0x38
  8000652:	429a      	cmp	r2, r3
  8000654:	da03      	bge.n	800065e <Follow_Process+0x216>
             turn = s_follow_turn - FOLLOW_TURN_STEP_PWM;
  8000656:	4b2d      	ldr	r3, [pc, #180]	@ (800070c <Follow_Process+0x2c4>)
  8000658:	681b      	ldr	r3, [r3, #0]
- 800065a:	3b0f      	subs	r3, #15
+ 800065a:	3b0c      	subs	r3, #12
  800065c:	63bb      	str	r3, [r7, #56]	@ 0x38
         }
         s_follow_turn = turn;
@@ -906,7 +906,7 @@ static void FollowMode_Enter(void)
  800074c:	bd80      	pop	{r7, pc}
  800074e:	bf00      	nop
  8000750:	200000c1 	.word	0x200000c1
- 8000754:	08007b84 	.word	0x08007b84
+ 8000754:	08007ce4 	.word	0x08007ce4
 
 08000758 <FollowMode_Exit>:
 
@@ -1274,7 +1274,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     Scheduler_Run();
- 8000978:	f007 f88c 	bl	8007a94 <Scheduler_Run>
+ 8000978:	f007 f92e 	bl	8007bd8 <Scheduler_Run>
  800097c:	e7fc      	b.n	8000978 <main+0x38>
 
 0800097e <SystemClock_Config>:
@@ -1292,7 +1292,7 @@ void SystemClock_Config(void)
  8000988:	2228      	movs	r2, #40	@ 0x28
  800098a:	2100      	movs	r1, #0
  800098c:	4618      	mov	r0, r3
- 800098e:	f007 f8c1 	bl	8007b14 <memset>
+ 800098e:	f007 f963 	bl	8007c58 <memset>
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
  8000992:	1d3b      	adds	r3, r7, #4
  8000994:	2200      	movs	r2, #0
@@ -1838,7 +1838,7 @@ void MX_TIM2_Init(void)
  8000b5a:	2224      	movs	r2, #36	@ 0x24
  8000b5c:	2100      	movs	r1, #0
  8000b5e:	4618      	mov	r0, r3
- 8000b60:	f006 ffd8 	bl	8007b14 <memset>
+ 8000b60:	f007 f87a 	bl	8007c58 <memset>
   TIM_MasterConfigTypeDef sMasterConfig = {0};
  8000b64:	1d3b      	adds	r3, r7, #4
  8000b66:	2200      	movs	r2, #0
@@ -2127,7 +2127,7 @@ void MX_TIM8_Init(void)
  8000d06:	2224      	movs	r2, #36	@ 0x24
  8000d08:	2100      	movs	r1, #0
  8000d0a:	4618      	mov	r0, r3
- 8000d0c:	f006 ff02 	bl	8007b14 <memset>
+ 8000d0c:	f006 ffa4 	bl	8007c58 <memset>
   TIM_MasterConfigTypeDef sMasterConfig = {0};
  8000d10:	1d3b      	adds	r3, r7, #4
  8000d12:	2200      	movs	r2, #0
@@ -3404,7 +3404,7 @@ LoopFillZerobss:
 
 /* Call static constructors */
     bl __libc_init_array
- 80014d6:	f006 fb25 	bl	8007b24 <__libc_init_array>
+ 80014d6:	f006 fbc7 	bl	8007c68 <__libc_init_array>
 /* Call the application's entry point.*/
   bl main
  80014da:	f7ff fa31 	bl	8000940 <main>
@@ -3415,11 +3415,11 @@ LoopFillZerobss:
   ldr r1, =_edata
  80014e4:	20000080 	.word	0x20000080
   ldr r2, =_sidata
- 80014e8:	0800853c 	.word	0x0800853c
+ 80014e8:	080086c8 	.word	0x080086c8
   ldr r2, =_sbss
  80014ec:	20000080 	.word	0x20000080
   ldr r4, =_ebss
- 80014f0:	20000cf4 	.word	0x20000cf4
+ 80014f0:	20000cfc 	.word	0x20000cfc
 
 080014f4 <ADC1_2_IRQHandler>:
  * @retval : None
@@ -7189,7 +7189,7 @@ if (((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_PCLK1) == RCC_CLOCKTYPE_PCLK
  8002b6e:	bf00      	nop
  8002b70:	40022000 	.word	0x40022000
  8002b74:	40021000 	.word	0x40021000
- 8002b78:	08007c74 	.word	0x08007c74
+ 8002b78:	08007dec 	.word	0x08007dec
  8002b7c:	20000004 	.word	0x20000004
  8002b80:	20000008 	.word	0x20000008
 
@@ -7324,8 +7324,8 @@ uint32_t HAL_RCC_GetSysClockFreq(void)
  8002c16:	bf00      	nop
  8002c18:	40021000 	.word	0x40021000
  8002c1c:	007a1200 	.word	0x007a1200
- 8002c20:	08007c8c 	.word	0x08007c8c
- 8002c24:	08007c9c 	.word	0x08007c9c
+ 8002c20:	08007e04 	.word	0x08007e04
+ 8002c24:	08007e14 	.word	0x08007e14
  8002c28:	003d0900 	.word	0x003d0900
 
 08002c2c <HAL_RCC_GetHCLKFreq>:
@@ -7371,7 +7371,7 @@ uint32_t HAL_RCC_GetPCLK1Freq(void)
  8002c5c:	4618      	mov	r0, r3
  8002c5e:	bd80      	pop	{r7, pc}
  8002c60:	40021000 	.word	0x40021000
- 8002c64:	08007c84 	.word	0x08007c84
+ 8002c64:	08007dfc 	.word	0x08007dfc
 
 08002c68 <HAL_RCC_GetPCLK2Freq>:
   * @note   Each time PCLK2 changes, this function must be called to update the
@@ -7397,7 +7397,7 @@ uint32_t HAL_RCC_GetPCLK2Freq(void)
  8002c84:	4618      	mov	r0, r3
  8002c86:	bd80      	pop	{r7, pc}
  8002c88:	40021000 	.word	0x40021000
- 8002c8c:	08007c84 	.word	0x08007c84
+ 8002c8c:	08007dfc 	.word	0x08007dfc
 
 08002c90 <RCC_Delay>:
   * @brief  This function provides delay (in milliseconds) based on CPU cycles method.
@@ -13494,8 +13494,8 @@ static bool KEY_ReadPressed(KEY_Id key)
  8004eca:	46bd      	mov	sp, r7
  8004ecc:	bd80      	pop	{r7, pc}
  8004ece:	bf00      	nop
- 8004ed0:	08007ca0 	.word	0x08007ca0
- 8004ed4:	08007ca8 	.word	0x08007ca8
+ 8004ed0:	08007e18 	.word	0x08007e18
+ 8004ed4:	08007e20 	.word	0x08007e20
 
 08004ed8 <KEY_AddEvent>:
 
@@ -14426,13 +14426,13 @@ void LCD_Init(void)
  8005490:	46bd      	mov	sp, r7
  8005492:	bd80      	pop	{r7, pc}
  8005494:	40010c00 	.word	0x40010c00
- 8005498:	080084c4 	.word	0x080084c4
- 800549c:	080084cc 	.word	0x080084cc
- 80054a0:	080084d0 	.word	0x080084d0
- 80054a4:	080084d4 	.word	0x080084d4
- 80054a8:	080084d8 	.word	0x080084d8
- 80054ac:	080084dc 	.word	0x080084dc
- 80054b0:	080084ec 	.word	0x080084ec
+ 8005498:	0800863c 	.word	0x0800863c
+ 800549c:	08008644 	.word	0x08008644
+ 80054a0:	08008648 	.word	0x08008648
+ 80054a4:	0800864c 	.word	0x0800864c
+ 80054a8:	08008650 	.word	0x08008650
+ 80054ac:	08008654 	.word	0x08008654
+ 80054b0:	08008664 	.word	0x08008664
 
 080054b4 <LCD_Fill>:
 
@@ -14726,8 +14726,8 @@ void LCD_ShowChar(uint16_t x, uint16_t y, char chr, uint16_t fc, uint16_t bc, ui
  8005692:	46bd      	mov	sp, r7
  8005694:	bd90      	pop	{r4, r7, pc}
  8005696:	bf00      	nop
- 8005698:	08007ed4 	.word	0x08007ed4
- 800569c:	08007cac 	.word	0x08007cac
+ 8005698:	0800804c 	.word	0x0800804c
+ 800569c:	08007e24 	.word	0x08007e24
  80056a0:	40010c00 	.word	0x40010c00
 
 080056a4 <LCD_ShowString>:
@@ -17315,7 +17315,7 @@ void Tail_Process(uint32_t now_ms)
  80066dc:	20000550 	.word	0x20000550
  80066e0:	20000554 	.word	0x20000554
  80066e4:	20000545 	.word	0x20000545
- 80066e8:	080084fc 	.word	0x080084fc
+ 80066e8:	08008674 	.word	0x08008674
  80066ec:	20000548 	.word	0x20000548
  80066f0:	2000054c 	.word	0x2000054c
 
@@ -17349,7 +17349,7 @@ bool Tail_Wag(void)
  8006718:	4618      	mov	r0, r3
  800671a:	bd80      	pop	{r7, pc}
  800671c:	20000545 	.word	0x20000545
- 8006720:	08008504 	.word	0x08008504
+ 8006720:	0800867c 	.word	0x0800867c
 
 08006724 <UWB_ReadBE16>:
     UWB_FORWARD_MOUNT_OFFSET_DEG,
@@ -17957,7 +17957,7 @@ void UWB_Init(void)
  8006ada:	f44f 62f0 	mov.w	r2, #1920	@ 0x780
  8006ade:	2100      	movs	r1, #0
  8006ae0:	4814      	ldr	r0, [pc, #80]	@ (8006b34 <UWB_Init+0x60>)
- 8006ae2:	f001 f817 	bl	8007b14 <memset>
+ 8006ae2:	f001 f8b9 	bl	8007c58 <memset>
 
     for (source = 0U; source < (uint32_t) UWB_ANCHOR_COUNT; source++) {
  8006ae6:	2300      	movs	r3, #0
@@ -18004,7 +18004,7 @@ void UWB_Init(void)
  8006b30:	bd80      	pop	{r7, pc}
  8006b32:	bf00      	nop
  8006b34:	20000558 	.word	0x20000558
- 8006b38:	0800850c 	.word	0x0800850c
+ 8006b38:	08008684 	.word	0x08008684
 
 08006b3c <UWB_Process>:
 
@@ -18186,7 +18186,7 @@ bool UWB_GetTarget(uint32_t now_ms, UWB_Target *target)
  8006c3a:	2218      	movs	r2, #24
  8006c3c:	2100      	movs	r1, #0
  8006c3e:	6838      	ldr	r0, [r7, #0]
- 8006c40:	f000 ff68 	bl	8007b14 <memset>
+ 8006c40:	f001 f80a 	bl	8007c58 <memset>
 
     if ((forward == NULL) && (left == NULL) && (right == NULL)) {
  8006c44:	697b      	ldr	r3, [r7, #20]
@@ -18503,7 +18503,7 @@ bool UWB_GetTarget(uint32_t now_ms, UWB_Target *target)
  8006e58:	20000cd8 	.word	0x20000cd8
  8006e5c:	20000cd9 	.word	0x20000cd9
  8006e60:	20000cdc 	.word	0x20000cdc
- 8006e64:	08008518 	.word	0x08008518
+ 8006e64:	08008690 	.word	0x08008690
 
 08006e68 <UWB_GetStats>:
 
@@ -18755,7 +18755,7 @@ void UWB_IRQHandler(UWB_Anchor source)
  8006fee:	3718      	adds	r7, #24
  8006ff0:	46bd      	mov	sp, r7
  8006ff2:	bd80      	pop	{r7, pc}
- 8006ff4:	0800850c 	.word	0x0800850c
+ 8006ff4:	08008684 	.word	0x08008684
  8006ff8:	20000558 	.word	0x20000558
 
 08006ffc <board_init>:
@@ -18943,7 +18943,7 @@ void Task_UWB_Poll(void)
  80070e6:	b580      	push	{r7, lr}
  80070e8:	af00      	add	r7, sp, #0
     UWB_Process(Get_Time());
- 80070ea:	f000 fccb 	bl	8007a84 <Get_Time>
+ 80070ea:	f000 fd6d 	bl	8007bc8 <Get_Time>
  80070ee:	4603      	mov	r3, r0
  80070f0:	4618      	mov	r0, r3
  80070f2:	f7ff fd23 	bl	8006b3c <UWB_Process>
@@ -18958,7 +18958,7 @@ void Task_Key_Scan(void)
  80070fa:	b580      	push	{r7, lr}
  80070fc:	af00      	add	r7, sp, #0
     KEY_Scan(Get_Time());
- 80070fe:	f000 fcc1 	bl	8007a84 <Get_Time>
+ 80070fe:	f000 fd63 	bl	8007bc8 <Get_Time>
  8007102:	4603      	mov	r3, r0
  8007104:	4618      	mov	r0, r3
  8007106:	f7fd ff45 	bl	8004f94 <KEY_Scan>
@@ -18975,7 +18975,7 @@ void Task_Follow_Mode(void)
  800710e:	b580      	push	{r7, lr}
  8007110:	af00      	add	r7, sp, #0
     FollowMode_Process(Get_Time());
- 8007112:	f000 fcb7 	bl	8007a84 <Get_Time>
+ 8007112:	f000 fd59 	bl	8007bc8 <Get_Time>
  8007116:	4603      	mov	r3, r0
  8007118:	4618      	mov	r0, r3
  800711a:	f7f9 fb33 	bl	8000784 <FollowMode_Process>
@@ -18990,7 +18990,7 @@ void Task_FPGA_Rx(void)
  8007122:	b580      	push	{r7, lr}
  8007124:	af00      	add	r7, sp, #0
     FPGAMLK_Poll(Get_Time());
- 8007126:	f000 fcad 	bl	8007a84 <Get_Time>
+ 8007126:	f000 fd4f 	bl	8007bc8 <Get_Time>
  800712a:	4603      	mov	r3, r0
  800712c:	4618      	mov	r0, r3
  800712e:	f7fe fc71 	bl	8005a14 <FPGAMLK_Poll>
@@ -19011,7 +19011,7 @@ void Task_FPGA_Tx(void)
     static uint32_t last_uwb_count = 0U;
     static uint32_t last_lost_ms   = 0U;
     uint32_t now = Get_Time();
- 800713e:	f000 fca1 	bl	8007a84 <Get_Time>
+ 800713e:	f000 fd43 	bl	8007bc8 <Get_Time>
  8007142:	61f8      	str	r0, [r7, #28]
     uint32_t uwb_count = UWB_GetFrameCount();
  8007144:	f7ff feda 	bl	8006efc <UWB_GetFrameCount>
@@ -19211,7 +19211,7 @@ void Task_Motor_Drive(void)
  800727a:	b088      	sub	sp, #32
  800727c:	af00      	add	r7, sp, #0
     uint32_t now = Get_Time();
- 800727e:	f000 fc01 	bl	8007a84 <Get_Time>
+ 800727e:	f000 fca3 	bl	8007bc8 <Get_Time>
  8007282:	61f8      	str	r0, [r7, #28]
     bool fresh = FPGAMLK_TakeUpdate();
  8007284:	f7fe fc06 	bl	8005a94 <FPGAMLK_TakeUpdate>
@@ -19323,7 +19323,7 @@ void Task_LED(void)
 #ifdef LED_Pin
     static uint32_t last_toggle_ms = 0U;
     uint32_t now = Get_Time();
- 8007332:	f000 fba7 	bl	8007a84 <Get_Time>
+ 8007332:	f000 fc49 	bl	8007bc8 <Get_Time>
  8007336:	61f8      	str	r0, [r7, #28]
     GPIO_PinState off_level = (TASK_LED_ON_LEVEL == GPIO_PIN_SET) ? GPIO_PIN_RESET : GPIO_PIN_SET;
  8007338:	2301      	movs	r3, #1
@@ -19384,1083 +19384,1294 @@ void Task_LED(void)
  8007394:	20000cf0 	.word	0x20000cf0
  8007398:	40010800 	.word	0x40010800
 
-0800739c <Task_Tail>:
+0800739c <Task_Tail_OwnerNear>:
 
-/* 步进电机 (尾巴): 上电 / 复位 1 秒后自动回零; 短按 KEY2 摇一个来回
- * (中 -> 左 45° -> 中 -> 右 45° -> 中), 见 HARDWARE/STEPPER/tail.h。 */
-void Task_Tail(void)
+/* 主人在不在身边 (参数和回差见 task.h 的 TASK_TAIL_*):
+ *   距离 < 3 m 一直保持 0.3 秒 -> 在; 距离 ≥ 3.2 m 或收不到 UWB -> 马上不在; 中间保持原状。
+ * 用的是和发给 FPGA 同一个 UWB_GetTarget() 的距离。 */
+static bool Task_Tail_OwnerNear(uint32_t now)
 {
  800739c:	b580      	push	{r7, lr}
- 800739e:	af00      	add	r7, sp, #0
-    if (Key2_Short_Press()) {
- 80073a0:	f7fd fec0 	bl	8005124 <Key2_Short_Press>
- 80073a4:	4603      	mov	r3, r0
- 80073a6:	2b00      	cmp	r3, #0
- 80073a8:	d001      	beq.n	80073ae <Task_Tail+0x12>
-        (void) Tail_Wag();      /* 回零没做完或者正在摇, 这次按键不理 */
- 80073aa:	f7ff f9a3 	bl	80066f4 <Tail_Wag>
+ 800739e:	b088      	sub	sp, #32
+ 80073a0:	af00      	add	r7, sp, #0
+ 80073a2:	6078      	str	r0, [r7, #4]
+    static bool     near         = false;
+    static bool     near_pending = false;   /* 已经 < 3 m, 在等 0.3 秒确认 */
+    static uint32_t near_since   = 0U;
+    UWB_Target target;
+
+    if (!UWB_GetTarget(now, &target) || (target.distance_cm >= TASK_TAIL_FAR_CM)) {
+ 80073a4:	f107 0308 	add.w	r3, r7, #8
+ 80073a8:	4619      	mov	r1, r3
+ 80073aa:	6878      	ldr	r0, [r7, #4]
+ 80073ac:	f7ff fc2a 	bl	8006c04 <UWB_GetTarget>
+ 80073b0:	4603      	mov	r3, r0
+ 80073b2:	f083 0301 	eor.w	r3, r3, #1
+ 80073b6:	b2db      	uxtb	r3, r3
+ 80073b8:	2b00      	cmp	r3, #0
+ 80073ba:	d103      	bne.n	80073c4 <Task_Tail_OwnerNear+0x28>
+ 80073bc:	697b      	ldr	r3, [r7, #20]
+ 80073be:	f5b3 7fa0 	cmp.w	r3, #320	@ 0x140
+ 80073c2:	d307      	bcc.n	80073d4 <Task_Tail_OwnerNear+0x38>
+        near         = false;
+ 80073c4:	4b1b      	ldr	r3, [pc, #108]	@ (8007434 <Task_Tail_OwnerNear+0x98>)
+ 80073c6:	2200      	movs	r2, #0
+ 80073c8:	701a      	strb	r2, [r3, #0]
+        near_pending = false;
+ 80073ca:	4b1b      	ldr	r3, [pc, #108]	@ (8007438 <Task_Tail_OwnerNear+0x9c>)
+ 80073cc:	2200      	movs	r2, #0
+ 80073ce:	701a      	strb	r2, [r3, #0]
+        return false;
+ 80073d0:	2300      	movs	r3, #0
+ 80073d2:	e02a      	b.n	800742a <Task_Tail_OwnerNear+0x8e>
     }
 
-    Tail_Process(Get_Time());
- 80073ae:	f000 fb69 	bl	8007a84 <Get_Time>
- 80073b2:	4603      	mov	r3, r0
- 80073b4:	4618      	mov	r0, r3
- 80073b6:	f7ff f949 	bl	800664c <Tail_Process>
-}
- 80073ba:	bf00      	nop
- 80073bc:	bd80      	pop	{r7, pc}
-	...
+    if (target.distance_cm >= TASK_TAIL_NEAR_CM) {
+ 80073d4:	697b      	ldr	r3, [r7, #20]
+ 80073d6:	f5b3 7f96 	cmp.w	r3, #300	@ 0x12c
+ 80073da:	d305      	bcc.n	80073e8 <Task_Tail_OwnerNear+0x4c>
+        near_pending = false;               /* 3 m ~ 3.2 m: 保持原状, 确认要重新数 */
+ 80073dc:	4b16      	ldr	r3, [pc, #88]	@ (8007438 <Task_Tail_OwnerNear+0x9c>)
+ 80073de:	2200      	movs	r2, #0
+ 80073e0:	701a      	strb	r2, [r3, #0]
+        return near;
+ 80073e2:	4b14      	ldr	r3, [pc, #80]	@ (8007434 <Task_Tail_OwnerNear+0x98>)
+ 80073e4:	781b      	ldrb	r3, [r3, #0]
+ 80073e6:	e020      	b.n	800742a <Task_Tail_OwnerNear+0x8e>
+    }
 
-080073c0 <Task_FormatWheel>:
+    if (!near) {
+ 80073e8:	4b12      	ldr	r3, [pc, #72]	@ (8007434 <Task_Tail_OwnerNear+0x98>)
+ 80073ea:	781b      	ldrb	r3, [r3, #0]
+ 80073ec:	f083 0301 	eor.w	r3, r3, #1
+ 80073f0:	b2db      	uxtb	r3, r3
+ 80073f2:	2b00      	cmp	r3, #0
+ 80073f4:	d017      	beq.n	8007426 <Task_Tail_OwnerNear+0x8a>
+        if (!near_pending) {
+ 80073f6:	4b10      	ldr	r3, [pc, #64]	@ (8007438 <Task_Tail_OwnerNear+0x9c>)
+ 80073f8:	781b      	ldrb	r3, [r3, #0]
+ 80073fa:	f083 0301 	eor.w	r3, r3, #1
+ 80073fe:	b2db      	uxtb	r3, r3
+ 8007400:	2b00      	cmp	r3, #0
+ 8007402:	d006      	beq.n	8007412 <Task_Tail_OwnerNear+0x76>
+            near_pending = true;
+ 8007404:	4b0c      	ldr	r3, [pc, #48]	@ (8007438 <Task_Tail_OwnerNear+0x9c>)
+ 8007406:	2201      	movs	r2, #1
+ 8007408:	701a      	strb	r2, [r3, #0]
+            near_since   = now;
+ 800740a:	4a0c      	ldr	r2, [pc, #48]	@ (800743c <Task_Tail_OwnerNear+0xa0>)
+ 800740c:	687b      	ldr	r3, [r7, #4]
+ 800740e:	6013      	str	r3, [r2, #0]
+ 8007410:	e009      	b.n	8007426 <Task_Tail_OwnerNear+0x8a>
+        } else if ((uint32_t) (now - near_since) >= TASK_TAIL_NEAR_CONFIRM_MS) {
+ 8007412:	4b0a      	ldr	r3, [pc, #40]	@ (800743c <Task_Tail_OwnerNear+0xa0>)
+ 8007414:	681b      	ldr	r3, [r3, #0]
+ 8007416:	687a      	ldr	r2, [r7, #4]
+ 8007418:	1ad3      	subs	r3, r2, r3
+ 800741a:	f5b3 7f96 	cmp.w	r3, #300	@ 0x12c
+ 800741e:	d302      	bcc.n	8007426 <Task_Tail_OwnerNear+0x8a>
+            near = true;
+ 8007420:	4b04      	ldr	r3, [pc, #16]	@ (8007434 <Task_Tail_OwnerNear+0x98>)
+ 8007422:	2201      	movs	r2, #1
+ 8007424:	701a      	strb	r2, [r3, #0]
+        }
+    }
+
+    return near;
+ 8007426:	4b03      	ldr	r3, [pc, #12]	@ (8007434 <Task_Tail_OwnerNear+0x98>)
+ 8007428:	781b      	ldrb	r3, [r3, #0]
+}
+ 800742a:	4618      	mov	r0, r3
+ 800742c:	3720      	adds	r7, #32
+ 800742e:	46bd      	mov	sp, r7
+ 8007430:	bd80      	pop	{r7, pc}
+ 8007432:	bf00      	nop
+ 8007434:	20000cf4 	.word	0x20000cf4
+ 8007438:	20000cf5 	.word	0x20000cf5
+ 800743c:	20000cf8 	.word	0x20000cf8
+
+08007440 <Task_Tail>:
+
+/* 步进电机 (尾巴, 只归 STM32 管, FPGA 不再接驱动器): 上电 / 复位 1 秒后自动回零;
+ * 主人在 3 m 以内就一个来回接一个来回地摇 (中 -> 左 45° -> 中 -> 右 45° -> 中), 走远了摇完当前来回停在正中;
+ * 短按 KEY2 也摇一个来回。见 HARDWARE/STEPPER/tail.h。 */
+void Task_Tail(void)
+{
+ 8007440:	b580      	push	{r7, lr}
+ 8007442:	b082      	sub	sp, #8
+ 8007444:	af00      	add	r7, sp, #0
+    uint32_t now = Get_Time();
+ 8007446:	f000 fbbf 	bl	8007bc8 <Get_Time>
+ 800744a:	6078      	str	r0, [r7, #4]
+
+    s_tail_owner_near = Task_Tail_OwnerNear(now);
+ 800744c:	6878      	ldr	r0, [r7, #4]
+ 800744e:	f7ff ffa5 	bl	800739c <Task_Tail_OwnerNear>
+ 8007452:	4603      	mov	r3, r0
+ 8007454:	461a      	mov	r2, r3
+ 8007456:	4b0a      	ldr	r3, [pc, #40]	@ (8007480 <Task_Tail+0x40>)
+ 8007458:	701a      	strb	r2, [r3, #0]
+
+    if (Key2_Short_Press() || s_tail_owner_near) {
+ 800745a:	f7fd fe63 	bl	8005124 <Key2_Short_Press>
+ 800745e:	4603      	mov	r3, r0
+ 8007460:	2b00      	cmp	r3, #0
+ 8007462:	d103      	bne.n	800746c <Task_Tail+0x2c>
+ 8007464:	4b06      	ldr	r3, [pc, #24]	@ (8007480 <Task_Tail+0x40>)
+ 8007466:	781b      	ldrb	r3, [r3, #0]
+ 8007468:	2b00      	cmp	r3, #0
+ 800746a:	d001      	beq.n	8007470 <Task_Tail+0x30>
+        (void) Tail_Wag();      /* 回零没做完或者正在摇, 这次不理 (主人还在身边的话下一拍再试) */
+ 800746c:	f7ff f942 	bl	80066f4 <Tail_Wag>
+    }
+
+    Tail_Process(now);
+ 8007470:	6878      	ldr	r0, [r7, #4]
+ 8007472:	f7ff f8eb 	bl	800664c <Tail_Process>
+}
+ 8007476:	bf00      	nop
+ 8007478:	3708      	adds	r7, #8
+ 800747a:	46bd      	mov	sp, r7
+ 800747c:	bd80      	pop	{r7, pc}
+ 800747e:	bf00      	nop
+ 8007480:	20000ce2 	.word	0x20000ce2
+
+08007484 <Task_FormatWheel>:
 
 /* "+3000" 写进 text[0..4] */
 static void Task_FormatWheel(char *text, int16_t value)
 {
- 80073c0:	b480      	push	{r7}
- 80073c2:	b085      	sub	sp, #20
- 80073c4:	af00      	add	r7, sp, #0
- 80073c6:	6078      	str	r0, [r7, #4]
- 80073c8:	460b      	mov	r3, r1
- 80073ca:	807b      	strh	r3, [r7, #2]
+ 8007484:	b480      	push	{r7}
+ 8007486:	b085      	sub	sp, #20
+ 8007488:	af00      	add	r7, sp, #0
+ 800748a:	6078      	str	r0, [r7, #4]
+ 800748c:	460b      	mov	r3, r1
+ 800748e:	807b      	strh	r3, [r7, #2]
     uint16_t magnitude = (uint16_t) ((value < 0) ? -(int32_t) value : value);
- 80073cc:	f9b7 3002 	ldrsh.w	r3, [r7, #2]
- 80073d0:	2b00      	cmp	r3, #0
- 80073d2:	da03      	bge.n	80073dc <Task_FormatWheel+0x1c>
- 80073d4:	887b      	ldrh	r3, [r7, #2]
- 80073d6:	425b      	negs	r3, r3
- 80073d8:	b29b      	uxth	r3, r3
- 80073da:	e000      	b.n	80073de <Task_FormatWheel+0x1e>
- 80073dc:	887b      	ldrh	r3, [r7, #2]
- 80073de:	81fb      	strh	r3, [r7, #14]
+ 8007490:	f9b7 3002 	ldrsh.w	r3, [r7, #2]
+ 8007494:	2b00      	cmp	r3, #0
+ 8007496:	da03      	bge.n	80074a0 <Task_FormatWheel+0x1c>
+ 8007498:	887b      	ldrh	r3, [r7, #2]
+ 800749a:	425b      	negs	r3, r3
+ 800749c:	b29b      	uxth	r3, r3
+ 800749e:	e000      	b.n	80074a2 <Task_FormatWheel+0x1e>
+ 80074a0:	887b      	ldrh	r3, [r7, #2]
+ 80074a2:	81fb      	strh	r3, [r7, #14]
 
     text[0] = (value < 0) ? '-' : '+';
- 80073e0:	f9b7 3002 	ldrsh.w	r3, [r7, #2]
- 80073e4:	2b00      	cmp	r3, #0
- 80073e6:	da01      	bge.n	80073ec <Task_FormatWheel+0x2c>
- 80073e8:	222d      	movs	r2, #45	@ 0x2d
- 80073ea:	e000      	b.n	80073ee <Task_FormatWheel+0x2e>
- 80073ec:	222b      	movs	r2, #43	@ 0x2b
- 80073ee:	687b      	ldr	r3, [r7, #4]
- 80073f0:	701a      	strb	r2, [r3, #0]
+ 80074a4:	f9b7 3002 	ldrsh.w	r3, [r7, #2]
+ 80074a8:	2b00      	cmp	r3, #0
+ 80074aa:	da01      	bge.n	80074b0 <Task_FormatWheel+0x2c>
+ 80074ac:	222d      	movs	r2, #45	@ 0x2d
+ 80074ae:	e000      	b.n	80074b2 <Task_FormatWheel+0x2e>
+ 80074b0:	222b      	movs	r2, #43	@ 0x2b
+ 80074b2:	687b      	ldr	r3, [r7, #4]
+ 80074b4:	701a      	strb	r2, [r3, #0]
     text[1] = (char) ('0' + ((magnitude / 1000U) % 10U));
- 80073f2:	89fb      	ldrh	r3, [r7, #14]
- 80073f4:	4a2b      	ldr	r2, [pc, #172]	@ (80074a4 <Task_FormatWheel+0xe4>)
- 80073f6:	fba2 2303 	umull	r2, r3, r2, r3
- 80073fa:	099b      	lsrs	r3, r3, #6
- 80073fc:	b29a      	uxth	r2, r3
- 80073fe:	4b2a      	ldr	r3, [pc, #168]	@ (80074a8 <Task_FormatWheel+0xe8>)
- 8007400:	fba3 1302 	umull	r1, r3, r3, r2
- 8007404:	08d9      	lsrs	r1, r3, #3
- 8007406:	460b      	mov	r3, r1
- 8007408:	009b      	lsls	r3, r3, #2
- 800740a:	440b      	add	r3, r1
- 800740c:	005b      	lsls	r3, r3, #1
- 800740e:	1ad3      	subs	r3, r2, r3
- 8007410:	b29b      	uxth	r3, r3
- 8007412:	b2da      	uxtb	r2, r3
- 8007414:	687b      	ldr	r3, [r7, #4]
- 8007416:	3301      	adds	r3, #1
- 8007418:	3230      	adds	r2, #48	@ 0x30
- 800741a:	b2d2      	uxtb	r2, r2
- 800741c:	701a      	strb	r2, [r3, #0]
+ 80074b6:	89fb      	ldrh	r3, [r7, #14]
+ 80074b8:	4a2b      	ldr	r2, [pc, #172]	@ (8007568 <Task_FormatWheel+0xe4>)
+ 80074ba:	fba2 2303 	umull	r2, r3, r2, r3
+ 80074be:	099b      	lsrs	r3, r3, #6
+ 80074c0:	b29a      	uxth	r2, r3
+ 80074c2:	4b2a      	ldr	r3, [pc, #168]	@ (800756c <Task_FormatWheel+0xe8>)
+ 80074c4:	fba3 1302 	umull	r1, r3, r3, r2
+ 80074c8:	08d9      	lsrs	r1, r3, #3
+ 80074ca:	460b      	mov	r3, r1
+ 80074cc:	009b      	lsls	r3, r3, #2
+ 80074ce:	440b      	add	r3, r1
+ 80074d0:	005b      	lsls	r3, r3, #1
+ 80074d2:	1ad3      	subs	r3, r2, r3
+ 80074d4:	b29b      	uxth	r3, r3
+ 80074d6:	b2da      	uxtb	r2, r3
+ 80074d8:	687b      	ldr	r3, [r7, #4]
+ 80074da:	3301      	adds	r3, #1
+ 80074dc:	3230      	adds	r2, #48	@ 0x30
+ 80074de:	b2d2      	uxtb	r2, r2
+ 80074e0:	701a      	strb	r2, [r3, #0]
     text[2] = (char) ('0' + ((magnitude / 100U) % 10U));
- 800741e:	89fb      	ldrh	r3, [r7, #14]
- 8007420:	4a22      	ldr	r2, [pc, #136]	@ (80074ac <Task_FormatWheel+0xec>)
- 8007422:	fba2 2303 	umull	r2, r3, r2, r3
- 8007426:	095b      	lsrs	r3, r3, #5
- 8007428:	b29a      	uxth	r2, r3
- 800742a:	4b1f      	ldr	r3, [pc, #124]	@ (80074a8 <Task_FormatWheel+0xe8>)
- 800742c:	fba3 1302 	umull	r1, r3, r3, r2
- 8007430:	08d9      	lsrs	r1, r3, #3
- 8007432:	460b      	mov	r3, r1
- 8007434:	009b      	lsls	r3, r3, #2
- 8007436:	440b      	add	r3, r1
- 8007438:	005b      	lsls	r3, r3, #1
- 800743a:	1ad3      	subs	r3, r2, r3
- 800743c:	b29b      	uxth	r3, r3
- 800743e:	b2da      	uxtb	r2, r3
- 8007440:	687b      	ldr	r3, [r7, #4]
- 8007442:	3302      	adds	r3, #2
- 8007444:	3230      	adds	r2, #48	@ 0x30
- 8007446:	b2d2      	uxtb	r2, r2
- 8007448:	701a      	strb	r2, [r3, #0]
+ 80074e2:	89fb      	ldrh	r3, [r7, #14]
+ 80074e4:	4a22      	ldr	r2, [pc, #136]	@ (8007570 <Task_FormatWheel+0xec>)
+ 80074e6:	fba2 2303 	umull	r2, r3, r2, r3
+ 80074ea:	095b      	lsrs	r3, r3, #5
+ 80074ec:	b29a      	uxth	r2, r3
+ 80074ee:	4b1f      	ldr	r3, [pc, #124]	@ (800756c <Task_FormatWheel+0xe8>)
+ 80074f0:	fba3 1302 	umull	r1, r3, r3, r2
+ 80074f4:	08d9      	lsrs	r1, r3, #3
+ 80074f6:	460b      	mov	r3, r1
+ 80074f8:	009b      	lsls	r3, r3, #2
+ 80074fa:	440b      	add	r3, r1
+ 80074fc:	005b      	lsls	r3, r3, #1
+ 80074fe:	1ad3      	subs	r3, r2, r3
+ 8007500:	b29b      	uxth	r3, r3
+ 8007502:	b2da      	uxtb	r2, r3
+ 8007504:	687b      	ldr	r3, [r7, #4]
+ 8007506:	3302      	adds	r3, #2
+ 8007508:	3230      	adds	r2, #48	@ 0x30
+ 800750a:	b2d2      	uxtb	r2, r2
+ 800750c:	701a      	strb	r2, [r3, #0]
     text[3] = (char) ('0' + ((magnitude / 10U) % 10U));
- 800744a:	89fb      	ldrh	r3, [r7, #14]
- 800744c:	4a16      	ldr	r2, [pc, #88]	@ (80074a8 <Task_FormatWheel+0xe8>)
- 800744e:	fba2 2303 	umull	r2, r3, r2, r3
- 8007452:	08db      	lsrs	r3, r3, #3
- 8007454:	b29a      	uxth	r2, r3
- 8007456:	4b14      	ldr	r3, [pc, #80]	@ (80074a8 <Task_FormatWheel+0xe8>)
- 8007458:	fba3 1302 	umull	r1, r3, r3, r2
- 800745c:	08d9      	lsrs	r1, r3, #3
- 800745e:	460b      	mov	r3, r1
- 8007460:	009b      	lsls	r3, r3, #2
- 8007462:	440b      	add	r3, r1
- 8007464:	005b      	lsls	r3, r3, #1
- 8007466:	1ad3      	subs	r3, r2, r3
- 8007468:	b29b      	uxth	r3, r3
- 800746a:	b2da      	uxtb	r2, r3
- 800746c:	687b      	ldr	r3, [r7, #4]
- 800746e:	3303      	adds	r3, #3
- 8007470:	3230      	adds	r2, #48	@ 0x30
- 8007472:	b2d2      	uxtb	r2, r2
- 8007474:	701a      	strb	r2, [r3, #0]
+ 800750e:	89fb      	ldrh	r3, [r7, #14]
+ 8007510:	4a16      	ldr	r2, [pc, #88]	@ (800756c <Task_FormatWheel+0xe8>)
+ 8007512:	fba2 2303 	umull	r2, r3, r2, r3
+ 8007516:	08db      	lsrs	r3, r3, #3
+ 8007518:	b29a      	uxth	r2, r3
+ 800751a:	4b14      	ldr	r3, [pc, #80]	@ (800756c <Task_FormatWheel+0xe8>)
+ 800751c:	fba3 1302 	umull	r1, r3, r3, r2
+ 8007520:	08d9      	lsrs	r1, r3, #3
+ 8007522:	460b      	mov	r3, r1
+ 8007524:	009b      	lsls	r3, r3, #2
+ 8007526:	440b      	add	r3, r1
+ 8007528:	005b      	lsls	r3, r3, #1
+ 800752a:	1ad3      	subs	r3, r2, r3
+ 800752c:	b29b      	uxth	r3, r3
+ 800752e:	b2da      	uxtb	r2, r3
+ 8007530:	687b      	ldr	r3, [r7, #4]
+ 8007532:	3303      	adds	r3, #3
+ 8007534:	3230      	adds	r2, #48	@ 0x30
+ 8007536:	b2d2      	uxtb	r2, r2
+ 8007538:	701a      	strb	r2, [r3, #0]
     text[4] = (char) ('0' + (magnitude % 10U));
- 8007476:	89fa      	ldrh	r2, [r7, #14]
- 8007478:	4b0b      	ldr	r3, [pc, #44]	@ (80074a8 <Task_FormatWheel+0xe8>)
- 800747a:	fba3 1302 	umull	r1, r3, r3, r2
- 800747e:	08d9      	lsrs	r1, r3, #3
- 8007480:	460b      	mov	r3, r1
- 8007482:	009b      	lsls	r3, r3, #2
- 8007484:	440b      	add	r3, r1
- 8007486:	005b      	lsls	r3, r3, #1
- 8007488:	1ad3      	subs	r3, r2, r3
- 800748a:	b29b      	uxth	r3, r3
- 800748c:	b2da      	uxtb	r2, r3
- 800748e:	687b      	ldr	r3, [r7, #4]
- 8007490:	3304      	adds	r3, #4
- 8007492:	3230      	adds	r2, #48	@ 0x30
- 8007494:	b2d2      	uxtb	r2, r2
- 8007496:	701a      	strb	r2, [r3, #0]
+ 800753a:	89fa      	ldrh	r2, [r7, #14]
+ 800753c:	4b0b      	ldr	r3, [pc, #44]	@ (800756c <Task_FormatWheel+0xe8>)
+ 800753e:	fba3 1302 	umull	r1, r3, r3, r2
+ 8007542:	08d9      	lsrs	r1, r3, #3
+ 8007544:	460b      	mov	r3, r1
+ 8007546:	009b      	lsls	r3, r3, #2
+ 8007548:	440b      	add	r3, r1
+ 800754a:	005b      	lsls	r3, r3, #1
+ 800754c:	1ad3      	subs	r3, r2, r3
+ 800754e:	b29b      	uxth	r3, r3
+ 8007550:	b2da      	uxtb	r2, r3
+ 8007552:	687b      	ldr	r3, [r7, #4]
+ 8007554:	3304      	adds	r3, #4
+ 8007556:	3230      	adds	r2, #48	@ 0x30
+ 8007558:	b2d2      	uxtb	r2, r2
+ 800755a:	701a      	strb	r2, [r3, #0]
 }
- 8007498:	bf00      	nop
- 800749a:	3714      	adds	r7, #20
- 800749c:	46bd      	mov	sp, r7
- 800749e:	bc80      	pop	{r7}
- 80074a0:	4770      	bx	lr
- 80074a2:	bf00      	nop
- 80074a4:	10624dd3 	.word	0x10624dd3
- 80074a8:	cccccccd 	.word	0xcccccccd
- 80074ac:	51eb851f 	.word	0x51eb851f
+ 800755c:	bf00      	nop
+ 800755e:	3714      	adds	r7, #20
+ 8007560:	46bd      	mov	sp, r7
+ 8007562:	bc80      	pop	{r7}
+ 8007564:	4770      	bx	lr
+ 8007566:	bf00      	nop
+ 8007568:	10624dd3 	.word	0x10624dd3
+ 800756c:	cccccccd 	.word	0xcccccccd
+ 8007570:	51eb851f 	.word	0x51eb851f
 
-080074b0 <Task_ShowLine>:
+08007574 <Task_ShowLine>:
  *     y = 112  跟随测试模式         由 follow_mode.c 写
  * 每行都补空格写满 16 个字, 把上一次的字盖掉。 */
 #define DISP_LINE_LEN  (16U)
 
 static void Task_ShowLine(uint16_t y, const char *text, uint16_t color)
 {
- 80074b0:	b580      	push	{r7, lr}
- 80074b2:	b08a      	sub	sp, #40	@ 0x28
- 80074b4:	af02      	add	r7, sp, #8
- 80074b6:	4603      	mov	r3, r0
- 80074b8:	6039      	str	r1, [r7, #0]
- 80074ba:	80fb      	strh	r3, [r7, #6]
- 80074bc:	4613      	mov	r3, r2
- 80074be:	80bb      	strh	r3, [r7, #4]
+ 8007574:	b580      	push	{r7, lr}
+ 8007576:	b08a      	sub	sp, #40	@ 0x28
+ 8007578:	af02      	add	r7, sp, #8
+ 800757a:	4603      	mov	r3, r0
+ 800757c:	6039      	str	r1, [r7, #0]
+ 800757e:	80fb      	strh	r3, [r7, #6]
+ 8007580:	4613      	mov	r3, r2
+ 8007582:	80bb      	strh	r3, [r7, #4]
     char line[DISP_LINE_LEN + 1U];
     uint8_t i = 0U;
- 80074c0:	2300      	movs	r3, #0
- 80074c2:	77fb      	strb	r3, [r7, #31]
+ 8007584:	2300      	movs	r3, #0
+ 8007586:	77fb      	strb	r3, [r7, #31]
 
     while ((i < DISP_LINE_LEN) && (text[i] != '\0')) {
- 80074c4:	e00b      	b.n	80074de <Task_ShowLine+0x2e>
+ 8007588:	e00b      	b.n	80075a2 <Task_ShowLine+0x2e>
         line[i] = text[i];
- 80074c6:	7ffb      	ldrb	r3, [r7, #31]
- 80074c8:	683a      	ldr	r2, [r7, #0]
- 80074ca:	441a      	add	r2, r3
- 80074cc:	7ffb      	ldrb	r3, [r7, #31]
- 80074ce:	7812      	ldrb	r2, [r2, #0]
- 80074d0:	3320      	adds	r3, #32
- 80074d2:	443b      	add	r3, r7
- 80074d4:	f803 2c14 	strb.w	r2, [r3, #-20]
+ 800758a:	7ffb      	ldrb	r3, [r7, #31]
+ 800758c:	683a      	ldr	r2, [r7, #0]
+ 800758e:	441a      	add	r2, r3
+ 8007590:	7ffb      	ldrb	r3, [r7, #31]
+ 8007592:	7812      	ldrb	r2, [r2, #0]
+ 8007594:	3320      	adds	r3, #32
+ 8007596:	443b      	add	r3, r7
+ 8007598:	f803 2c14 	strb.w	r2, [r3, #-20]
         i++;
- 80074d8:	7ffb      	ldrb	r3, [r7, #31]
- 80074da:	3301      	adds	r3, #1
- 80074dc:	77fb      	strb	r3, [r7, #31]
+ 800759c:	7ffb      	ldrb	r3, [r7, #31]
+ 800759e:	3301      	adds	r3, #1
+ 80075a0:	77fb      	strb	r3, [r7, #31]
     while ((i < DISP_LINE_LEN) && (text[i] != '\0')) {
- 80074de:	7ffb      	ldrb	r3, [r7, #31]
- 80074e0:	2b0f      	cmp	r3, #15
- 80074e2:	d80e      	bhi.n	8007502 <Task_ShowLine+0x52>
- 80074e4:	7ffb      	ldrb	r3, [r7, #31]
- 80074e6:	683a      	ldr	r2, [r7, #0]
- 80074e8:	4413      	add	r3, r2
- 80074ea:	781b      	ldrb	r3, [r3, #0]
- 80074ec:	2b00      	cmp	r3, #0
- 80074ee:	d1ea      	bne.n	80074c6 <Task_ShowLine+0x16>
+ 80075a2:	7ffb      	ldrb	r3, [r7, #31]
+ 80075a4:	2b0f      	cmp	r3, #15
+ 80075a6:	d80e      	bhi.n	80075c6 <Task_ShowLine+0x52>
+ 80075a8:	7ffb      	ldrb	r3, [r7, #31]
+ 80075aa:	683a      	ldr	r2, [r7, #0]
+ 80075ac:	4413      	add	r3, r2
+ 80075ae:	781b      	ldrb	r3, [r3, #0]
+ 80075b0:	2b00      	cmp	r3, #0
+ 80075b2:	d1ea      	bne.n	800758a <Task_ShowLine+0x16>
     }
     while (i < DISP_LINE_LEN) {
- 80074f0:	e007      	b.n	8007502 <Task_ShowLine+0x52>
+ 80075b4:	e007      	b.n	80075c6 <Task_ShowLine+0x52>
         line[i++] = ' ';
- 80074f2:	7ffb      	ldrb	r3, [r7, #31]
- 80074f4:	1c5a      	adds	r2, r3, #1
- 80074f6:	77fa      	strb	r2, [r7, #31]
- 80074f8:	3320      	adds	r3, #32
- 80074fa:	443b      	add	r3, r7
- 80074fc:	2220      	movs	r2, #32
- 80074fe:	f803 2c14 	strb.w	r2, [r3, #-20]
+ 80075b6:	7ffb      	ldrb	r3, [r7, #31]
+ 80075b8:	1c5a      	adds	r2, r3, #1
+ 80075ba:	77fa      	strb	r2, [r7, #31]
+ 80075bc:	3320      	adds	r3, #32
+ 80075be:	443b      	add	r3, r7
+ 80075c0:	2220      	movs	r2, #32
+ 80075c2:	f803 2c14 	strb.w	r2, [r3, #-20]
     while (i < DISP_LINE_LEN) {
- 8007502:	7ffb      	ldrb	r3, [r7, #31]
- 8007504:	2b0f      	cmp	r3, #15
- 8007506:	d9f4      	bls.n	80074f2 <Task_ShowLine+0x42>
+ 80075c6:	7ffb      	ldrb	r3, [r7, #31]
+ 80075c8:	2b0f      	cmp	r3, #15
+ 80075ca:	d9f4      	bls.n	80075b6 <Task_ShowLine+0x42>
     }
     line[DISP_LINE_LEN] = '\0';
- 8007508:	2300      	movs	r3, #0
- 800750a:	773b      	strb	r3, [r7, #28]
+ 80075cc:	2300      	movs	r3, #0
+ 80075ce:	773b      	strb	r3, [r7, #28]
 
     LCD_ShowString(0U, y, line, color, LCD_BLACK, 16U);
- 800750c:	88bb      	ldrh	r3, [r7, #4]
- 800750e:	f107 020c 	add.w	r2, r7, #12
- 8007512:	88f9      	ldrh	r1, [r7, #6]
- 8007514:	2010      	movs	r0, #16
- 8007516:	9001      	str	r0, [sp, #4]
- 8007518:	2000      	movs	r0, #0
- 800751a:	9000      	str	r0, [sp, #0]
- 800751c:	2000      	movs	r0, #0
- 800751e:	f7fe f8c1 	bl	80056a4 <LCD_ShowString>
+ 80075d0:	88bb      	ldrh	r3, [r7, #4]
+ 80075d2:	f107 020c 	add.w	r2, r7, #12
+ 80075d6:	88f9      	ldrh	r1, [r7, #6]
+ 80075d8:	2010      	movs	r0, #16
+ 80075da:	9001      	str	r0, [sp, #4]
+ 80075dc:	2000      	movs	r0, #0
+ 80075de:	9000      	str	r0, [sp, #0]
+ 80075e0:	2000      	movs	r0, #0
+ 80075e2:	f7fe f85f 	bl	80056a4 <LCD_ShowString>
 }
- 8007522:	bf00      	nop
- 8007524:	3720      	adds	r7, #32
- 8007526:	46bd      	mov	sp, r7
- 8007528:	bd80      	pop	{r7, pc}
+ 80075e6:	bf00      	nop
+ 80075e8:	3720      	adds	r7, #32
+ 80075ea:	46bd      	mov	sp, r7
+ 80075ec:	bd80      	pop	{r7, pc}
 	...
 
-0800752c <Task_FormatUint>:
+080075f0 <Task_FormatUint>:
 
 /* value 右对齐写进 text[0 .. width-1], 前面补空格 */
 static void Task_FormatUint(char *text, uint32_t value, uint8_t width)
 {
- 800752c:	b480      	push	{r7}
- 800752e:	b085      	sub	sp, #20
- 8007530:	af00      	add	r7, sp, #0
- 8007532:	60f8      	str	r0, [r7, #12]
- 8007534:	60b9      	str	r1, [r7, #8]
- 8007536:	4613      	mov	r3, r2
- 8007538:	71fb      	strb	r3, [r7, #7]
+ 80075f0:	b480      	push	{r7}
+ 80075f2:	b085      	sub	sp, #20
+ 80075f4:	af00      	add	r7, sp, #0
+ 80075f6:	60f8      	str	r0, [r7, #12]
+ 80075f8:	60b9      	str	r1, [r7, #8]
+ 80075fa:	4613      	mov	r3, r2
+ 80075fc:	71fb      	strb	r3, [r7, #7]
     while (width-- > 0U) {
- 800753a:	e025      	b.n	8007588 <Task_FormatUint+0x5c>
+ 80075fe:	e025      	b.n	800764c <Task_FormatUint+0x5c>
         text[width] = (char) ('0' + (value % 10U));
- 800753c:	68b9      	ldr	r1, [r7, #8]
- 800753e:	4b17      	ldr	r3, [pc, #92]	@ (800759c <Task_FormatUint+0x70>)
- 8007540:	fba3 2301 	umull	r2, r3, r3, r1
- 8007544:	08da      	lsrs	r2, r3, #3
- 8007546:	4613      	mov	r3, r2
- 8007548:	009b      	lsls	r3, r3, #2
- 800754a:	4413      	add	r3, r2
- 800754c:	005b      	lsls	r3, r3, #1
- 800754e:	1aca      	subs	r2, r1, r3
- 8007550:	b2d2      	uxtb	r2, r2
- 8007552:	79fb      	ldrb	r3, [r7, #7]
- 8007554:	68f9      	ldr	r1, [r7, #12]
- 8007556:	440b      	add	r3, r1
- 8007558:	3230      	adds	r2, #48	@ 0x30
- 800755a:	b2d2      	uxtb	r2, r2
- 800755c:	701a      	strb	r2, [r3, #0]
+ 8007600:	68b9      	ldr	r1, [r7, #8]
+ 8007602:	4b17      	ldr	r3, [pc, #92]	@ (8007660 <Task_FormatUint+0x70>)
+ 8007604:	fba3 2301 	umull	r2, r3, r3, r1
+ 8007608:	08da      	lsrs	r2, r3, #3
+ 800760a:	4613      	mov	r3, r2
+ 800760c:	009b      	lsls	r3, r3, #2
+ 800760e:	4413      	add	r3, r2
+ 8007610:	005b      	lsls	r3, r3, #1
+ 8007612:	1aca      	subs	r2, r1, r3
+ 8007614:	b2d2      	uxtb	r2, r2
+ 8007616:	79fb      	ldrb	r3, [r7, #7]
+ 8007618:	68f9      	ldr	r1, [r7, #12]
+ 800761a:	440b      	add	r3, r1
+ 800761c:	3230      	adds	r2, #48	@ 0x30
+ 800761e:	b2d2      	uxtb	r2, r2
+ 8007620:	701a      	strb	r2, [r3, #0]
         value /= 10U;
- 800755e:	68bb      	ldr	r3, [r7, #8]
- 8007560:	4a0e      	ldr	r2, [pc, #56]	@ (800759c <Task_FormatUint+0x70>)
- 8007562:	fba2 2303 	umull	r2, r3, r2, r3
- 8007566:	08db      	lsrs	r3, r3, #3
- 8007568:	60bb      	str	r3, [r7, #8]
+ 8007622:	68bb      	ldr	r3, [r7, #8]
+ 8007624:	4a0e      	ldr	r2, [pc, #56]	@ (8007660 <Task_FormatUint+0x70>)
+ 8007626:	fba2 2303 	umull	r2, r3, r2, r3
+ 800762a:	08db      	lsrs	r3, r3, #3
+ 800762c:	60bb      	str	r3, [r7, #8]
         if (value == 0U) {
- 800756a:	68bb      	ldr	r3, [r7, #8]
- 800756c:	2b00      	cmp	r3, #0
- 800756e:	d10b      	bne.n	8007588 <Task_FormatUint+0x5c>
+ 800762e:	68bb      	ldr	r3, [r7, #8]
+ 8007630:	2b00      	cmp	r3, #0
+ 8007632:	d10b      	bne.n	800764c <Task_FormatUint+0x5c>
             while (width-- > 0U) {
- 8007570:	e004      	b.n	800757c <Task_FormatUint+0x50>
+ 8007634:	e004      	b.n	8007640 <Task_FormatUint+0x50>
                 text[width] = ' ';
- 8007572:	79fb      	ldrb	r3, [r7, #7]
- 8007574:	68fa      	ldr	r2, [r7, #12]
- 8007576:	4413      	add	r3, r2
- 8007578:	2220      	movs	r2, #32
- 800757a:	701a      	strb	r2, [r3, #0]
+ 8007636:	79fb      	ldrb	r3, [r7, #7]
+ 8007638:	68fa      	ldr	r2, [r7, #12]
+ 800763a:	4413      	add	r3, r2
+ 800763c:	2220      	movs	r2, #32
+ 800763e:	701a      	strb	r2, [r3, #0]
             while (width-- > 0U) {
- 800757c:	79fb      	ldrb	r3, [r7, #7]
- 800757e:	1e5a      	subs	r2, r3, #1
- 8007580:	71fa      	strb	r2, [r7, #7]
- 8007582:	2b00      	cmp	r3, #0
- 8007584:	d1f5      	bne.n	8007572 <Task_FormatUint+0x46>
+ 8007640:	79fb      	ldrb	r3, [r7, #7]
+ 8007642:	1e5a      	subs	r2, r3, #1
+ 8007644:	71fa      	strb	r2, [r7, #7]
+ 8007646:	2b00      	cmp	r3, #0
+ 8007648:	d1f5      	bne.n	8007636 <Task_FormatUint+0x46>
             }
             return;
- 8007586:	e004      	b.n	8007592 <Task_FormatUint+0x66>
+ 800764a:	e004      	b.n	8007656 <Task_FormatUint+0x66>
     while (width-- > 0U) {
- 8007588:	79fb      	ldrb	r3, [r7, #7]
- 800758a:	1e5a      	subs	r2, r3, #1
- 800758c:	71fa      	strb	r2, [r7, #7]
- 800758e:	2b00      	cmp	r3, #0
- 8007590:	d1d4      	bne.n	800753c <Task_FormatUint+0x10>
+ 800764c:	79fb      	ldrb	r3, [r7, #7]
+ 800764e:	1e5a      	subs	r2, r3, #1
+ 8007650:	71fa      	strb	r2, [r7, #7]
+ 8007652:	2b00      	cmp	r3, #0
+ 8007654:	d1d4      	bne.n	8007600 <Task_FormatUint+0x10>
         }
     }
 }
- 8007592:	3714      	adds	r7, #20
- 8007594:	46bd      	mov	sp, r7
- 8007596:	bc80      	pop	{r7}
- 8007598:	4770      	bx	lr
- 800759a:	bf00      	nop
- 800759c:	cccccccd 	.word	0xcccccccd
+ 8007656:	3714      	adds	r7, #20
+ 8007658:	46bd      	mov	sp, r7
+ 800765a:	bc80      	pop	{r7}
+ 800765c:	4770      	bx	lr
+ 800765e:	bf00      	nop
+ 8007660:	cccccccd 	.word	0xcccccccd
 
-080075a0 <Task_FPGA_Display>:
+08007664 <Task_FPGA_Display>:
 
 static void Task_FPGA_Display(void)
 {
- 80075a0:	b590      	push	{r4, r7, lr}
- 80075a2:	b085      	sub	sp, #20
- 80075a4:	af00      	add	r7, sp, #0
+ 8007664:	b590      	push	{r4, r7, lr}
+ 8007666:	b085      	sub	sp, #20
+ 8007668:	af00      	add	r7, sp, #0
     char wheels[] = "L+0000 R+0000";
- 80075a6:	4b29      	ldr	r3, [pc, #164]	@ (800764c <Task_FPGA_Display+0xac>)
- 80075a8:	463c      	mov	r4, r7
- 80075aa:	cb0f      	ldmia	r3, {r0, r1, r2, r3}
- 80075ac:	c407      	stmia	r4!, {r0, r1, r2}
- 80075ae:	8023      	strh	r3, [r4, #0]
+ 800766a:	4b29      	ldr	r3, [pc, #164]	@ (8007710 <Task_FPGA_Display+0xac>)
+ 800766c:	463c      	mov	r4, r7
+ 800766e:	cb0f      	ldmia	r3, {r0, r1, r2, r3}
+ 8007670:	c407      	stmia	r4!, {r0, r1, r2}
+ 8007672:	8023      	strh	r3, [r4, #0]
 
     if (!FPGAMLK_LinkAlive(Get_Time())) {
- 80075b0:	f000 fa68 	bl	8007a84 <Get_Time>
- 80075b4:	4603      	mov	r3, r0
- 80075b6:	4618      	mov	r0, r3
- 80075b8:	f7fe fa80 	bl	8005abc <FPGAMLK_LinkAlive>
- 80075bc:	4603      	mov	r3, r0
- 80075be:	f083 0301 	eor.w	r3, r3, #1
- 80075c2:	b2db      	uxtb	r3, r3
- 80075c4:	2b00      	cmp	r3, #0
- 80075c6:	d00c      	beq.n	80075e2 <Task_FPGA_Display+0x42>
+ 8007674:	f000 faa8 	bl	8007bc8 <Get_Time>
+ 8007678:	4603      	mov	r3, r0
+ 800767a:	4618      	mov	r0, r3
+ 800767c:	f7fe fa1e 	bl	8005abc <FPGAMLK_LinkAlive>
+ 8007680:	4603      	mov	r3, r0
+ 8007682:	f083 0301 	eor.w	r3, r3, #1
+ 8007686:	b2db      	uxtb	r3, r3
+ 8007688:	2b00      	cmp	r3, #0
+ 800768a:	d00c      	beq.n	80076a6 <Task_FPGA_Display+0x42>
         Task_ShowLine(40U, "FPGA no link", LCD_WHITE);
- 80075c8:	f64f 72ff 	movw	r2, #65535	@ 0xffff
- 80075cc:	4920      	ldr	r1, [pc, #128]	@ (8007650 <Task_FPGA_Display+0xb0>)
- 80075ce:	2028      	movs	r0, #40	@ 0x28
- 80075d0:	f7ff ff6e 	bl	80074b0 <Task_ShowLine>
+ 800768c:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+ 8007690:	4920      	ldr	r1, [pc, #128]	@ (8007714 <Task_FPGA_Display+0xb0>)
+ 8007692:	2028      	movs	r0, #40	@ 0x28
+ 8007694:	f7ff ff6e 	bl	8007574 <Task_ShowLine>
         Task_ShowLine(56U, "", LCD_WHITE);
- 80075d4:	f64f 72ff 	movw	r2, #65535	@ 0xffff
- 80075d8:	491e      	ldr	r1, [pc, #120]	@ (8007654 <Task_FPGA_Display+0xb4>)
- 80075da:	2038      	movs	r0, #56	@ 0x38
- 80075dc:	f7ff ff68 	bl	80074b0 <Task_ShowLine>
+ 8007698:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+ 800769c:	491e      	ldr	r1, [pc, #120]	@ (8007718 <Task_FPGA_Display+0xb4>)
+ 800769e:	2038      	movs	r0, #56	@ 0x38
+ 80076a0:	f7ff ff68 	bl	8007574 <Task_ShowLine>
         return;
- 80075e0:	e030      	b.n	8007644 <Task_FPGA_Display+0xa4>
+ 80076a4:	e030      	b.n	8007708 <Task_FPGA_Display+0xa4>
     }
 
     if (g_fpga_stop) {
- 80075e2:	4b1d      	ldr	r3, [pc, #116]	@ (8007658 <Task_FPGA_Display+0xb8>)
- 80075e4:	781b      	ldrb	r3, [r3, #0]
- 80075e6:	b2db      	uxtb	r3, r3
- 80075e8:	2b00      	cmp	r3, #0
- 80075ea:	d00c      	beq.n	8007606 <Task_FPGA_Display+0x66>
+ 80076a6:	4b1d      	ldr	r3, [pc, #116]	@ (800771c <Task_FPGA_Display+0xb8>)
+ 80076a8:	781b      	ldrb	r3, [r3, #0]
+ 80076aa:	b2db      	uxtb	r3, r3
+ 80076ac:	2b00      	cmp	r3, #0
+ 80076ae:	d00c      	beq.n	80076ca <Task_FPGA_Display+0x66>
         Task_ShowLine(40U, "FPGA STOP", LCD_YELLOW);
- 80075ec:	f64f 72e0 	movw	r2, #65504	@ 0xffe0
- 80075f0:	491a      	ldr	r1, [pc, #104]	@ (800765c <Task_FPGA_Display+0xbc>)
- 80075f2:	2028      	movs	r0, #40	@ 0x28
- 80075f4:	f7ff ff5c 	bl	80074b0 <Task_ShowLine>
+ 80076b0:	f64f 72e0 	movw	r2, #65504	@ 0xffe0
+ 80076b4:	491a      	ldr	r1, [pc, #104]	@ (8007720 <Task_FPGA_Display+0xbc>)
+ 80076b6:	2028      	movs	r0, #40	@ 0x28
+ 80076b8:	f7ff ff5c 	bl	8007574 <Task_ShowLine>
         Task_ShowLine(56U, "", LCD_WHITE);
- 80075f8:	f64f 72ff 	movw	r2, #65535	@ 0xffff
- 80075fc:	4915      	ldr	r1, [pc, #84]	@ (8007654 <Task_FPGA_Display+0xb4>)
- 80075fe:	2038      	movs	r0, #56	@ 0x38
- 8007600:	f7ff ff56 	bl	80074b0 <Task_ShowLine>
+ 80076bc:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+ 80076c0:	4915      	ldr	r1, [pc, #84]	@ (8007718 <Task_FPGA_Display+0xb4>)
+ 80076c2:	2038      	movs	r0, #56	@ 0x38
+ 80076c4:	f7ff ff56 	bl	8007574 <Task_ShowLine>
         return;
- 8007604:	e01e      	b.n	8007644 <Task_FPGA_Display+0xa4>
+ 80076c8:	e01e      	b.n	8007708 <Task_FPGA_Display+0xa4>
     }
 
     Task_FormatWheel(&wheels[1], g_fpga_left_pwm);
- 8007606:	4b16      	ldr	r3, [pc, #88]	@ (8007660 <Task_FPGA_Display+0xc0>)
- 8007608:	881b      	ldrh	r3, [r3, #0]
- 800760a:	b21a      	sxth	r2, r3
- 800760c:	463b      	mov	r3, r7
- 800760e:	3301      	adds	r3, #1
- 8007610:	4611      	mov	r1, r2
- 8007612:	4618      	mov	r0, r3
- 8007614:	f7ff fed4 	bl	80073c0 <Task_FormatWheel>
+ 80076ca:	4b16      	ldr	r3, [pc, #88]	@ (8007724 <Task_FPGA_Display+0xc0>)
+ 80076cc:	881b      	ldrh	r3, [r3, #0]
+ 80076ce:	b21a      	sxth	r2, r3
+ 80076d0:	463b      	mov	r3, r7
+ 80076d2:	3301      	adds	r3, #1
+ 80076d4:	4611      	mov	r1, r2
+ 80076d6:	4618      	mov	r0, r3
+ 80076d8:	f7ff fed4 	bl	8007484 <Task_FormatWheel>
     Task_FormatWheel(&wheels[8], g_fpga_right_pwm);
- 8007618:	4b12      	ldr	r3, [pc, #72]	@ (8007664 <Task_FPGA_Display+0xc4>)
- 800761a:	881b      	ldrh	r3, [r3, #0]
- 800761c:	b21a      	sxth	r2, r3
- 800761e:	463b      	mov	r3, r7
- 8007620:	3308      	adds	r3, #8
- 8007622:	4611      	mov	r1, r2
- 8007624:	4618      	mov	r0, r3
- 8007626:	f7ff fecb 	bl	80073c0 <Task_FormatWheel>
+ 80076dc:	4b12      	ldr	r3, [pc, #72]	@ (8007728 <Task_FPGA_Display+0xc4>)
+ 80076de:	881b      	ldrh	r3, [r3, #0]
+ 80076e0:	b21a      	sxth	r2, r3
+ 80076e2:	463b      	mov	r3, r7
+ 80076e4:	3308      	adds	r3, #8
+ 80076e6:	4611      	mov	r1, r2
+ 80076e8:	4618      	mov	r0, r3
+ 80076ea:	f7ff fecb 	bl	8007484 <Task_FormatWheel>
     Task_ShowLine(40U, "FPGA RUN", LCD_GREEN);
- 800762a:	f44f 62fc 	mov.w	r2, #2016	@ 0x7e0
- 800762e:	490e      	ldr	r1, [pc, #56]	@ (8007668 <Task_FPGA_Display+0xc8>)
- 8007630:	2028      	movs	r0, #40	@ 0x28
- 8007632:	f7ff ff3d 	bl	80074b0 <Task_ShowLine>
+ 80076ee:	f44f 62fc 	mov.w	r2, #2016	@ 0x7e0
+ 80076f2:	490e      	ldr	r1, [pc, #56]	@ (800772c <Task_FPGA_Display+0xc8>)
+ 80076f4:	2028      	movs	r0, #40	@ 0x28
+ 80076f6:	f7ff ff3d 	bl	8007574 <Task_ShowLine>
     Task_ShowLine(56U, wheels, LCD_WHITE);
- 8007636:	463b      	mov	r3, r7
- 8007638:	f64f 72ff 	movw	r2, #65535	@ 0xffff
- 800763c:	4619      	mov	r1, r3
- 800763e:	2038      	movs	r0, #56	@ 0x38
- 8007640:	f7ff ff36 	bl	80074b0 <Task_ShowLine>
+ 80076fa:	463b      	mov	r3, r7
+ 80076fc:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+ 8007700:	4619      	mov	r1, r3
+ 8007702:	2038      	movs	r0, #56	@ 0x38
+ 8007704:	f7ff ff36 	bl	8007574 <Task_ShowLine>
 }
- 8007644:	3714      	adds	r7, #20
- 8007646:	46bd      	mov	sp, r7
- 8007648:	bd90      	pop	{r4, r7, pc}
- 800764a:	bf00      	nop
- 800764c:	08007bc4 	.word	0x08007bc4
- 8007650:	08007b98 	.word	0x08007b98
- 8007654:	08007ba8 	.word	0x08007ba8
- 8007658:	2000000d 	.word	0x2000000d
- 800765c:	08007bac 	.word	0x08007bac
- 8007660:	200003b0 	.word	0x200003b0
- 8007664:	200003b2 	.word	0x200003b2
- 8007668:	08007bb8 	.word	0x08007bb8
+ 8007708:	3714      	adds	r7, #20
+ 800770a:	46bd      	mov	sp, r7
+ 800770c:	bd90      	pop	{r4, r7, pc}
+ 800770e:	bf00      	nop
+ 8007710:	08007d24 	.word	0x08007d24
+ 8007714:	08007cf8 	.word	0x08007cf8
+ 8007718:	08007d08 	.word	0x08007d08
+ 800771c:	2000000d 	.word	0x2000000d
+ 8007720:	08007d0c 	.word	0x08007d0c
+ 8007724:	200003b0 	.word	0x200003b0
+ 8007728:	200003b2 	.word	0x200003b2
+ 800772c:	08007d18 	.word	0x08007d18
 
-0800766c <Task_ShowSmallLine>:
+08007730 <Task_ShowSmallLine>:
 
 /* 小字 (6x8) 一行 21 个字, 补空格写满 */
 #define DISP_SMALL_LEN  (21U)
 
 static void Task_ShowSmallLine(uint16_t y, const char *text, uint16_t color)
 {
- 800766c:	b580      	push	{r7, lr}
- 800766e:	b08a      	sub	sp, #40	@ 0x28
- 8007670:	af02      	add	r7, sp, #8
- 8007672:	4603      	mov	r3, r0
- 8007674:	6039      	str	r1, [r7, #0]
- 8007676:	80fb      	strh	r3, [r7, #6]
- 8007678:	4613      	mov	r3, r2
- 800767a:	80bb      	strh	r3, [r7, #4]
+ 8007730:	b580      	push	{r7, lr}
+ 8007732:	b08a      	sub	sp, #40	@ 0x28
+ 8007734:	af02      	add	r7, sp, #8
+ 8007736:	4603      	mov	r3, r0
+ 8007738:	6039      	str	r1, [r7, #0]
+ 800773a:	80fb      	strh	r3, [r7, #6]
+ 800773c:	4613      	mov	r3, r2
+ 800773e:	80bb      	strh	r3, [r7, #4]
     char line[DISP_SMALL_LEN + 1U];
     uint8_t i = 0U;
- 800767c:	2300      	movs	r3, #0
- 800767e:	77fb      	strb	r3, [r7, #31]
+ 8007740:	2300      	movs	r3, #0
+ 8007742:	77fb      	strb	r3, [r7, #31]
 
     while ((i < DISP_SMALL_LEN) && (text[i] != '\0')) {
- 8007680:	e00b      	b.n	800769a <Task_ShowSmallLine+0x2e>
+ 8007744:	e00b      	b.n	800775e <Task_ShowSmallLine+0x2e>
         line[i] = text[i];
- 8007682:	7ffb      	ldrb	r3, [r7, #31]
- 8007684:	683a      	ldr	r2, [r7, #0]
- 8007686:	441a      	add	r2, r3
- 8007688:	7ffb      	ldrb	r3, [r7, #31]
- 800768a:	7812      	ldrb	r2, [r2, #0]
- 800768c:	3320      	adds	r3, #32
- 800768e:	443b      	add	r3, r7
- 8007690:	f803 2c18 	strb.w	r2, [r3, #-24]
+ 8007746:	7ffb      	ldrb	r3, [r7, #31]
+ 8007748:	683a      	ldr	r2, [r7, #0]
+ 800774a:	441a      	add	r2, r3
+ 800774c:	7ffb      	ldrb	r3, [r7, #31]
+ 800774e:	7812      	ldrb	r2, [r2, #0]
+ 8007750:	3320      	adds	r3, #32
+ 8007752:	443b      	add	r3, r7
+ 8007754:	f803 2c18 	strb.w	r2, [r3, #-24]
         i++;
- 8007694:	7ffb      	ldrb	r3, [r7, #31]
- 8007696:	3301      	adds	r3, #1
- 8007698:	77fb      	strb	r3, [r7, #31]
+ 8007758:	7ffb      	ldrb	r3, [r7, #31]
+ 800775a:	3301      	adds	r3, #1
+ 800775c:	77fb      	strb	r3, [r7, #31]
     while ((i < DISP_SMALL_LEN) && (text[i] != '\0')) {
- 800769a:	7ffb      	ldrb	r3, [r7, #31]
- 800769c:	2b14      	cmp	r3, #20
- 800769e:	d80e      	bhi.n	80076be <Task_ShowSmallLine+0x52>
- 80076a0:	7ffb      	ldrb	r3, [r7, #31]
- 80076a2:	683a      	ldr	r2, [r7, #0]
- 80076a4:	4413      	add	r3, r2
- 80076a6:	781b      	ldrb	r3, [r3, #0]
- 80076a8:	2b00      	cmp	r3, #0
- 80076aa:	d1ea      	bne.n	8007682 <Task_ShowSmallLine+0x16>
+ 800775e:	7ffb      	ldrb	r3, [r7, #31]
+ 8007760:	2b14      	cmp	r3, #20
+ 8007762:	d80e      	bhi.n	8007782 <Task_ShowSmallLine+0x52>
+ 8007764:	7ffb      	ldrb	r3, [r7, #31]
+ 8007766:	683a      	ldr	r2, [r7, #0]
+ 8007768:	4413      	add	r3, r2
+ 800776a:	781b      	ldrb	r3, [r3, #0]
+ 800776c:	2b00      	cmp	r3, #0
+ 800776e:	d1ea      	bne.n	8007746 <Task_ShowSmallLine+0x16>
     }
     while (i < DISP_SMALL_LEN) {
- 80076ac:	e007      	b.n	80076be <Task_ShowSmallLine+0x52>
+ 8007770:	e007      	b.n	8007782 <Task_ShowSmallLine+0x52>
         line[i++] = ' ';
- 80076ae:	7ffb      	ldrb	r3, [r7, #31]
- 80076b0:	1c5a      	adds	r2, r3, #1
- 80076b2:	77fa      	strb	r2, [r7, #31]
- 80076b4:	3320      	adds	r3, #32
- 80076b6:	443b      	add	r3, r7
- 80076b8:	2220      	movs	r2, #32
- 80076ba:	f803 2c18 	strb.w	r2, [r3, #-24]
+ 8007772:	7ffb      	ldrb	r3, [r7, #31]
+ 8007774:	1c5a      	adds	r2, r3, #1
+ 8007776:	77fa      	strb	r2, [r7, #31]
+ 8007778:	3320      	adds	r3, #32
+ 800777a:	443b      	add	r3, r7
+ 800777c:	2220      	movs	r2, #32
+ 800777e:	f803 2c18 	strb.w	r2, [r3, #-24]
     while (i < DISP_SMALL_LEN) {
- 80076be:	7ffb      	ldrb	r3, [r7, #31]
- 80076c0:	2b14      	cmp	r3, #20
- 80076c2:	d9f4      	bls.n	80076ae <Task_ShowSmallLine+0x42>
+ 8007782:	7ffb      	ldrb	r3, [r7, #31]
+ 8007784:	2b14      	cmp	r3, #20
+ 8007786:	d9f4      	bls.n	8007772 <Task_ShowSmallLine+0x42>
     }
     line[DISP_SMALL_LEN] = '\0';
- 80076c4:	2300      	movs	r3, #0
- 80076c6:	777b      	strb	r3, [r7, #29]
+ 8007788:	2300      	movs	r3, #0
+ 800778a:	777b      	strb	r3, [r7, #29]
 
     LCD_ShowString(0U, y, line, color, LCD_BLACK, 8U);
- 80076c8:	88bb      	ldrh	r3, [r7, #4]
- 80076ca:	f107 0208 	add.w	r2, r7, #8
- 80076ce:	88f9      	ldrh	r1, [r7, #6]
- 80076d0:	2008      	movs	r0, #8
- 80076d2:	9001      	str	r0, [sp, #4]
- 80076d4:	2000      	movs	r0, #0
- 80076d6:	9000      	str	r0, [sp, #0]
- 80076d8:	2000      	movs	r0, #0
- 80076da:	f7fd ffe3 	bl	80056a4 <LCD_ShowString>
+ 800778c:	88bb      	ldrh	r3, [r7, #4]
+ 800778e:	f107 0208 	add.w	r2, r7, #8
+ 8007792:	88f9      	ldrh	r1, [r7, #6]
+ 8007794:	2008      	movs	r0, #8
+ 8007796:	9001      	str	r0, [sp, #4]
+ 8007798:	2000      	movs	r0, #0
+ 800779a:	9000      	str	r0, [sp, #0]
+ 800779c:	2000      	movs	r0, #0
+ 800779e:	f7fd ff81 	bl	80056a4 <LCD_ShowString>
 }
- 80076de:	bf00      	nop
- 80076e0:	3720      	adds	r7, #32
- 80076e2:	46bd      	mov	sp, r7
- 80076e4:	bd80      	pop	{r7, pc}
+ 80077a2:	bf00      	nop
+ 80077a4:	3720      	adds	r7, #32
+ 80077a6:	46bd      	mov	sp, r7
+ 80077a8:	bd80      	pop	{r7, pc}
 	...
 
-080076e8 <Task_FormatHex>:
+080077ac <Task_FormatHex>:
 
 /* value 写成 digits 位十六进制 */
 static void Task_FormatHex(char *text, uint32_t value, uint8_t digits)
 {
- 80076e8:	b480      	push	{r7}
- 80076ea:	b085      	sub	sp, #20
- 80076ec:	af00      	add	r7, sp, #0
- 80076ee:	60f8      	str	r0, [r7, #12]
- 80076f0:	60b9      	str	r1, [r7, #8]
- 80076f2:	4613      	mov	r3, r2
- 80076f4:	71fb      	strb	r3, [r7, #7]
+ 80077ac:	b480      	push	{r7}
+ 80077ae:	b085      	sub	sp, #20
+ 80077b0:	af00      	add	r7, sp, #0
+ 80077b2:	60f8      	str	r0, [r7, #12]
+ 80077b4:	60b9      	str	r1, [r7, #8]
+ 80077b6:	4613      	mov	r3, r2
+ 80077b8:	71fb      	strb	r3, [r7, #7]
     static const char hex[] = "0123456789ABCDEF";
 
     while (digits-- > 0U) {
- 80076f6:	e00b      	b.n	8007710 <Task_FormatHex+0x28>
+ 80077ba:	e00b      	b.n	80077d4 <Task_FormatHex+0x28>
         text[digits] = hex[value & 0x0FU];
- 80076f8:	68bb      	ldr	r3, [r7, #8]
- 80076fa:	f003 020f 	and.w	r2, r3, #15
- 80076fe:	79fb      	ldrb	r3, [r7, #7]
- 8007700:	68f9      	ldr	r1, [r7, #12]
- 8007702:	440b      	add	r3, r1
- 8007704:	4908      	ldr	r1, [pc, #32]	@ (8007728 <Task_FormatHex+0x40>)
- 8007706:	5c8a      	ldrb	r2, [r1, r2]
- 8007708:	701a      	strb	r2, [r3, #0]
+ 80077bc:	68bb      	ldr	r3, [r7, #8]
+ 80077be:	f003 020f 	and.w	r2, r3, #15
+ 80077c2:	79fb      	ldrb	r3, [r7, #7]
+ 80077c4:	68f9      	ldr	r1, [r7, #12]
+ 80077c6:	440b      	add	r3, r1
+ 80077c8:	4908      	ldr	r1, [pc, #32]	@ (80077ec <Task_FormatHex+0x40>)
+ 80077ca:	5c8a      	ldrb	r2, [r1, r2]
+ 80077cc:	701a      	strb	r2, [r3, #0]
         value >>= 4;
- 800770a:	68bb      	ldr	r3, [r7, #8]
- 800770c:	091b      	lsrs	r3, r3, #4
- 800770e:	60bb      	str	r3, [r7, #8]
+ 80077ce:	68bb      	ldr	r3, [r7, #8]
+ 80077d0:	091b      	lsrs	r3, r3, #4
+ 80077d2:	60bb      	str	r3, [r7, #8]
     while (digits-- > 0U) {
- 8007710:	79fb      	ldrb	r3, [r7, #7]
- 8007712:	1e5a      	subs	r2, r3, #1
- 8007714:	71fa      	strb	r2, [r7, #7]
- 8007716:	2b00      	cmp	r3, #0
- 8007718:	d1ee      	bne.n	80076f8 <Task_FormatHex+0x10>
+ 80077d4:	79fb      	ldrb	r3, [r7, #7]
+ 80077d6:	1e5a      	subs	r2, r3, #1
+ 80077d8:	71fa      	strb	r2, [r7, #7]
+ 80077da:	2b00      	cmp	r3, #0
+ 80077dc:	d1ee      	bne.n	80077bc <Task_FormatHex+0x10>
     }
 }
- 800771a:	bf00      	nop
- 800771c:	bf00      	nop
- 800771e:	3714      	adds	r7, #20
- 8007720:	46bd      	mov	sp, r7
- 8007722:	bc80      	pop	{r7}
- 8007724:	4770      	bx	lr
- 8007726:	bf00      	nop
- 8007728:	08008520 	.word	0x08008520
+ 80077de:	bf00      	nop
+ 80077e0:	bf00      	nop
+ 80077e2:	3714      	adds	r7, #20
+ 80077e4:	46bd      	mov	sp, r7
+ 80077e6:	bc80      	pop	{r7}
+ 80077e8:	4770      	bx	lr
+ 80077ea:	bf00      	nop
+ 80077ec:	08008698 	.word	0x08008698
 
-0800772c <Task_UWB_StatsDisplay>:
+080077f0 <Task_UWB_StatsDisplay>:
  *     rx  收到的字节        ok  解出的定位帧        ck  校验不对的帧
  *     F len/ver   前基站最近一个定位帧的长度字段 / 版本号 (规格书: 0025 / 0100)
  *     F xor       帧里的校验字节 / 算出来的异或 (两个一样才算 ok)
  * rx 一直是 0 = 线上没数据; rx 涨 ok 不涨 = 看 ck 和下面两行。 */
 static void Task_UWB_StatsDisplay(void)
 {
- 800772c:	b5b0      	push	{r4, r5, r7, lr}
- 800772e:	b0a2      	sub	sp, #136	@ 0x88
- 8007730:	af00      	add	r7, sp, #0
+ 80077f0:	b5b0      	push	{r4, r5, r7, lr}
+ 80077f2:	b0a2      	sub	sp, #136	@ 0x88
+ 80077f4:	af00      	add	r7, sp, #0
     char rx_line[] = "rx     0    0    0";
- 8007732:	4b71      	ldr	r3, [pc, #452]	@ (80078f8 <Task_UWB_StatsDisplay+0x1cc>)
- 8007734:	f107 0470 	add.w	r4, r7, #112	@ 0x70
- 8007738:	461d      	mov	r5, r3
- 800773a:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
- 800773c:	c40f      	stmia	r4!, {r0, r1, r2, r3}
- 800773e:	682b      	ldr	r3, [r5, #0]
- 8007740:	461a      	mov	r2, r3
- 8007742:	8022      	strh	r2, [r4, #0]
- 8007744:	3402      	adds	r4, #2
- 8007746:	0c1b      	lsrs	r3, r3, #16
- 8007748:	7023      	strb	r3, [r4, #0]
+ 80077f6:	4b71      	ldr	r3, [pc, #452]	@ (80079bc <Task_UWB_StatsDisplay+0x1cc>)
+ 80077f8:	f107 0470 	add.w	r4, r7, #112	@ 0x70
+ 80077fc:	461d      	mov	r5, r3
+ 80077fe:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
+ 8007800:	c40f      	stmia	r4!, {r0, r1, r2, r3}
+ 8007802:	682b      	ldr	r3, [r5, #0]
+ 8007804:	461a      	mov	r2, r3
+ 8007806:	8022      	strh	r2, [r4, #0]
+ 8007808:	3402      	adds	r4, #2
+ 800780a:	0c1b      	lsrs	r3, r3, #16
+ 800780c:	7023      	strb	r3, [r4, #0]
     char ok_line[] = "ok     0    0    0";
- 800774a:	4b6c      	ldr	r3, [pc, #432]	@ (80078fc <Task_UWB_StatsDisplay+0x1d0>)
- 800774c:	f107 045c 	add.w	r4, r7, #92	@ 0x5c
- 8007750:	461d      	mov	r5, r3
- 8007752:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
- 8007754:	c40f      	stmia	r4!, {r0, r1, r2, r3}
- 8007756:	682b      	ldr	r3, [r5, #0]
- 8007758:	461a      	mov	r2, r3
- 800775a:	8022      	strh	r2, [r4, #0]
- 800775c:	3402      	adds	r4, #2
- 800775e:	0c1b      	lsrs	r3, r3, #16
- 8007760:	7023      	strb	r3, [r4, #0]
+ 800780e:	4b6c      	ldr	r3, [pc, #432]	@ (80079c0 <Task_UWB_StatsDisplay+0x1d0>)
+ 8007810:	f107 045c 	add.w	r4, r7, #92	@ 0x5c
+ 8007814:	461d      	mov	r5, r3
+ 8007816:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
+ 8007818:	c40f      	stmia	r4!, {r0, r1, r2, r3}
+ 800781a:	682b      	ldr	r3, [r5, #0]
+ 800781c:	461a      	mov	r2, r3
+ 800781e:	8022      	strh	r2, [r4, #0]
+ 8007820:	3402      	adds	r4, #2
+ 8007822:	0c1b      	lsrs	r3, r3, #16
+ 8007824:	7023      	strb	r3, [r4, #0]
     char ck_line[] = "ck     0    0    0";
- 8007762:	4b67      	ldr	r3, [pc, #412]	@ (8007900 <Task_UWB_StatsDisplay+0x1d4>)
- 8007764:	f107 0448 	add.w	r4, r7, #72	@ 0x48
- 8007768:	461d      	mov	r5, r3
- 800776a:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
- 800776c:	c40f      	stmia	r4!, {r0, r1, r2, r3}
- 800776e:	682b      	ldr	r3, [r5, #0]
- 8007770:	461a      	mov	r2, r3
- 8007772:	8022      	strh	r2, [r4, #0]
- 8007774:	3402      	adds	r4, #2
- 8007776:	0c1b      	lsrs	r3, r3, #16
- 8007778:	7023      	strb	r3, [r4, #0]
+ 8007826:	4b67      	ldr	r3, [pc, #412]	@ (80079c4 <Task_UWB_StatsDisplay+0x1d4>)
+ 8007828:	f107 0448 	add.w	r4, r7, #72	@ 0x48
+ 800782c:	461d      	mov	r5, r3
+ 800782e:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
+ 8007830:	c40f      	stmia	r4!, {r0, r1, r2, r3}
+ 8007832:	682b      	ldr	r3, [r5, #0]
+ 8007834:	461a      	mov	r2, r3
+ 8007836:	8022      	strh	r2, [r4, #0]
+ 8007838:	3402      	adds	r4, #2
+ 800783a:	0c1b      	lsrs	r3, r3, #16
+ 800783c:	7023      	strb	r3, [r4, #0]
     char hdr_line[] = "F len 0000 ver 0000";
- 800777a:	4b62      	ldr	r3, [pc, #392]	@ (8007904 <Task_UWB_StatsDisplay+0x1d8>)
- 800777c:	f107 0434 	add.w	r4, r7, #52	@ 0x34
- 8007780:	461d      	mov	r5, r3
- 8007782:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
- 8007784:	c40f      	stmia	r4!, {r0, r1, r2, r3}
- 8007786:	682b      	ldr	r3, [r5, #0]
- 8007788:	6023      	str	r3, [r4, #0]
+ 800783e:	4b62      	ldr	r3, [pc, #392]	@ (80079c8 <Task_UWB_StatsDisplay+0x1d8>)
+ 8007840:	f107 0434 	add.w	r4, r7, #52	@ 0x34
+ 8007844:	461d      	mov	r5, r3
+ 8007846:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
+ 8007848:	c40f      	stmia	r4!, {r0, r1, r2, r3}
+ 800784a:	682b      	ldr	r3, [r5, #0]
+ 800784c:	6023      	str	r3, [r4, #0]
     char xor_line[] = "F xor 00 calc 00";
- 800778a:	4b5f      	ldr	r3, [pc, #380]	@ (8007908 <Task_UWB_StatsDisplay+0x1dc>)
- 800778c:	f107 0420 	add.w	r4, r7, #32
- 8007790:	461d      	mov	r5, r3
- 8007792:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
- 8007794:	c40f      	stmia	r4!, {r0, r1, r2, r3}
- 8007796:	682b      	ldr	r3, [r5, #0]
- 8007798:	7023      	strb	r3, [r4, #0]
+ 800784e:	4b5f      	ldr	r3, [pc, #380]	@ (80079cc <Task_UWB_StatsDisplay+0x1dc>)
+ 8007850:	f107 0420 	add.w	r4, r7, #32
+ 8007854:	461d      	mov	r5, r3
+ 8007856:	cd0f      	ldmia	r5!, {r0, r1, r2, r3}
+ 8007858:	c40f      	stmia	r4!, {r0, r1, r2, r3}
+ 800785a:	682b      	ldr	r3, [r5, #0]
+ 800785c:	7023      	strb	r3, [r4, #0]
     UWB_Stats stats;
     uint32_t source;
 
     for (source = 0U; source < (uint32_t) UWB_ANCHOR_COUNT; source++) {
- 800779a:	2300      	movs	r3, #0
- 800779c:	f8c7 3084 	str.w	r3, [r7, #132]	@ 0x84
- 80077a0:	e051      	b.n	8007846 <Task_UWB_StatsDisplay+0x11a>
+ 800785e:	2300      	movs	r3, #0
+ 8007860:	f8c7 3084 	str.w	r3, [r7, #132]	@ 0x84
+ 8007864:	e051      	b.n	800790a <Task_UWB_StatsDisplay+0x11a>
         UWB_GetStats((UWB_Anchor) source, &stats);
- 80077a2:	f8d7 3084 	ldr.w	r3, [r7, #132]	@ 0x84
- 80077a6:	b2db      	uxtb	r3, r3
- 80077a8:	1d3a      	adds	r2, r7, #4
- 80077aa:	4611      	mov	r1, r2
- 80077ac:	4618      	mov	r0, r3
- 80077ae:	f7ff fb5b 	bl	8006e68 <UWB_GetStats>
+ 8007866:	f8d7 3084 	ldr.w	r3, [r7, #132]	@ 0x84
+ 800786a:	b2db      	uxtb	r3, r3
+ 800786c:	1d3a      	adds	r2, r7, #4
+ 800786e:	4611      	mov	r1, r2
+ 8007870:	4618      	mov	r0, r3
+ 8007872:	f7ff faf9 	bl	8006e68 <UWB_GetStats>
         Task_FormatUint(&rx_line[4U + source * 5U], stats.rx_bytes % 10000U, 4U);
- 80077b2:	f8d7 2084 	ldr.w	r2, [r7, #132]	@ 0x84
- 80077b6:	4613      	mov	r3, r2
- 80077b8:	009b      	lsls	r3, r3, #2
- 80077ba:	4413      	add	r3, r2
- 80077bc:	3304      	adds	r3, #4
- 80077be:	f107 0270 	add.w	r2, r7, #112	@ 0x70
- 80077c2:	18d0      	adds	r0, r2, r3
- 80077c4:	687a      	ldr	r2, [r7, #4]
- 80077c6:	4b51      	ldr	r3, [pc, #324]	@ (800790c <Task_UWB_StatsDisplay+0x1e0>)
- 80077c8:	fba3 1302 	umull	r1, r3, r3, r2
- 80077cc:	0b5b      	lsrs	r3, r3, #13
- 80077ce:	f242 7110 	movw	r1, #10000	@ 0x2710
- 80077d2:	fb01 f303 	mul.w	r3, r1, r3
- 80077d6:	1ad3      	subs	r3, r2, r3
- 80077d8:	2204      	movs	r2, #4
- 80077da:	4619      	mov	r1, r3
- 80077dc:	f7ff fea6 	bl	800752c <Task_FormatUint>
+ 8007876:	f8d7 2084 	ldr.w	r2, [r7, #132]	@ 0x84
+ 800787a:	4613      	mov	r3, r2
+ 800787c:	009b      	lsls	r3, r3, #2
+ 800787e:	4413      	add	r3, r2
+ 8007880:	3304      	adds	r3, #4
+ 8007882:	f107 0270 	add.w	r2, r7, #112	@ 0x70
+ 8007886:	18d0      	adds	r0, r2, r3
+ 8007888:	687a      	ldr	r2, [r7, #4]
+ 800788a:	4b51      	ldr	r3, [pc, #324]	@ (80079d0 <Task_UWB_StatsDisplay+0x1e0>)
+ 800788c:	fba3 1302 	umull	r1, r3, r3, r2
+ 8007890:	0b5b      	lsrs	r3, r3, #13
+ 8007892:	f242 7110 	movw	r1, #10000	@ 0x2710
+ 8007896:	fb01 f303 	mul.w	r3, r1, r3
+ 800789a:	1ad3      	subs	r3, r2, r3
+ 800789c:	2204      	movs	r2, #4
+ 800789e:	4619      	mov	r1, r3
+ 80078a0:	f7ff fea6 	bl	80075f0 <Task_FormatUint>
         Task_FormatUint(&ok_line[4U + source * 5U], stats.frames % 10000U, 4U);
- 80077e0:	f8d7 2084 	ldr.w	r2, [r7, #132]	@ 0x84
- 80077e4:	4613      	mov	r3, r2
- 80077e6:	009b      	lsls	r3, r3, #2
- 80077e8:	4413      	add	r3, r2
- 80077ea:	3304      	adds	r3, #4
- 80077ec:	f107 025c 	add.w	r2, r7, #92	@ 0x5c
- 80077f0:	18d0      	adds	r0, r2, r3
- 80077f2:	68ba      	ldr	r2, [r7, #8]
- 80077f4:	4b45      	ldr	r3, [pc, #276]	@ (800790c <Task_UWB_StatsDisplay+0x1e0>)
- 80077f6:	fba3 1302 	umull	r1, r3, r3, r2
- 80077fa:	0b5b      	lsrs	r3, r3, #13
- 80077fc:	f242 7110 	movw	r1, #10000	@ 0x2710
- 8007800:	fb01 f303 	mul.w	r3, r1, r3
- 8007804:	1ad3      	subs	r3, r2, r3
- 8007806:	2204      	movs	r2, #4
- 8007808:	4619      	mov	r1, r3
- 800780a:	f7ff fe8f 	bl	800752c <Task_FormatUint>
+ 80078a4:	f8d7 2084 	ldr.w	r2, [r7, #132]	@ 0x84
+ 80078a8:	4613      	mov	r3, r2
+ 80078aa:	009b      	lsls	r3, r3, #2
+ 80078ac:	4413      	add	r3, r2
+ 80078ae:	3304      	adds	r3, #4
+ 80078b0:	f107 025c 	add.w	r2, r7, #92	@ 0x5c
+ 80078b4:	18d0      	adds	r0, r2, r3
+ 80078b6:	68ba      	ldr	r2, [r7, #8]
+ 80078b8:	4b45      	ldr	r3, [pc, #276]	@ (80079d0 <Task_UWB_StatsDisplay+0x1e0>)
+ 80078ba:	fba3 1302 	umull	r1, r3, r3, r2
+ 80078be:	0b5b      	lsrs	r3, r3, #13
+ 80078c0:	f242 7110 	movw	r1, #10000	@ 0x2710
+ 80078c4:	fb01 f303 	mul.w	r3, r1, r3
+ 80078c8:	1ad3      	subs	r3, r2, r3
+ 80078ca:	2204      	movs	r2, #4
+ 80078cc:	4619      	mov	r1, r3
+ 80078ce:	f7ff fe8f 	bl	80075f0 <Task_FormatUint>
         Task_FormatUint(&ck_line[4U + source * 5U], stats.checksum_errors % 10000U, 4U);
- 800780e:	f8d7 2084 	ldr.w	r2, [r7, #132]	@ 0x84
- 8007812:	4613      	mov	r3, r2
- 8007814:	009b      	lsls	r3, r3, #2
- 8007816:	4413      	add	r3, r2
- 8007818:	3304      	adds	r3, #4
- 800781a:	f107 0248 	add.w	r2, r7, #72	@ 0x48
- 800781e:	18d0      	adds	r0, r2, r3
- 8007820:	68fa      	ldr	r2, [r7, #12]
- 8007822:	4b3a      	ldr	r3, [pc, #232]	@ (800790c <Task_UWB_StatsDisplay+0x1e0>)
- 8007824:	fba3 1302 	umull	r1, r3, r3, r2
- 8007828:	0b5b      	lsrs	r3, r3, #13
- 800782a:	f242 7110 	movw	r1, #10000	@ 0x2710
- 800782e:	fb01 f303 	mul.w	r3, r1, r3
- 8007832:	1ad3      	subs	r3, r2, r3
- 8007834:	2204      	movs	r2, #4
- 8007836:	4619      	mov	r1, r3
- 8007838:	f7ff fe78 	bl	800752c <Task_FormatUint>
+ 80078d2:	f8d7 2084 	ldr.w	r2, [r7, #132]	@ 0x84
+ 80078d6:	4613      	mov	r3, r2
+ 80078d8:	009b      	lsls	r3, r3, #2
+ 80078da:	4413      	add	r3, r2
+ 80078dc:	3304      	adds	r3, #4
+ 80078de:	f107 0248 	add.w	r2, r7, #72	@ 0x48
+ 80078e2:	18d0      	adds	r0, r2, r3
+ 80078e4:	68fa      	ldr	r2, [r7, #12]
+ 80078e6:	4b3a      	ldr	r3, [pc, #232]	@ (80079d0 <Task_UWB_StatsDisplay+0x1e0>)
+ 80078e8:	fba3 1302 	umull	r1, r3, r3, r2
+ 80078ec:	0b5b      	lsrs	r3, r3, #13
+ 80078ee:	f242 7110 	movw	r1, #10000	@ 0x2710
+ 80078f2:	fb01 f303 	mul.w	r3, r1, r3
+ 80078f6:	1ad3      	subs	r3, r2, r3
+ 80078f8:	2204      	movs	r2, #4
+ 80078fa:	4619      	mov	r1, r3
+ 80078fc:	f7ff fe78 	bl	80075f0 <Task_FormatUint>
     for (source = 0U; source < (uint32_t) UWB_ANCHOR_COUNT; source++) {
- 800783c:	f8d7 3084 	ldr.w	r3, [r7, #132]	@ 0x84
- 8007840:	3301      	adds	r3, #1
- 8007842:	f8c7 3084 	str.w	r3, [r7, #132]	@ 0x84
- 8007846:	f8d7 3084 	ldr.w	r3, [r7, #132]	@ 0x84
- 800784a:	2b02      	cmp	r3, #2
- 800784c:	d9a9      	bls.n	80077a2 <Task_UWB_StatsDisplay+0x76>
+ 8007900:	f8d7 3084 	ldr.w	r3, [r7, #132]	@ 0x84
+ 8007904:	3301      	adds	r3, #1
+ 8007906:	f8c7 3084 	str.w	r3, [r7, #132]	@ 0x84
+ 800790a:	f8d7 3084 	ldr.w	r3, [r7, #132]	@ 0x84
+ 800790e:	2b02      	cmp	r3, #2
+ 8007910:	d9a9      	bls.n	8007866 <Task_UWB_StatsDisplay+0x76>
     }
 
     UWB_GetStats(UWB_ANCHOR_FORWARD, &stats);
- 800784e:	1d3b      	adds	r3, r7, #4
- 8007850:	4619      	mov	r1, r3
- 8007852:	2001      	movs	r0, #1
- 8007854:	f7ff fb08 	bl	8006e68 <UWB_GetStats>
+ 8007912:	1d3b      	adds	r3, r7, #4
+ 8007914:	4619      	mov	r1, r3
+ 8007916:	2001      	movs	r0, #1
+ 8007918:	f7ff faa6 	bl	8006e68 <UWB_GetStats>
     Task_FormatHex(&hdr_line[6], stats.last_length, 4U);
- 8007858:	8b3b      	ldrh	r3, [r7, #24]
- 800785a:	4619      	mov	r1, r3
- 800785c:	f107 0334 	add.w	r3, r7, #52	@ 0x34
- 8007860:	3306      	adds	r3, #6
- 8007862:	2204      	movs	r2, #4
- 8007864:	4618      	mov	r0, r3
- 8007866:	f7ff ff3f 	bl	80076e8 <Task_FormatHex>
+ 800791c:	8b3b      	ldrh	r3, [r7, #24]
+ 800791e:	4619      	mov	r1, r3
+ 8007920:	f107 0334 	add.w	r3, r7, #52	@ 0x34
+ 8007924:	3306      	adds	r3, #6
+ 8007926:	2204      	movs	r2, #4
+ 8007928:	4618      	mov	r0, r3
+ 800792a:	f7ff ff3f 	bl	80077ac <Task_FormatHex>
     Task_FormatHex(&hdr_line[15], stats.last_version, 4U);
- 800786a:	8b7b      	ldrh	r3, [r7, #26]
- 800786c:	4619      	mov	r1, r3
- 800786e:	f107 0334 	add.w	r3, r7, #52	@ 0x34
- 8007872:	330f      	adds	r3, #15
- 8007874:	2204      	movs	r2, #4
- 8007876:	4618      	mov	r0, r3
- 8007878:	f7ff ff36 	bl	80076e8 <Task_FormatHex>
+ 800792e:	8b7b      	ldrh	r3, [r7, #26]
+ 8007930:	4619      	mov	r1, r3
+ 8007932:	f107 0334 	add.w	r3, r7, #52	@ 0x34
+ 8007936:	330f      	adds	r3, #15
+ 8007938:	2204      	movs	r2, #4
+ 800793a:	4618      	mov	r0, r3
+ 800793c:	f7ff ff36 	bl	80077ac <Task_FormatHex>
     Task_FormatHex(&xor_line[6], stats.last_xor_rx, 2U);
- 800787c:	7f3b      	ldrb	r3, [r7, #28]
- 800787e:	4619      	mov	r1, r3
- 8007880:	f107 0320 	add.w	r3, r7, #32
- 8007884:	3306      	adds	r3, #6
- 8007886:	2202      	movs	r2, #2
- 8007888:	4618      	mov	r0, r3
- 800788a:	f7ff ff2d 	bl	80076e8 <Task_FormatHex>
+ 8007940:	7f3b      	ldrb	r3, [r7, #28]
+ 8007942:	4619      	mov	r1, r3
+ 8007944:	f107 0320 	add.w	r3, r7, #32
+ 8007948:	3306      	adds	r3, #6
+ 800794a:	2202      	movs	r2, #2
+ 800794c:	4618      	mov	r0, r3
+ 800794e:	f7ff ff2d 	bl	80077ac <Task_FormatHex>
     Task_FormatHex(&xor_line[14], stats.last_xor_calc, 2U);
- 800788e:	7f7b      	ldrb	r3, [r7, #29]
- 8007890:	4619      	mov	r1, r3
- 8007892:	f107 0320 	add.w	r3, r7, #32
- 8007896:	330e      	adds	r3, #14
- 8007898:	2202      	movs	r2, #2
- 800789a:	4618      	mov	r0, r3
- 800789c:	f7ff ff24 	bl	80076e8 <Task_FormatHex>
+ 8007952:	7f7b      	ldrb	r3, [r7, #29]
+ 8007954:	4619      	mov	r1, r3
+ 8007956:	f107 0320 	add.w	r3, r7, #32
+ 800795a:	330e      	adds	r3, #14
+ 800795c:	2202      	movs	r2, #2
+ 800795e:	4618      	mov	r0, r3
+ 8007960:	f7ff ff24 	bl	80077ac <Task_FormatHex>
 
     Task_ShowSmallLine(72U, rx_line, LCD_CYAN);
- 80078a0:	f107 0370 	add.w	r3, r7, #112	@ 0x70
- 80078a4:	f240 72ff 	movw	r2, #2047	@ 0x7ff
- 80078a8:	4619      	mov	r1, r3
- 80078aa:	2048      	movs	r0, #72	@ 0x48
- 80078ac:	f7ff fede 	bl	800766c <Task_ShowSmallLine>
+ 8007964:	f107 0370 	add.w	r3, r7, #112	@ 0x70
+ 8007968:	f240 72ff 	movw	r2, #2047	@ 0x7ff
+ 800796c:	4619      	mov	r1, r3
+ 800796e:	2048      	movs	r0, #72	@ 0x48
+ 8007970:	f7ff fede 	bl	8007730 <Task_ShowSmallLine>
     Task_ShowSmallLine(80U, ok_line, LCD_CYAN);
- 80078b0:	f107 035c 	add.w	r3, r7, #92	@ 0x5c
- 80078b4:	f240 72ff 	movw	r2, #2047	@ 0x7ff
- 80078b8:	4619      	mov	r1, r3
- 80078ba:	2050      	movs	r0, #80	@ 0x50
- 80078bc:	f7ff fed6 	bl	800766c <Task_ShowSmallLine>
+ 8007974:	f107 035c 	add.w	r3, r7, #92	@ 0x5c
+ 8007978:	f240 72ff 	movw	r2, #2047	@ 0x7ff
+ 800797c:	4619      	mov	r1, r3
+ 800797e:	2050      	movs	r0, #80	@ 0x50
+ 8007980:	f7ff fed6 	bl	8007730 <Task_ShowSmallLine>
     Task_ShowSmallLine(88U, ck_line, LCD_CYAN);
- 80078c0:	f107 0348 	add.w	r3, r7, #72	@ 0x48
- 80078c4:	f240 72ff 	movw	r2, #2047	@ 0x7ff
- 80078c8:	4619      	mov	r1, r3
- 80078ca:	2058      	movs	r0, #88	@ 0x58
- 80078cc:	f7ff fece 	bl	800766c <Task_ShowSmallLine>
+ 8007984:	f107 0348 	add.w	r3, r7, #72	@ 0x48
+ 8007988:	f240 72ff 	movw	r2, #2047	@ 0x7ff
+ 800798c:	4619      	mov	r1, r3
+ 800798e:	2058      	movs	r0, #88	@ 0x58
+ 8007990:	f7ff fece 	bl	8007730 <Task_ShowSmallLine>
     Task_ShowSmallLine(96U, hdr_line, LCD_YELLOW);
- 80078d0:	f107 0334 	add.w	r3, r7, #52	@ 0x34
- 80078d4:	f64f 72e0 	movw	r2, #65504	@ 0xffe0
- 80078d8:	4619      	mov	r1, r3
- 80078da:	2060      	movs	r0, #96	@ 0x60
- 80078dc:	f7ff fec6 	bl	800766c <Task_ShowSmallLine>
+ 8007994:	f107 0334 	add.w	r3, r7, #52	@ 0x34
+ 8007998:	f64f 72e0 	movw	r2, #65504	@ 0xffe0
+ 800799c:	4619      	mov	r1, r3
+ 800799e:	2060      	movs	r0, #96	@ 0x60
+ 80079a0:	f7ff fec6 	bl	8007730 <Task_ShowSmallLine>
     Task_ShowSmallLine(104U, xor_line, LCD_YELLOW);
- 80078e0:	f107 0320 	add.w	r3, r7, #32
- 80078e4:	f64f 72e0 	movw	r2, #65504	@ 0xffe0
- 80078e8:	4619      	mov	r1, r3
- 80078ea:	2068      	movs	r0, #104	@ 0x68
- 80078ec:	f7ff febe 	bl	800766c <Task_ShowSmallLine>
+ 80079a4:	f107 0320 	add.w	r3, r7, #32
+ 80079a8:	f64f 72e0 	movw	r2, #65504	@ 0xffe0
+ 80079ac:	4619      	mov	r1, r3
+ 80079ae:	2068      	movs	r0, #104	@ 0x68
+ 80079b0:	f7ff febe 	bl	8007730 <Task_ShowSmallLine>
 }
- 80078f0:	bf00      	nop
- 80078f2:	3788      	adds	r7, #136	@ 0x88
- 80078f4:	46bd      	mov	sp, r7
- 80078f6:	bdb0      	pop	{r4, r5, r7, pc}
- 80078f8:	08007bd4 	.word	0x08007bd4
- 80078fc:	08007be8 	.word	0x08007be8
- 8007900:	08007bfc 	.word	0x08007bfc
- 8007904:	08007c10 	.word	0x08007c10
- 8007908:	08007c24 	.word	0x08007c24
- 800790c:	d1b71759 	.word	0xd1b71759
+ 80079b4:	bf00      	nop
+ 80079b6:	3788      	adds	r7, #136	@ 0x88
+ 80079b8:	46bd      	mov	sp, r7
+ 80079ba:	bdb0      	pop	{r4, r5, r7, pc}
+ 80079bc:	08007d34 	.word	0x08007d34
+ 80079c0:	08007d48 	.word	0x08007d48
+ 80079c4:	08007d5c 	.word	0x08007d5c
+ 80079c8:	08007d70 	.word	0x08007d70
+ 80079cc:	08007d84 	.word	0x08007d84
+ 80079d0:	d1b71759 	.word	0xd1b71759
 
-08007910 <Task_UWB_Display>:
+080079d4 <Task_Tail_Display>:
 
-/* 1 秒刷新一次屏幕: UWB 方向 / 角度 / 距离 + FPGA 命令 + UWB 收数统计。没接屏幕时什么也不做。 */
+/* 尾巴 (小字): 状态 BOOT 等驱动器上电 / HOME 回零 / IDLE 空闲 / WAG 摇摆, 后面 near = 主人在 3 m 以内。
+ * 主人走近了却一直不是 near = 看距离那一行; near 了却一直不是 WAG = 回零没做完, 或者驱动器没接 PA9。 */
+static void Task_Tail_Display(void)
+{
+ 80079d4:	b590      	push	{r4, r7, lr}
+ 80079d6:	b087      	sub	sp, #28
+ 80079d8:	af00      	add	r7, sp, #0
+    static const char state_name[][5] = {"BOOT", "HOME", "IDLE", "WAG "};
+    char line[] = "tail ????  far ";
+ 80079da:	4b18      	ldr	r3, [pc, #96]	@ (8007a3c <Task_Tail_Display+0x68>)
+ 80079dc:	1d3c      	adds	r4, r7, #4
+ 80079de:	cb0f      	ldmia	r3, {r0, r1, r2, r3}
+ 80079e0:	e884 000f 	stmia.w	r4, {r0, r1, r2, r3}
+    Tail_State state = g_tail_state;
+ 80079e4:	4b16      	ldr	r3, [pc, #88]	@ (8007a40 <Task_Tail_Display+0x6c>)
+ 80079e6:	781b      	ldrb	r3, [r3, #0]
+ 80079e8:	75fb      	strb	r3, [r7, #23]
+
+    if ((uint32_t) state < (sizeof(state_name) / sizeof(state_name[0]))) {
+ 80079ea:	7dfb      	ldrb	r3, [r7, #23]
+ 80079ec:	2b03      	cmp	r3, #3
+ 80079ee:	d808      	bhi.n	8007a02 <Task_Tail_Display+0x2e>
+        memcpy(&line[5], state_name[state], 4U);
+ 80079f0:	7dfa      	ldrb	r2, [r7, #23]
+ 80079f2:	4613      	mov	r3, r2
+ 80079f4:	009b      	lsls	r3, r3, #2
+ 80079f6:	4413      	add	r3, r2
+ 80079f8:	4a12      	ldr	r2, [pc, #72]	@ (8007a44 <Task_Tail_Display+0x70>)
+ 80079fa:	4413      	add	r3, r2
+ 80079fc:	681b      	ldr	r3, [r3, #0]
+ 80079fe:	f8c7 3009 	str.w	r3, [r7, #9]
+    }
+    if (s_tail_owner_near) {
+ 8007a02:	4b11      	ldr	r3, [pc, #68]	@ (8007a48 <Task_Tail_Display+0x74>)
+ 8007a04:	781b      	ldrb	r3, [r3, #0]
+ 8007a06:	2b00      	cmp	r3, #0
+ 8007a08:	d006      	beq.n	8007a18 <Task_Tail_Display+0x44>
+        memcpy(&line[11], "near", 4U);
+ 8007a0a:	1d3b      	adds	r3, r7, #4
+ 8007a0c:	330b      	adds	r3, #11
+ 8007a0e:	2204      	movs	r2, #4
+ 8007a10:	490e      	ldr	r1, [pc, #56]	@ (8007a4c <Task_Tail_Display+0x78>)
+ 8007a12:	4618      	mov	r0, r3
+ 8007a14:	f000 f94c 	bl	8007cb0 <memcpy>
+    }
+
+    Task_ShowSmallLine(32U, line, s_tail_owner_near ? LCD_GREEN : LCD_WHITE);
+ 8007a18:	4b0b      	ldr	r3, [pc, #44]	@ (8007a48 <Task_Tail_Display+0x74>)
+ 8007a1a:	781b      	ldrb	r3, [r3, #0]
+ 8007a1c:	2b00      	cmp	r3, #0
+ 8007a1e:	d002      	beq.n	8007a26 <Task_Tail_Display+0x52>
+ 8007a20:	f44f 62fc 	mov.w	r2, #2016	@ 0x7e0
+ 8007a24:	e001      	b.n	8007a2a <Task_Tail_Display+0x56>
+ 8007a26:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+ 8007a2a:	1d3b      	adds	r3, r7, #4
+ 8007a2c:	4619      	mov	r1, r3
+ 8007a2e:	2020      	movs	r0, #32
+ 8007a30:	f7ff fe7e 	bl	8007730 <Task_ShowSmallLine>
+}
+ 8007a34:	bf00      	nop
+ 8007a36:	371c      	adds	r7, #28
+ 8007a38:	46bd      	mov	sp, r7
+ 8007a3a:	bd90      	pop	{r4, r7, pc}
+ 8007a3c:	08007da0 	.word	0x08007da0
+ 8007a40:	20000545 	.word	0x20000545
+ 8007a44:	080086ac 	.word	0x080086ac
+ 8007a48:	20000ce2 	.word	0x20000ce2
+ 8007a4c:	08007d98 	.word	0x08007d98
+
+08007a50 <Task_UWB_Display>:
+
+/* 1 秒刷新一次屏幕: UWB 方向 / 角度 / 距离 + 尾巴 + FPGA 命令 + UWB 收数统计。没接屏幕时什么也不做。 */
 void Task_UWB_Display(void)
 {
- 8007910:	b590      	push	{r4, r7, lr}
- 8007912:	b08f      	sub	sp, #60	@ 0x3c
- 8007914:	af00      	add	r7, sp, #0
+ 8007a50:	b590      	push	{r4, r7, lr}
+ 8007a52:	b08f      	sub	sp, #60	@ 0x3c
+ 8007a54:	af00      	add	r7, sp, #0
     char dir_line[]  = "front   0 deg";
- 8007916:	4b55      	ldr	r3, [pc, #340]	@ (8007a6c <Task_UWB_Display+0x15c>)
- 8007918:	f107 0428 	add.w	r4, r7, #40	@ 0x28
- 800791c:	cb0f      	ldmia	r3, {r0, r1, r2, r3}
- 800791e:	c407      	stmia	r4!, {r0, r1, r2}
- 8007920:	8023      	strh	r3, [r4, #0]
+ 8007a56:	4b56      	ldr	r3, [pc, #344]	@ (8007bb0 <Task_UWB_Display+0x160>)
+ 8007a58:	f107 0428 	add.w	r4, r7, #40	@ 0x28
+ 8007a5c:	cb0f      	ldmia	r3, {r0, r1, r2, r3}
+ 8007a5e:	c407      	stmia	r4!, {r0, r1, r2}
+ 8007a60:	8023      	strh	r3, [r4, #0]
     char dist_line[] = "dist    0.00 m";
- 8007922:	4b53      	ldr	r3, [pc, #332]	@ (8007a70 <Task_UWB_Display+0x160>)
- 8007924:	f107 0418 	add.w	r4, r7, #24
- 8007928:	cb0f      	ldmia	r3, {r0, r1, r2, r3}
- 800792a:	c407      	stmia	r4!, {r0, r1, r2}
- 800792c:	8023      	strh	r3, [r4, #0]
- 800792e:	3402      	adds	r4, #2
- 8007930:	0c1b      	lsrs	r3, r3, #16
- 8007932:	7023      	strb	r3, [r4, #0]
+ 8007a62:	4b54      	ldr	r3, [pc, #336]	@ (8007bb4 <Task_UWB_Display+0x164>)
+ 8007a64:	f107 0418 	add.w	r4, r7, #24
+ 8007a68:	cb0f      	ldmia	r3, {r0, r1, r2, r3}
+ 8007a6a:	c407      	stmia	r4!, {r0, r1, r2}
+ 8007a6c:	8023      	strh	r3, [r4, #0]
+ 8007a6e:	3402      	adds	r4, #2
+ 8007a70:	0c1b      	lsrs	r3, r3, #16
+ 8007a72:	7023      	strb	r3, [r4, #0]
     UWB_Target target;
     uint16_t angle;
 
+    Task_Tail_Display();
+ 8007a74:	f7ff ffae 	bl	80079d4 <Task_Tail_Display>
     Task_FPGA_Display();
- 8007934:	f7ff fe34 	bl	80075a0 <Task_FPGA_Display>
+ 8007a78:	f7ff fdf4 	bl	8007664 <Task_FPGA_Display>
     Task_UWB_StatsDisplay();
- 8007938:	f7ff fef8 	bl	800772c <Task_UWB_StatsDisplay>
+ 8007a7c:	f7ff feb8 	bl	80077f0 <Task_UWB_StatsDisplay>
 
     if (!UWB_GetTarget(Get_Time(), &target)) {
- 800793c:	f000 f8a2 	bl	8007a84 <Get_Time>
- 8007940:	4602      	mov	r2, r0
- 8007942:	463b      	mov	r3, r7
- 8007944:	4619      	mov	r1, r3
- 8007946:	4610      	mov	r0, r2
- 8007948:	f7ff f95c 	bl	8006c04 <UWB_GetTarget>
- 800794c:	4603      	mov	r3, r0
- 800794e:	f083 0301 	eor.w	r3, r3, #1
- 8007952:	b2db      	uxtb	r3, r3
- 8007954:	2b00      	cmp	r3, #0
- 8007956:	d00c      	beq.n	8007972 <Task_UWB_Display+0x62>
+ 8007a80:	f000 f8a2 	bl	8007bc8 <Get_Time>
+ 8007a84:	4602      	mov	r2, r0
+ 8007a86:	463b      	mov	r3, r7
+ 8007a88:	4619      	mov	r1, r3
+ 8007a8a:	4610      	mov	r0, r2
+ 8007a8c:	f7ff f8ba 	bl	8006c04 <UWB_GetTarget>
+ 8007a90:	4603      	mov	r3, r0
+ 8007a92:	f083 0301 	eor.w	r3, r3, #1
+ 8007a96:	b2db      	uxtb	r3, r3
+ 8007a98:	2b00      	cmp	r3, #0
+ 8007a9a:	d00c      	beq.n	8007ab6 <Task_UWB_Display+0x66>
         Task_ShowLine(0U, "UWB no signal", LCD_WHITE);
- 8007958:	f64f 72ff 	movw	r2, #65535	@ 0xffff
- 800795c:	4945      	ldr	r1, [pc, #276]	@ (8007a74 <Task_UWB_Display+0x164>)
- 800795e:	2000      	movs	r0, #0
- 8007960:	f7ff fda6 	bl	80074b0 <Task_ShowLine>
+ 8007a9c:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+ 8007aa0:	4945      	ldr	r1, [pc, #276]	@ (8007bb8 <Task_UWB_Display+0x168>)
+ 8007aa2:	2000      	movs	r0, #0
+ 8007aa4:	f7ff fd66 	bl	8007574 <Task_ShowLine>
         Task_ShowLine(16U, "waiting...", LCD_WHITE);
- 8007964:	f64f 72ff 	movw	r2, #65535	@ 0xffff
- 8007968:	4943      	ldr	r1, [pc, #268]	@ (8007a78 <Task_UWB_Display+0x168>)
- 800796a:	2010      	movs	r0, #16
- 800796c:	f7ff fda0 	bl	80074b0 <Task_ShowLine>
- 8007970:	e079      	b.n	8007a66 <Task_UWB_Display+0x156>
+ 8007aa8:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+ 8007aac:	4943      	ldr	r1, [pc, #268]	@ (8007bbc <Task_UWB_Display+0x16c>)
+ 8007aae:	2010      	movs	r0, #16
+ 8007ab0:	f7ff fd60 	bl	8007574 <Task_ShowLine>
+ 8007ab4:	e079      	b.n	8007baa <Task_UWB_Display+0x15a>
         return;
     }
 
     angle = (uint16_t) ((target.azimuth_deg < 0) ?
- 8007972:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
- 8007976:	2b00      	cmp	r3, #0
- 8007978:	da05      	bge.n	8007986 <Task_UWB_Display+0x76>
+ 8007ab6:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
+ 8007aba:	2b00      	cmp	r3, #0
+ 8007abc:	da05      	bge.n	8007aca <Task_UWB_Display+0x7a>
                         -(int32_t) target.azimuth_deg : target.azimuth_deg);
- 800797a:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
- 800797e:	b29b      	uxth	r3, r3
+ 8007abe:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
+ 8007ac2:	b29b      	uxth	r3, r3
     angle = (uint16_t) ((target.azimuth_deg < 0) ?
- 8007980:	425b      	negs	r3, r3
- 8007982:	b29b      	uxth	r3, r3
- 8007984:	e002      	b.n	800798c <Task_UWB_Display+0x7c>
+ 8007ac4:	425b      	negs	r3, r3
+ 8007ac6:	b29b      	uxth	r3, r3
+ 8007ac8:	e002      	b.n	8007ad0 <Task_UWB_Display+0x80>
                         -(int32_t) target.azimuth_deg : target.azimuth_deg);
- 8007986:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
+ 8007aca:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
     angle = (uint16_t) ((target.azimuth_deg < 0) ?
- 800798a:	b29b      	uxth	r3, r3
- 800798c:	86fb      	strh	r3, [r7, #54]	@ 0x36
+ 8007ace:	b29b      	uxth	r3, r3
+ 8007ad0:	86fb      	strh	r3, [r7, #54]	@ 0x36
     if (target.azimuth_deg < 0) {
- 800798e:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
- 8007992:	2b00      	cmp	r3, #0
- 8007994:	da0f      	bge.n	80079b6 <Task_UWB_Display+0xa6>
+ 8007ad2:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
+ 8007ad6:	2b00      	cmp	r3, #0
+ 8007ad8:	da0f      	bge.n	8007afa <Task_UWB_Display+0xaa>
         dir_line[0] = 'l'; dir_line[1] = 'e'; dir_line[2] = 'f'; dir_line[3] = 't'; dir_line[4] = ' ';
- 8007996:	236c      	movs	r3, #108	@ 0x6c
- 8007998:	f887 3028 	strb.w	r3, [r7, #40]	@ 0x28
- 800799c:	2365      	movs	r3, #101	@ 0x65
- 800799e:	f887 3029 	strb.w	r3, [r7, #41]	@ 0x29
- 80079a2:	2366      	movs	r3, #102	@ 0x66
- 80079a4:	f887 302a 	strb.w	r3, [r7, #42]	@ 0x2a
- 80079a8:	2374      	movs	r3, #116	@ 0x74
- 80079aa:	f887 302b 	strb.w	r3, [r7, #43]	@ 0x2b
- 80079ae:	2320      	movs	r3, #32
- 80079b0:	f887 302c 	strb.w	r3, [r7, #44]	@ 0x2c
- 80079b4:	e012      	b.n	80079dc <Task_UWB_Display+0xcc>
+ 8007ada:	236c      	movs	r3, #108	@ 0x6c
+ 8007adc:	f887 3028 	strb.w	r3, [r7, #40]	@ 0x28
+ 8007ae0:	2365      	movs	r3, #101	@ 0x65
+ 8007ae2:	f887 3029 	strb.w	r3, [r7, #41]	@ 0x29
+ 8007ae6:	2366      	movs	r3, #102	@ 0x66
+ 8007ae8:	f887 302a 	strb.w	r3, [r7, #42]	@ 0x2a
+ 8007aec:	2374      	movs	r3, #116	@ 0x74
+ 8007aee:	f887 302b 	strb.w	r3, [r7, #43]	@ 0x2b
+ 8007af2:	2320      	movs	r3, #32
+ 8007af4:	f887 302c 	strb.w	r3, [r7, #44]	@ 0x2c
+ 8007af8:	e012      	b.n	8007b20 <Task_UWB_Display+0xd0>
     } else if (target.azimuth_deg > 0) {
- 80079b6:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
- 80079ba:	2b00      	cmp	r3, #0
- 80079bc:	dd0e      	ble.n	80079dc <Task_UWB_Display+0xcc>
+ 8007afa:	f9b7 3010 	ldrsh.w	r3, [r7, #16]
+ 8007afe:	2b00      	cmp	r3, #0
+ 8007b00:	dd0e      	ble.n	8007b20 <Task_UWB_Display+0xd0>
         dir_line[0] = 'r'; dir_line[1] = 'i'; dir_line[2] = 'g'; dir_line[3] = 'h'; dir_line[4] = 't';
- 80079be:	2372      	movs	r3, #114	@ 0x72
- 80079c0:	f887 3028 	strb.w	r3, [r7, #40]	@ 0x28
- 80079c4:	2369      	movs	r3, #105	@ 0x69
- 80079c6:	f887 3029 	strb.w	r3, [r7, #41]	@ 0x29
- 80079ca:	2367      	movs	r3, #103	@ 0x67
- 80079cc:	f887 302a 	strb.w	r3, [r7, #42]	@ 0x2a
- 80079d0:	2368      	movs	r3, #104	@ 0x68
- 80079d2:	f887 302b 	strb.w	r3, [r7, #43]	@ 0x2b
- 80079d6:	2374      	movs	r3, #116	@ 0x74
- 80079d8:	f887 302c 	strb.w	r3, [r7, #44]	@ 0x2c
+ 8007b02:	2372      	movs	r3, #114	@ 0x72
+ 8007b04:	f887 3028 	strb.w	r3, [r7, #40]	@ 0x28
+ 8007b08:	2369      	movs	r3, #105	@ 0x69
+ 8007b0a:	f887 3029 	strb.w	r3, [r7, #41]	@ 0x29
+ 8007b0e:	2367      	movs	r3, #103	@ 0x67
+ 8007b10:	f887 302a 	strb.w	r3, [r7, #42]	@ 0x2a
+ 8007b14:	2368      	movs	r3, #104	@ 0x68
+ 8007b16:	f887 302b 	strb.w	r3, [r7, #43]	@ 0x2b
+ 8007b1a:	2374      	movs	r3, #116	@ 0x74
+ 8007b1c:	f887 302c 	strb.w	r3, [r7, #44]	@ 0x2c
     }
     Task_FormatUint(&dir_line[6], angle, 3U);
- 80079dc:	8ef9      	ldrh	r1, [r7, #54]	@ 0x36
- 80079de:	f107 0328 	add.w	r3, r7, #40	@ 0x28
- 80079e2:	3306      	adds	r3, #6
- 80079e4:	2203      	movs	r2, #3
- 80079e6:	4618      	mov	r0, r3
- 80079e8:	f7ff fda0 	bl	800752c <Task_FormatUint>
+ 8007b20:	8ef9      	ldrh	r1, [r7, #54]	@ 0x36
+ 8007b22:	f107 0328 	add.w	r3, r7, #40	@ 0x28
+ 8007b26:	3306      	adds	r3, #6
+ 8007b28:	2203      	movs	r2, #3
+ 8007b2a:	4618      	mov	r0, r3
+ 8007b2c:	f7ff fd60 	bl	80075f0 <Task_FormatUint>
 
     Task_FormatUint(&dist_line[5], target.distance_cm / 100U, 4U);
- 80079ec:	68fb      	ldr	r3, [r7, #12]
- 80079ee:	4a23      	ldr	r2, [pc, #140]	@ (8007a7c <Task_UWB_Display+0x16c>)
- 80079f0:	fba2 2303 	umull	r2, r3, r2, r3
- 80079f4:	0959      	lsrs	r1, r3, #5
- 80079f6:	f107 0318 	add.w	r3, r7, #24
- 80079fa:	3305      	adds	r3, #5
- 80079fc:	2204      	movs	r2, #4
- 80079fe:	4618      	mov	r0, r3
- 8007a00:	f7ff fd94 	bl	800752c <Task_FormatUint>
+ 8007b30:	68fb      	ldr	r3, [r7, #12]
+ 8007b32:	4a23      	ldr	r2, [pc, #140]	@ (8007bc0 <Task_UWB_Display+0x170>)
+ 8007b34:	fba2 2303 	umull	r2, r3, r2, r3
+ 8007b38:	0959      	lsrs	r1, r3, #5
+ 8007b3a:	f107 0318 	add.w	r3, r7, #24
+ 8007b3e:	3305      	adds	r3, #5
+ 8007b40:	2204      	movs	r2, #4
+ 8007b42:	4618      	mov	r0, r3
+ 8007b44:	f7ff fd54 	bl	80075f0 <Task_FormatUint>
     dist_line[10] = (char) ('0' + ((target.distance_cm % 100U) / 10U));
- 8007a04:	68fa      	ldr	r2, [r7, #12]
- 8007a06:	4b1d      	ldr	r3, [pc, #116]	@ (8007a7c <Task_UWB_Display+0x16c>)
- 8007a08:	fba3 1302 	umull	r1, r3, r3, r2
- 8007a0c:	095b      	lsrs	r3, r3, #5
- 8007a0e:	2164      	movs	r1, #100	@ 0x64
- 8007a10:	fb01 f303 	mul.w	r3, r1, r3
- 8007a14:	1ad3      	subs	r3, r2, r3
- 8007a16:	4a1a      	ldr	r2, [pc, #104]	@ (8007a80 <Task_UWB_Display+0x170>)
- 8007a18:	fba2 2303 	umull	r2, r3, r2, r3
- 8007a1c:	08db      	lsrs	r3, r3, #3
- 8007a1e:	b2db      	uxtb	r3, r3
- 8007a20:	3330      	adds	r3, #48	@ 0x30
- 8007a22:	b2db      	uxtb	r3, r3
- 8007a24:	f887 3022 	strb.w	r3, [r7, #34]	@ 0x22
+ 8007b48:	68fa      	ldr	r2, [r7, #12]
+ 8007b4a:	4b1d      	ldr	r3, [pc, #116]	@ (8007bc0 <Task_UWB_Display+0x170>)
+ 8007b4c:	fba3 1302 	umull	r1, r3, r3, r2
+ 8007b50:	095b      	lsrs	r3, r3, #5
+ 8007b52:	2164      	movs	r1, #100	@ 0x64
+ 8007b54:	fb01 f303 	mul.w	r3, r1, r3
+ 8007b58:	1ad3      	subs	r3, r2, r3
+ 8007b5a:	4a1a      	ldr	r2, [pc, #104]	@ (8007bc4 <Task_UWB_Display+0x174>)
+ 8007b5c:	fba2 2303 	umull	r2, r3, r2, r3
+ 8007b60:	08db      	lsrs	r3, r3, #3
+ 8007b62:	b2db      	uxtb	r3, r3
+ 8007b64:	3330      	adds	r3, #48	@ 0x30
+ 8007b66:	b2db      	uxtb	r3, r3
+ 8007b68:	f887 3022 	strb.w	r3, [r7, #34]	@ 0x22
     dist_line[11] = (char) ('0' + (target.distance_cm % 10U));
- 8007a28:	68f9      	ldr	r1, [r7, #12]
- 8007a2a:	4b15      	ldr	r3, [pc, #84]	@ (8007a80 <Task_UWB_Display+0x170>)
- 8007a2c:	fba3 2301 	umull	r2, r3, r3, r1
- 8007a30:	08da      	lsrs	r2, r3, #3
- 8007a32:	4613      	mov	r3, r2
- 8007a34:	009b      	lsls	r3, r3, #2
- 8007a36:	4413      	add	r3, r2
- 8007a38:	005b      	lsls	r3, r3, #1
- 8007a3a:	1aca      	subs	r2, r1, r3
- 8007a3c:	b2d3      	uxtb	r3, r2
- 8007a3e:	3330      	adds	r3, #48	@ 0x30
- 8007a40:	b2db      	uxtb	r3, r3
- 8007a42:	f887 3023 	strb.w	r3, [r7, #35]	@ 0x23
+ 8007b6c:	68f9      	ldr	r1, [r7, #12]
+ 8007b6e:	4b15      	ldr	r3, [pc, #84]	@ (8007bc4 <Task_UWB_Display+0x174>)
+ 8007b70:	fba3 2301 	umull	r2, r3, r3, r1
+ 8007b74:	08da      	lsrs	r2, r3, #3
+ 8007b76:	4613      	mov	r3, r2
+ 8007b78:	009b      	lsls	r3, r3, #2
+ 8007b7a:	4413      	add	r3, r2
+ 8007b7c:	005b      	lsls	r3, r3, #1
+ 8007b7e:	1aca      	subs	r2, r1, r3
+ 8007b80:	b2d3      	uxtb	r3, r2
+ 8007b82:	3330      	adds	r3, #48	@ 0x30
+ 8007b84:	b2db      	uxtb	r3, r3
+ 8007b86:	f887 3023 	strb.w	r3, [r7, #35]	@ 0x23
 
     Task_ShowLine(0U, dir_line, LCD_WHITE);
- 8007a46:	f107 0328 	add.w	r3, r7, #40	@ 0x28
- 8007a4a:	f64f 72ff 	movw	r2, #65535	@ 0xffff
- 8007a4e:	4619      	mov	r1, r3
- 8007a50:	2000      	movs	r0, #0
- 8007a52:	f7ff fd2d 	bl	80074b0 <Task_ShowLine>
+ 8007b8a:	f107 0328 	add.w	r3, r7, #40	@ 0x28
+ 8007b8e:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+ 8007b92:	4619      	mov	r1, r3
+ 8007b94:	2000      	movs	r0, #0
+ 8007b96:	f7ff fced 	bl	8007574 <Task_ShowLine>
     Task_ShowLine(16U, dist_line, LCD_WHITE);
- 8007a56:	f107 0318 	add.w	r3, r7, #24
- 8007a5a:	f64f 72ff 	movw	r2, #65535	@ 0xffff
- 8007a5e:	4619      	mov	r1, r3
- 8007a60:	2010      	movs	r0, #16
- 8007a62:	f7ff fd25 	bl	80074b0 <Task_ShowLine>
+ 8007b9a:	f107 0318 	add.w	r3, r7, #24
+ 8007b9e:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+ 8007ba2:	4619      	mov	r1, r3
+ 8007ba4:	2010      	movs	r0, #16
+ 8007ba6:	f7ff fce5 	bl	8007574 <Task_ShowLine>
 }
- 8007a66:	373c      	adds	r7, #60	@ 0x3c
- 8007a68:	46bd      	mov	sp, r7
- 8007a6a:	bd90      	pop	{r4, r7, pc}
- 8007a6c:	08007c54 	.word	0x08007c54
- 8007a70:	08007c64 	.word	0x08007c64
- 8007a74:	08007c38 	.word	0x08007c38
- 8007a78:	08007c48 	.word	0x08007c48
- 8007a7c:	51eb851f 	.word	0x51eb851f
- 8007a80:	cccccccd 	.word	0xcccccccd
+ 8007baa:	373c      	adds	r7, #60	@ 0x3c
+ 8007bac:	46bd      	mov	sp, r7
+ 8007bae:	bd90      	pop	{r4, r7, pc}
+ 8007bb0:	08007dcc 	.word	0x08007dcc
+ 8007bb4:	08007ddc 	.word	0x08007ddc
+ 8007bb8:	08007db0 	.word	0x08007db0
+ 8007bbc:	08007dc0 	.word	0x08007dc0
+ 8007bc0:	51eb851f 	.word	0x51eb851f
+ 8007bc4:	cccccccd 	.word	0xcccccccd
 
-08007a84 <Get_Time>:
+08007bc8 <Get_Time>:
     {TASK_LCD_PERIOD_MS,      0U, Task_UWB_Display},
 };
 
 /* 1 ms 时基 = HAL 的 SysTick (原来 MSPM0 是单独开的 TIMER_1ms)。 */
 uint32_t Get_Time(void)
 {
- 8007a84:	b580      	push	{r7, lr}
- 8007a86:	af00      	add	r7, sp, #0
+ 8007bc8:	b580      	push	{r7, lr}
+ 8007bca:	af00      	add	r7, sp, #0
     return HAL_GetTick();
- 8007a88:	f7f9 fd8e 	bl	80015a8 <HAL_GetTick>
- 8007a8c:	4603      	mov	r3, r0
+ 8007bcc:	f7f9 fcec 	bl	80015a8 <HAL_GetTick>
+ 8007bd0:	4603      	mov	r3, r0
 }
- 8007a8e:	4618      	mov	r0, r3
- 8007a90:	bd80      	pop	{r7, pc}
+ 8007bd2:	4618      	mov	r0, r3
+ 8007bd4:	bd80      	pop	{r7, pc}
 	...
 
-08007a94 <Scheduler_Run>:
+08007bd8 <Scheduler_Run>:
 
 void Scheduler_Run(void)
 {
- 8007a94:	b580      	push	{r7, lr}
- 8007a96:	b082      	sub	sp, #8
- 8007a98:	af00      	add	r7, sp, #0
+ 8007bd8:	b580      	push	{r7, lr}
+ 8007bda:	b082      	sub	sp, #8
+ 8007bdc:	af00      	add	r7, sp, #0
     uint32_t now = Get_Time();
- 8007a9a:	f7ff fff3 	bl	8007a84 <Get_Time>
- 8007a9e:	6038      	str	r0, [r7, #0]
+ 8007bde:	f7ff fff3 	bl	8007bc8 <Get_Time>
+ 8007be2:	6038      	str	r0, [r7, #0]
 
     for (uint32_t i = 0; i < (sizeof(tasks) / sizeof(tasks[0])); i++)
- 8007aa0:	2300      	movs	r3, #0
- 8007aa2:	607b      	str	r3, [r7, #4]
- 8007aa4:	e02b      	b.n	8007afe <Scheduler_Run+0x6a>
+ 8007be4:	2300      	movs	r3, #0
+ 8007be6:	607b      	str	r3, [r7, #4]
+ 8007be8:	e02b      	b.n	8007c42 <Scheduler_Run+0x6a>
     {
         if ((uint32_t)(now - tasks[i].last_call) >= tasks[i].interval)
- 8007aa6:	491a      	ldr	r1, [pc, #104]	@ (8007b10 <Scheduler_Run+0x7c>)
- 8007aa8:	687a      	ldr	r2, [r7, #4]
- 8007aaa:	4613      	mov	r3, r2
- 8007aac:	005b      	lsls	r3, r3, #1
- 8007aae:	4413      	add	r3, r2
- 8007ab0:	009b      	lsls	r3, r3, #2
- 8007ab2:	440b      	add	r3, r1
- 8007ab4:	3304      	adds	r3, #4
- 8007ab6:	681b      	ldr	r3, [r3, #0]
- 8007ab8:	683a      	ldr	r2, [r7, #0]
- 8007aba:	1ad1      	subs	r1, r2, r3
- 8007abc:	4814      	ldr	r0, [pc, #80]	@ (8007b10 <Scheduler_Run+0x7c>)
- 8007abe:	687a      	ldr	r2, [r7, #4]
- 8007ac0:	4613      	mov	r3, r2
- 8007ac2:	005b      	lsls	r3, r3, #1
- 8007ac4:	4413      	add	r3, r2
- 8007ac6:	009b      	lsls	r3, r3, #2
- 8007ac8:	4403      	add	r3, r0
- 8007aca:	681b      	ldr	r3, [r3, #0]
- 8007acc:	4299      	cmp	r1, r3
- 8007ace:	d313      	bcc.n	8007af8 <Scheduler_Run+0x64>
+ 8007bea:	491a      	ldr	r1, [pc, #104]	@ (8007c54 <Scheduler_Run+0x7c>)
+ 8007bec:	687a      	ldr	r2, [r7, #4]
+ 8007bee:	4613      	mov	r3, r2
+ 8007bf0:	005b      	lsls	r3, r3, #1
+ 8007bf2:	4413      	add	r3, r2
+ 8007bf4:	009b      	lsls	r3, r3, #2
+ 8007bf6:	440b      	add	r3, r1
+ 8007bf8:	3304      	adds	r3, #4
+ 8007bfa:	681b      	ldr	r3, [r3, #0]
+ 8007bfc:	683a      	ldr	r2, [r7, #0]
+ 8007bfe:	1ad1      	subs	r1, r2, r3
+ 8007c00:	4814      	ldr	r0, [pc, #80]	@ (8007c54 <Scheduler_Run+0x7c>)
+ 8007c02:	687a      	ldr	r2, [r7, #4]
+ 8007c04:	4613      	mov	r3, r2
+ 8007c06:	005b      	lsls	r3, r3, #1
+ 8007c08:	4413      	add	r3, r2
+ 8007c0a:	009b      	lsls	r3, r3, #2
+ 8007c0c:	4403      	add	r3, r0
+ 8007c0e:	681b      	ldr	r3, [r3, #0]
+ 8007c10:	4299      	cmp	r1, r3
+ 8007c12:	d313      	bcc.n	8007c3c <Scheduler_Run+0x64>
         {
             tasks[i].last_call = now;
- 8007ad0:	490f      	ldr	r1, [pc, #60]	@ (8007b10 <Scheduler_Run+0x7c>)
- 8007ad2:	687a      	ldr	r2, [r7, #4]
- 8007ad4:	4613      	mov	r3, r2
- 8007ad6:	005b      	lsls	r3, r3, #1
- 8007ad8:	4413      	add	r3, r2
- 8007ada:	009b      	lsls	r3, r3, #2
- 8007adc:	440b      	add	r3, r1
- 8007ade:	3304      	adds	r3, #4
- 8007ae0:	683a      	ldr	r2, [r7, #0]
- 8007ae2:	601a      	str	r2, [r3, #0]
+ 8007c14:	490f      	ldr	r1, [pc, #60]	@ (8007c54 <Scheduler_Run+0x7c>)
+ 8007c16:	687a      	ldr	r2, [r7, #4]
+ 8007c18:	4613      	mov	r3, r2
+ 8007c1a:	005b      	lsls	r3, r3, #1
+ 8007c1c:	4413      	add	r3, r2
+ 8007c1e:	009b      	lsls	r3, r3, #2
+ 8007c20:	440b      	add	r3, r1
+ 8007c22:	3304      	adds	r3, #4
+ 8007c24:	683a      	ldr	r2, [r7, #0]
+ 8007c26:	601a      	str	r2, [r3, #0]
             tasks[i].task();
- 8007ae4:	490a      	ldr	r1, [pc, #40]	@ (8007b10 <Scheduler_Run+0x7c>)
- 8007ae6:	687a      	ldr	r2, [r7, #4]
- 8007ae8:	4613      	mov	r3, r2
- 8007aea:	005b      	lsls	r3, r3, #1
- 8007aec:	4413      	add	r3, r2
- 8007aee:	009b      	lsls	r3, r3, #2
- 8007af0:	440b      	add	r3, r1
- 8007af2:	3308      	adds	r3, #8
- 8007af4:	681b      	ldr	r3, [r3, #0]
- 8007af6:	4798      	blx	r3
+ 8007c28:	490a      	ldr	r1, [pc, #40]	@ (8007c54 <Scheduler_Run+0x7c>)
+ 8007c2a:	687a      	ldr	r2, [r7, #4]
+ 8007c2c:	4613      	mov	r3, r2
+ 8007c2e:	005b      	lsls	r3, r3, #1
+ 8007c30:	4413      	add	r3, r2
+ 8007c32:	009b      	lsls	r3, r3, #2
+ 8007c34:	440b      	add	r3, r1
+ 8007c36:	3308      	adds	r3, #8
+ 8007c38:	681b      	ldr	r3, [r3, #0]
+ 8007c3a:	4798      	blx	r3
     for (uint32_t i = 0; i < (sizeof(tasks) / sizeof(tasks[0])); i++)
- 8007af8:	687b      	ldr	r3, [r7, #4]
- 8007afa:	3301      	adds	r3, #1
- 8007afc:	607b      	str	r3, [r7, #4]
- 8007afe:	687b      	ldr	r3, [r7, #4]
- 8007b00:	2b08      	cmp	r3, #8
- 8007b02:	d9d0      	bls.n	8007aa6 <Scheduler_Run+0x12>
+ 8007c3c:	687b      	ldr	r3, [r7, #4]
+ 8007c3e:	3301      	adds	r3, #1
+ 8007c40:	607b      	str	r3, [r7, #4]
+ 8007c42:	687b      	ldr	r3, [r7, #4]
+ 8007c44:	2b08      	cmp	r3, #8
+ 8007c46:	d9d0      	bls.n	8007bea <Scheduler_Run+0x12>
         }
     }
 }
- 8007b04:	bf00      	nop
- 8007b06:	bf00      	nop
- 8007b08:	3708      	adds	r7, #8
- 8007b0a:	46bd      	mov	sp, r7
- 8007b0c:	bd80      	pop	{r7, pc}
- 8007b0e:	bf00      	nop
- 8007b10:	20000010 	.word	0x20000010
+ 8007c48:	bf00      	nop
+ 8007c4a:	bf00      	nop
+ 8007c4c:	3708      	adds	r7, #8
+ 8007c4e:	46bd      	mov	sp, r7
+ 8007c50:	bd80      	pop	{r7, pc}
+ 8007c52:	bf00      	nop
+ 8007c54:	20000010 	.word	0x20000010
 
-08007b14 <memset>:
- 8007b14:	4603      	mov	r3, r0
- 8007b16:	4402      	add	r2, r0
- 8007b18:	4293      	cmp	r3, r2
- 8007b1a:	d100      	bne.n	8007b1e <memset+0xa>
- 8007b1c:	4770      	bx	lr
- 8007b1e:	f803 1b01 	strb.w	r1, [r3], #1
- 8007b22:	e7f9      	b.n	8007b18 <memset+0x4>
+08007c58 <memset>:
+ 8007c58:	4603      	mov	r3, r0
+ 8007c5a:	4402      	add	r2, r0
+ 8007c5c:	4293      	cmp	r3, r2
+ 8007c5e:	d100      	bne.n	8007c62 <memset+0xa>
+ 8007c60:	4770      	bx	lr
+ 8007c62:	f803 1b01 	strb.w	r1, [r3], #1
+ 8007c66:	e7f9      	b.n	8007c5c <memset+0x4>
 
-08007b24 <__libc_init_array>:
- 8007b24:	b570      	push	{r4, r5, r6, lr}
- 8007b26:	2600      	movs	r6, #0
- 8007b28:	4d0c      	ldr	r5, [pc, #48]	@ (8007b5c <__libc_init_array+0x38>)
- 8007b2a:	4b0d      	ldr	r3, [pc, #52]	@ (8007b60 <__libc_init_array+0x3c>)
- 8007b2c:	1b5b      	subs	r3, r3, r5
- 8007b2e:	109c      	asrs	r4, r3, #2
- 8007b30:	42a6      	cmp	r6, r4
- 8007b32:	d109      	bne.n	8007b48 <__libc_init_array+0x24>
- 8007b34:	2600      	movs	r6, #0
- 8007b36:	f000 f819 	bl	8007b6c <_init>
- 8007b3a:	4d0a      	ldr	r5, [pc, #40]	@ (8007b64 <__libc_init_array+0x40>)
- 8007b3c:	4b0a      	ldr	r3, [pc, #40]	@ (8007b68 <__libc_init_array+0x44>)
- 8007b3e:	1b5b      	subs	r3, r3, r5
- 8007b40:	109c      	asrs	r4, r3, #2
- 8007b42:	42a6      	cmp	r6, r4
- 8007b44:	d105      	bne.n	8007b52 <__libc_init_array+0x2e>
- 8007b46:	bd70      	pop	{r4, r5, r6, pc}
- 8007b48:	f855 3b04 	ldr.w	r3, [r5], #4
- 8007b4c:	4798      	blx	r3
- 8007b4e:	3601      	adds	r6, #1
- 8007b50:	e7ee      	b.n	8007b30 <__libc_init_array+0xc>
- 8007b52:	f855 3b04 	ldr.w	r3, [r5], #4
- 8007b56:	4798      	blx	r3
- 8007b58:	3601      	adds	r6, #1
- 8007b5a:	e7f2      	b.n	8007b42 <__libc_init_array+0x1e>
- 8007b5c:	08008534 	.word	0x08008534
- 8007b60:	08008534 	.word	0x08008534
- 8007b64:	08008534 	.word	0x08008534
- 8007b68:	08008538 	.word	0x08008538
+08007c68 <__libc_init_array>:
+ 8007c68:	b570      	push	{r4, r5, r6, lr}
+ 8007c6a:	2600      	movs	r6, #0
+ 8007c6c:	4d0c      	ldr	r5, [pc, #48]	@ (8007ca0 <__libc_init_array+0x38>)
+ 8007c6e:	4b0d      	ldr	r3, [pc, #52]	@ (8007ca4 <__libc_init_array+0x3c>)
+ 8007c70:	1b5b      	subs	r3, r3, r5
+ 8007c72:	109c      	asrs	r4, r3, #2
+ 8007c74:	42a6      	cmp	r6, r4
+ 8007c76:	d109      	bne.n	8007c8c <__libc_init_array+0x24>
+ 8007c78:	2600      	movs	r6, #0
+ 8007c7a:	f000 f827 	bl	8007ccc <_init>
+ 8007c7e:	4d0a      	ldr	r5, [pc, #40]	@ (8007ca8 <__libc_init_array+0x40>)
+ 8007c80:	4b0a      	ldr	r3, [pc, #40]	@ (8007cac <__libc_init_array+0x44>)
+ 8007c82:	1b5b      	subs	r3, r3, r5
+ 8007c84:	109c      	asrs	r4, r3, #2
+ 8007c86:	42a6      	cmp	r6, r4
+ 8007c88:	d105      	bne.n	8007c96 <__libc_init_array+0x2e>
+ 8007c8a:	bd70      	pop	{r4, r5, r6, pc}
+ 8007c8c:	f855 3b04 	ldr.w	r3, [r5], #4
+ 8007c90:	4798      	blx	r3
+ 8007c92:	3601      	adds	r6, #1
+ 8007c94:	e7ee      	b.n	8007c74 <__libc_init_array+0xc>
+ 8007c96:	f855 3b04 	ldr.w	r3, [r5], #4
+ 8007c9a:	4798      	blx	r3
+ 8007c9c:	3601      	adds	r6, #1
+ 8007c9e:	e7f2      	b.n	8007c86 <__libc_init_array+0x1e>
+ 8007ca0:	080086c0 	.word	0x080086c0
+ 8007ca4:	080086c0 	.word	0x080086c0
+ 8007ca8:	080086c0 	.word	0x080086c0
+ 8007cac:	080086c4 	.word	0x080086c4
 
-08007b6c <_init>:
- 8007b6c:	b5f8      	push	{r3, r4, r5, r6, r7, lr}
- 8007b6e:	bf00      	nop
- 8007b70:	bcf8      	pop	{r3, r4, r5, r6, r7}
- 8007b72:	bc08      	pop	{r3}
- 8007b74:	469e      	mov	lr, r3
- 8007b76:	4770      	bx	lr
+08007cb0 <memcpy>:
+ 8007cb0:	440a      	add	r2, r1
+ 8007cb2:	4291      	cmp	r1, r2
+ 8007cb4:	f100 33ff 	add.w	r3, r0, #4294967295	@ 0xffffffff
+ 8007cb8:	d100      	bne.n	8007cbc <memcpy+0xc>
+ 8007cba:	4770      	bx	lr
+ 8007cbc:	b510      	push	{r4, lr}
+ 8007cbe:	f811 4b01 	ldrb.w	r4, [r1], #1
+ 8007cc2:	4291      	cmp	r1, r2
+ 8007cc4:	f803 4f01 	strb.w	r4, [r3, #1]!
+ 8007cc8:	d1f9      	bne.n	8007cbe <memcpy+0xe>
+ 8007cca:	bd10      	pop	{r4, pc}
 
-08007b78 <_fini>:
- 8007b78:	b5f8      	push	{r3, r4, r5, r6, r7, lr}
- 8007b7a:	bf00      	nop
- 8007b7c:	bcf8      	pop	{r3, r4, r5, r6, r7}
- 8007b7e:	bc08      	pop	{r3}
- 8007b80:	469e      	mov	lr, r3
- 8007b82:	4770      	bx	lr
+08007ccc <_init>:
+ 8007ccc:	b5f8      	push	{r3, r4, r5, r6, r7, lr}
+ 8007cce:	bf00      	nop
+ 8007cd0:	bcf8      	pop	{r3, r4, r5, r6, r7}
+ 8007cd2:	bc08      	pop	{r3}
+ 8007cd4:	469e      	mov	lr, r3
+ 8007cd6:	4770      	bx	lr
+
+08007cd8 <_fini>:
+ 8007cd8:	b5f8      	push	{r3, r4, r5, r6, r7, lr}
+ 8007cda:	bf00      	nop
+ 8007cdc:	bcf8      	pop	{r3, r4, r5, r6, r7}
+ 8007cde:	bc08      	pop	{r3}
+ 8007ce0:	469e      	mov	lr, r3
+ 8007ce2:	4770      	bx	lr
