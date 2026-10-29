@@ -4,8 +4,9 @@
 //
 // 一、版面（竖屏，800×1280；坐标单位像素，u 向右、v 向下；实际数值由 mctop 配置区传入）：上面相机、紧接着状态带、下面留给避障
 //     相机窗口     u 0~799，  v 0~447          800×448：传感器完整视场等比缩小（mc_scale），不拉伸
-//       状态方块   v 456~495，u = 40 + 90k     8 个 80×40 的方块（绿 = 对应状态位为 1，红 = 0），k = 0~7
-//       文字区     u 40~759， v 504~599        TXT_COLS × TXT_ROWS（45 列 × 3 行），每字符 16×32 像素，黑底白字
+//       状态方块   v 452~491，u = 40 + 90k     8 个 80×40 的方块（绿 = 对应状态位为 1，红 = 0），k = 0~7
+//       文字区     u 40~759， v 496~687        TXT_COLS × TXT_ROWS（45 列 × 6 行），每字符 16×32 像素，黑底白字
+//       安路 Logo  u LOGO_U0~+479，v LOGO_V0~+127   480×128 白底横幅（mc_osd_logo，位图 mc_logo_rom）
 //     避障画面     u 0~799，  v OBS_V0~OBS_V0+449  160×90 的处理结果放大 5 倍 + 红框（mc_obs_view），上方 10 行是建议方向的绿条
 //   相机画面取数：厂商 video_out（顺序读，O_rd_en），读使能之后第 2 个时钟像素有效。
 //
@@ -14,7 +15,7 @@
 //
 // 三、其他
 //   · 背景默认黑色（BG_PATTERN = 0）；想用厂商的测试图案排查屏幕链路时改成 1，图案由 video_tpg 产生。
-//   · 文字层盖在最上面；写字走 I_txt_bus（见 mc_osd_text.v / mc_osd_dash.v），与本模块无关。
+//   · 叠放顺序（从上到下）：文字层 > Logo > 相机窗口 > 避障画面 > 状态方块 > 背景；写字走 I_txt_bus（见 mc_osd_text.v / mc_osd_dash.v）。
 //
 // 流水线（总延迟 6 拍，所有信号等量延迟，对屏幕没有影响）：
 //   第 0 拍：S_x/S_y（面板坐标）和读使能 → 第 1 拍：画布坐标 S_u/S_v（竖屏下就是 S_x/S_y，同时是文字层的输入）
@@ -43,7 +44,10 @@ module mc_mixer #(
     parameter [7:0]  REF_X0 = 8'd56,    // 地面参考区（网格坐标，画黄框；要和 mc_obs 的一致）
     parameter [7:0]  REF_X1 = 8'd103,
     parameter [6:0]  REF_Y0 = 7'd82,
-    parameter [6:0]  REF_Y1 = 7'd89
+    parameter [6:0]  REF_Y1 = 7'd89,
+    parameter [6:0]  ROW_MIN = 7'd29,    // 避障画面：这一行以上（不判断障碍的远处）画暗灰（要和 mc_obs 的一致）
+    parameter LOGO_U0   = 160,      // 安路 Logo（480×128）左上角；放到面板外就不显示
+    parameter LOGO_V0   = 678
 )(
     input  wire        I_clk,       // 像素时钟 = DSI 字节时钟
 
@@ -177,7 +181,7 @@ wire [23:0] S_obs_rgb;
 
 mc_obs_view #(
     .V0     (OBS_V0),
-    .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1)
+    .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1), .ROW_MIN (ROW_MIN)
 ) u_obs_view (
     .I_clk       (I_clk),
     .I_vsync     (I_vsync),
@@ -194,6 +198,23 @@ mc_obs_view #(
 );
 
 // ---------------------------------------------------------------------------
+// 安路 Logo（输入是第 1 拍的画布坐标；O_hit/O_rgb 晚 4 拍 = 第 5 拍）
+// ---------------------------------------------------------------------------
+wire        S_logo_hit;
+wire [23:0] S_logo_rgb;
+
+mc_osd_logo #(
+    .U0 (LOGO_U0),
+    .V0 (LOGO_V0)
+) u_osd_logo (
+    .I_clk (I_clk),
+    .I_u   (S_u),
+    .I_v   (S_v),
+    .O_hit (S_logo_hit),
+    .O_rgb (S_logo_rgb)
+);
+
+// ---------------------------------------------------------------------------
 // 对齐流水线 + 合成：各路都延迟到第 5 拍再合成
 // ---------------------------------------------------------------------------
 reg        S_vs_1, S_vs_2, S_vs_3, S_vs_4, S_vs_5;
@@ -207,7 +228,8 @@ reg [23:0] S_rd_3, S_rd_4, S_rd_5;
 
 wire        S_txt_ovr = (TXT_BG_EN != 0) ? S_txt_hit : S_txt_on;     // 文字层是否盖住这个像素
 wire [23:0] S_bg      = (BG_PATTERN != 0) ? S_bg_5 : 24'h000000;
-wire [23:0] S_pix = S_txt_ovr ? (S_txt_on ? TXT_FG : TXT_BG) :
+wire [23:0] S_pix = S_txt_ovr  ? (S_txt_on ? TXT_FG : TXT_BG) :
+                    S_logo_hit ? S_logo_rgb :
                     S_win_5   ? S_rd_5 :
                     S_obs_hit ? S_obs_rgb :
                     S_sqa_5   ? (S_sqo_5 ? C_ON : C_OFF) :

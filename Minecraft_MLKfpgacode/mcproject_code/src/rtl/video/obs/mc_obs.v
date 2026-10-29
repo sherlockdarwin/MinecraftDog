@@ -4,7 +4,7 @@
 //
 //   isp 输出（和 mc_scale 并联）─► mc_obs_down ─► mc_obs_core ─┬─► 写总线 / 发布 → 显示端 mc_obs_view（屏幕下面的处理画面）
 //                                                              └─► 方向、距离 → 屏幕文字 / 跟随决策（mc_follow）
-//   参数说明见各子模块；几何（离地高度、倾角、1.5 m 范围）在 tools/gen_obs_lut.pl → mc_obs_lut.v。
+//   参数说明见各子模块；几何（离地高度、倾角 → 每行多远）在 tools/gen_obs_lut.pl → mc_obs_lut.v；从第几行起判断障碍是 ROW_MIN。
 // =============================================================================
 module mc_obs #(
     parameter [7:0]  REF_X0 = 8'd56,    // 地面参考区（网格坐标）：车正前方、画面最下面
@@ -13,6 +13,8 @@ module mc_obs #(
     parameter [6:0]  REF_Y1 = 7'd89,
     parameter [11:0] TC     = 12'd12,   // 地面颜色门限（色度 / 亮度直方图）
     parameter [11:0] TY     = 12'd12,
+    parameter [2:0]  YSPREAD = 3'd2,    // 学习地面时亮度往两边放宽几格（见 mc_obs_class.v）
+    parameter [6:0]  ROW_MIN = 7'd29,   // 从这一行起往下才判断障碍（160×90 网格的行；再往上太远，先不管）
     parameter [7:0]  D_CAP  = 8'd150,   // 选方向最远算到 150 cm
     parameter [7:0]  D_STOP = 8'd35     // 最好的方向也不到 35 cm → 停
 )(
@@ -53,7 +55,7 @@ mc_obs_down u_down (
 
 mc_obs_core #(
     .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1),
-    .TC (TC), .TY (TY), .D_CAP (D_CAP), .D_STOP (D_STOP)
+    .TC (TC), .TY (TY), .YSPREAD (YSPREAD), .ROW_MIN (ROW_MIN), .D_CAP (D_CAP), .D_STOP (D_STOP)
 ) u_core (
     .I_clk (I_clk), .I_rst_n (I_rst_n),
     .I_valid (S_d_v), .I_row (S_d_row), .I_col (S_d_col), .I_rgb (S_d_rgb),

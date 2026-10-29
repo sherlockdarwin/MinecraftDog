@@ -14,7 +14,8 @@
 //   TF 卡 ─ WAV ─► mc_audio ─► ES8388 ─► 喇叭（背景音乐上电自动循环 + 进食音效，同时播）
 //   霍尔传感器 ─► mc_hall ─► mc_behavior（喂食：进食音效；以后 UWB 的"丢了就叫"也接这里）─► mc_audio（尾巴 mc_tail 2026-10-25 不用了，注释掉）
 //   各模块的状态 ─► mc_osd_dash ─文字写入总线─► mc_disp_if 里的文字层 ─► 画面中间状态带的 5 行文字
-//   STM32（UWB：主人在哪）─UART─► mc_m0_link ─► mc_follow（+ 避障结果）─► 两个轮子的 PWM ─UART─► STM32（电机）
+//   STM32（UWB：主人在哪）─UART─► mc_m0_link ─► mc_follow（+ 避障结果 + 陀螺仪角度环）─► 两个轮子的 PWM ─UART─► STM32（电机）
+//   JY61P 陀螺仪 ─UART─► mc_imu_jy61p（上电自动配置、车停稳后航向角归零）─► 车头航向 / 角速度 ─► mc_follow、屏幕第 6 行
 //   （轮子的控制放在另一块单片机上，这里没有电机驱动 / 编码器）
 // 画面：竖屏 800×1280，上半相机、中间状态带、下半避障处理画面；厂商 video_out 顺序读帧缓存，版面见 mc_mixer.v
 // =============================================================================
@@ -50,6 +51,10 @@ module mctop (
     // ---- STM32（轮子 + UWB，工程 Minecraft_MCU/MinecraftDog_STM32）：UART 115200 8N1，ASCII 帧见 mc_m0_link.v；STM32 的 GND 接 CEP 脚 2 ----
     output wire         O_m0_tx,            // CEP 3 / L15    → STM32 PB11（USART3 RX）
     input  wire         I_m0_rx,            // CEP 4 / L16    ← STM32 PB10（USART3 TX；脚上开了上拉，没接 = 一直空闲）
+
+    // ---- 陀螺仪 JY61P（维特，UART，模块 VCC 接 CEP 脚 1 的 3.3 V、GND 接脚 2）：出厂 9600 → FPGA 上电自动改成 115200、100 Hz ----
+    output wire         O_imu_tx,           // CEP 5 / H14    → JY61P RX
+    input  wire         I_imu_rx,           // CEP 6 / H13    ← JY61P TX（脚上开了上拉）
 
     // ---- 音频：板载 ES8388（耳机口 / 两个喇叭口）----
     output wire         O_aud_mclk,         // F14   MCLK 12.5 MHz
@@ -97,52 +102,59 @@ localparam       PANEL_H         = 800;        // 屏的列数（竖屏时的"�
 localparam       PANEL_V         = 1280;       // 屏的行数
 localparam [3:0] TPG_MODE        = 4'd9;       // 测试图案：1红 2绿 3蓝 4白 5~8渐变 9马赛克 10斜线 11网格（只在 BG_PATTERN=1 时显示）
 localparam       BG_PATTERN      = 0;          // 0：没内容的地方是黑色；1：显示上面的测试图案（排查屏幕链路用）
-// ---- 画面版面（见 mc_mixer.v）：相机窗口 v 0~447；状态带（方块 v 456~495、文字 5 行 v 504~663）；避障画面 v 830~1279（上方 v 820~827 是建议方向的绿条）----
-localparam       SQ_V0           = 456;        // 状态方块起始行
+// ---- 画面版面（见 mc_mixer.v）：相机窗口 v 0~447；状态带（方块 v 452~491、文字 6 行 v 496~687、Logo v 690~817）；避障画面 v 830~1279（上方 v 820~827 是建议方向的绿条）----
+localparam       SQ_V0           = 452;        // 状态方块起始行
 localparam       SQ_H            = 40;         // 状态方块高（宽 80）
 localparam       OSD_X0          = 40;         // 文字框左上角 u（列）
-localparam       OSD_Y0          = 504;        // 文字框左上角 v（行）
+localparam       OSD_Y0          = 496;        // 文字框左上角 v（行）
 localparam       OSD_COLS        = 45;         // 每行字符数（mc_osd_dash 的版面按 45 列排）
-localparam       OSD_ROWS        = 5;          // 行数（版面按 5 行排）
+localparam       OSD_ROWS        = 6;          // 行数（版面按 6 行排；第 6 行是陀螺仪）
+localparam       LOGO_U0         = 160;        // 安路 Logo（480×128 白底横幅，比赛要求）左上角：水平居中，放在文字框（到 v 687）和避障方向条（v 820）之间
+localparam       LOGO_V0         = 690;
 localparam       OSD_SH          = 1;          // 字符放大 2^OSD_SH 倍：1 → 每个字符 16×32 像素，字太小就加大到 2（但要缩小行列数）
-// ---- 避障（见 mc_obs*.v；摄像头离地 174 mm、下倾 15° 写在 tools/gen_obs_lut.pl）----
+// ---- 避障（见 mc_obs*.v；镜头离地 174 mm、竖直装，按上车实测（灰线处 1.35 m、左右宽 1.7 m）反推的倾角和焦距写在 tools/gen_obs_lut.pl）----
 localparam [10:0] OBS_V0         = 11'd830;    // 避障处理画面起始行（800×450 = 160×90 格 × 5）
-localparam [7:0]  OBS_REF_X0     = 8'd56;      // 地面参考区（网格坐标，160×90，最多 511 格）：车正前方、画面最下面 48 列 × 8 行（约 23~26 cm 远）
+localparam [7:0]  OBS_REF_X0     = 8'd56;      // 地面参考区（网格坐标，160×90，最多 511 格）：车正前方、画面最下面 48 列 × 8 行（约 49~58 cm 远）
 localparam [7:0]  OBS_REF_X1     = 8'd103;
 localparam [6:0]  OBS_REF_Y0     = 7'd82;
 localparam [6:0]  OBS_REF_Y1     = 7'd89;
 localparam [11:0] OBS_TC         = 12'd12;     // 地面颜色门限：越大越容易把东西判成障碍
 localparam [11:0] OBS_TY         = 12'd12;
+localparam [2:0]  OBS_YSPREAD    = 3'd2;       // 地面亮度宽容度（每格 16 级）：反光 / 阴影的地面被判成障碍就加大（最大 7），和地面一样灰的东西判不出来就减小（10-30：回到最开始的 2，识别更灵敏；4 太宽、3 偏宽）
+localparam [6:0]  OBS_ROW_MIN    = 7'd60;      // 只判断画面最下面这些行（160×90 网格第 60~89 行 = 下 1/3 = 镜头前约 49 cm ~ 1.35 m；第 55 行约 2 m、第 70 行约 84 cm，见 mc_obs_lut.v）
 localparam [7:0]  OBS_D_CAP      = 8'd150;     // 选方向最远算到多少厘米
-localparam [7:0]  OBS_D_STOP     = 8'd35;      // 最好的方向也不到这么远（厘米）→ 停
-// ---- 跟随 + 避障决策（mc_follow，每 20 ms 一次，PWM 满量程 8000；运行逻辑见 obstacle.md §6）----
-// 跟随：和 STM32 follow.h（2026-10-21 上车调好的）一样
+localparam [7:0]  OBS_D_STOP     = 8'd60;      // 最好的方向也不到这么远（厘米）→ 屏幕第 4 行 STOP、不画绿条（镜头竖直装最近只看得到约 49 cm，和 AVOID_SPIN_CM 一样取 60）
+// ---- 跟随 + 避障决策 + 角度环（mc_follow，每 20 ms 一次，PWM 满量程 8000；运行逻辑见 obstacle.md §6）----
+// 跟随（前进量、原地转的条件和 STM32 follow.h 一样；转向改成陀螺仪角度环）
 localparam       FOLLOW_STOP_CM     = 300;     // 离主人这么近就停
 localparam       FOLLOW_START_PWM   = 3000;    // 起步（600 推不动，2500 能走）
 localparam       FOLLOW_KP_D        = 10;      // 每远 1 cm 多加多少
 localparam       FOLLOW_MAX_FWD     = 5000;
-localparam       FOLLOW_ANGLE_FILTER= 3;       // 角度平滑：每次只跟上新角度的 1/3
-localparam       FOLLOW_DEADBAND    = 5;       // ±5° 以内当正前方
-localparam       FOLLOW_TURN_PER10K = 30;      // 超出死区每 1° 转前进的 0.3%
-localparam       FOLLOW_TURN_MAX    = 900;     // 转向最多 = 前进的 9%
-localparam       FOLLOW_TURN_STEP   = 12;      // 转向每 20 ms 最多变 12
+localparam       FOLLOW_ANGLE_FILTER= 3;       // 主人方向平滑：每次只跟上新方向的 1/3
+localparam       FOLLOW_DEADBAND    = 4;       // 主人方向和现在的目标航向差不到 4° 就不改目标（一段一段走直线；3 在 UWB 跳动大时会左右摆）
 localparam       FOLLOW_PIVOT_ENTER = 90;      // 偏超过 90° 并保持 FOLLOW_PIVOT_MS 才原地转
 localparam       FOLLOW_PIVOT_MS    = 300;
-localparam       FOLLOW_PIVOT_EXIT  = 40;      // 转到 40° 以内再往前走
+localparam       FOLLOW_PIVOT_EXIT  = 40;      // 转到 40° 以内再往前走（剩下的交给角度环）
 localparam       FOLLOW_PIVOT_PWM   = 2200;    // 原地转时两轮一正一反
 localparam       FOLLOW_MAX_WHEEL   = 6500;
-localparam       FOLLOW_ACC         = 200;     // 两轮斜坡：每 20 ms 最多加 / 减
+localparam       FOLLOW_ACC         = 200;     // 前进斜坡：每 20 ms 最多加 / 减
 localparam       FOLLOW_DEC         = 400;
+localparam       FOLLOW_TURN_SLEW   = 600;     // 转向每 20 ms 最多变多少
+// 角度环（陀螺仪；转向 = KP × 误差 + KI × 误差积分 − KD × 角速度，见 obstacle.md §6 ⑤，还没上车调）
+localparam       HEAD_KP            = 55;      // 每 1° 误差转多少 PWM：转得慢 / 拐不过去 → 加大；左右摆 → 减小
+localparam       HEAD_KI            = 20;      // 每 1° 误差每秒累加多少 PWM：走直线时一直偏一点 → 加大
+localparam       HEAD_KD            = 8;       // 每 1°/s 角速度减多少 PWM：冲过头、来回摆 → 加大
+localparam       HEAD_I_MAX         = 400;     // 积分最多补多少 PWM（两个电机快慢不一样的差）
+localparam       HEAD_I_ZONE        = 10;      // 误差在 10° 以内才积分（积分分离）
+localparam       HEAD_TURN_MAX      = 800;     // 跟随（GO）时转向最多多少 PWM
 // 避障（FPGA 加的，还没上车调）
 localparam       AVOID_CM           = 100;     // 正前方或主人方向不到这么远 = 挡路；绕行方向先挑能走这么远的
 localparam       AVOID_CLEAR_CM     = 60;      // 实在没有，退一步挑能走这么远的；再没有就停（BLK）
-localparam       AVOID_SPIN_CM      = 45;      // 正前方不到这么远：原地转向能走的方向（SPIN）
+localparam       AVOID_SPIN_CM      = 60;      // 正前方不到这么远：原地转向能走的方向（SPIN）。镜头竖直装，最近只看得到约 49 cm（画面最下面 9 行 = 49~59 cm）
 localparam       AVOID_KP_OBS       = 20;      // 前进上限 = 起步 + (前面能走多远 − AVOID_CLEAR_CM) × 这个
 localparam       AVOID_SPIN_PWM     = 2200;
-localparam       AVOID_TURN_PER10K  = 120;     // 绕行的转向：每 1° 前进的 1.2%，最多 30%，每 20 ms 最多变 40
-localparam       AVOID_TURN_MAX     = 3000;
-localparam       AVOID_TURN_STEP    = 40;
-localparam       AVOID_HOLD_MS      = 500;     // 绕过去以后先直走多久再朝主人转（障碍出了视场还在旁边）
+localparam       AVOID_TURN_MAX     = 1200;    // 绕行（AVD）时转向最多多少 PWM
+localparam       AVOID_HOLD_MS      = 500;     // 绕过去以后先保持航向直走多久再朝主人转（障碍出了视场还在旁边）
 localparam       AVOID_W_TGT        = 2;       // 挑方向的代价 = W_TGT × |方向 − 主人| + W_PREV × |方向 − 上次绕的方向|
 localparam       AVOID_W_PREV       = 1;
 // ---- 按键 ----
@@ -160,7 +172,7 @@ localparam       RST_HOLD_MS     = 2000;       // SW1 按住多久整机复位�
 // ---- 喂食检测（霍尔传感器，见 mc_hall.v / mc_behavior.v）----
 localparam       HALL_DEBOUNCE_MS = 20;        // 去抖时间
 // ---- 音频（见 mc_audio.v）----
-localparam [5:0] AUD_SPK_VOL     = 6'd18;      // 喇叭音量：寄存器值 0~33，不是 dB；增益 = (值 − 30) × 1.5 dB（33 = +4.5 dB 最大，30 = 0 dB，18 = −18 dB）。33 太响：喇叭尖叫、功放把电源拉低、屏幕变灰（10-23）。耳机口不用（ES8388 的耳机输出关了）
+localparam [5:0] AUD_SPK_VOL     = 6'd22;      // 喇叭音量：寄存器值 0~33，不是 dB；增益 = (值 − 30) × 1.5 dB（33 = +4.5 dB 最大，30 = 0 dB，22 = −12 dB，18 = −18 dB）。33 太响：喇叭尖叫、功放把电源拉低、屏幕变灰（10-23）。耳机口不用（ES8388 的耳机输出关了）
 localparam [6:0] AUD_BGM_CLIP    = 7'd1;       // 背景音乐 = TF 卡根目录的 1.wav（上电自动循环播放）
 localparam [6:0] AUD_EAT_CLIP    = 7'd2;       // 进食音效 = 2.wav
 localparam [6:0] AUD_BARK_CLIP   = 7'd3;       // 狗叫音效 = 3.wav
@@ -367,7 +379,7 @@ wire         S_obs_stop;
 
 mc_obs #(
     .REF_X0 (OBS_REF_X0), .REF_X1 (OBS_REF_X1), .REF_Y0 (OBS_REF_Y0), .REF_Y1 (OBS_REF_Y1),
-    .TC (OBS_TC), .TY (OBS_TY), .D_CAP (OBS_D_CAP), .D_STOP (OBS_D_STOP)
+    .TC (OBS_TC), .TY (OBS_TY), .YSPREAD (OBS_YSPREAD), .ROW_MIN (OBS_ROW_MIN), .D_CAP (OBS_D_CAP), .D_STOP (OBS_D_STOP)
 ) u_obs (
     .I_clk       (S_cam_pix_clk),
     .I_rst_n     (S_pll_lock),
@@ -398,7 +410,7 @@ wire signed [7:0]  S_uwb_deg;
 wire [9:0]         S_uwb_cm;
 wire               S_cmd_valid, S_cmd_stop;
 wire signed [13:0] S_cmd_l, S_cmd_r;
-wire [2:0]         S_cmd_state;
+wire [3:0]         S_cmd_state;
 
 mc_m0_link u_m0 (
     .I_clk       (S_clk_100m),
@@ -416,14 +428,36 @@ mc_m0_link u_m0 (
     .I_cmd_r     (S_cmd_r)
 );
 
+// ---- 陀螺仪：JY61P（UART）→ 车头航向、Z 角速度（右转为正，上电车停稳后归零）----
+wire               S_imu_ok;
+wire [2:0]         S_imu_state;                        // 0 NOLK 1 CFG 2 WAIT 3 OK 4 LOST（屏幕）
+wire signed [15:0] S_imu_yaw, S_imu_gz;
+wire signed [8:0]  S_imu_yaw_deg;
+wire signed [11:0] S_imu_gz_dps;
+wire signed [8:0]  S_head_tgt_deg;
+
+mc_imu_jy61p u_imu (
+    .I_clk       (S_clk_100m),
+    .I_rst_n     (S_rst_n_100m),
+    .I_tick_1ms  (S_tick_1ms),
+    .I_rx        (I_imu_rx),
+    .O_tx        (O_imu_tx),
+    .O_ok        (S_imu_ok),
+    .O_state     (S_imu_state),
+    .O_yaw       (S_imu_yaw),
+    .O_gz        (S_imu_gz),
+    .O_yaw_deg   (S_imu_yaw_deg),
+    .O_gz_dps    (S_imu_gz_dps)
+);
+
 mc_follow #(
     .STOP_CM (FOLLOW_STOP_CM), .START_PWM (FOLLOW_START_PWM), .KP_D (FOLLOW_KP_D), .MAX_FWD (FOLLOW_MAX_FWD),
-    .ANGLE_FILTER (FOLLOW_ANGLE_FILTER), .DEADBAND (FOLLOW_DEADBAND), .TURN_PER10K (FOLLOW_TURN_PER10K),
-    .TURN_MAX_10K (FOLLOW_TURN_MAX), .TURN_STEP (FOLLOW_TURN_STEP),
+    .ANGLE_FILTER (FOLLOW_ANGLE_FILTER), .DEADBAND (FOLLOW_DEADBAND),
     .PIVOT_ENTER (FOLLOW_PIVOT_ENTER), .PIVOT_CONFIRM_MS (FOLLOW_PIVOT_MS), .PIVOT_EXIT (FOLLOW_PIVOT_EXIT), .PIVOT_PWM (FOLLOW_PIVOT_PWM),
-    .MAX_WHEEL (FOLLOW_MAX_WHEEL), .ACC (FOLLOW_ACC), .DEC (FOLLOW_DEC),
+    .MAX_WHEEL (FOLLOW_MAX_WHEEL), .ACC (FOLLOW_ACC), .DEC (FOLLOW_DEC), .TURN_SLEW (FOLLOW_TURN_SLEW),
+    .HEAD_KP (HEAD_KP), .HEAD_KI (HEAD_KI), .HEAD_KD (HEAD_KD), .HEAD_I_MAX (HEAD_I_MAX), .HEAD_I_ZONE (HEAD_I_ZONE), .TURN_MAX (HEAD_TURN_MAX),
     .AVOID_CM (AVOID_CM), .CLEAR_CM (AVOID_CLEAR_CM), .SPIN_CM (AVOID_SPIN_CM), .KP_OBS (AVOID_KP_OBS), .SPIN_PWM (AVOID_SPIN_PWM),
-    .AVOID_PER10K (AVOID_TURN_PER10K), .AVOID_MAX_10K (AVOID_TURN_MAX), .AVOID_STEP (AVOID_TURN_STEP), .AVOID_HOLD_MS (AVOID_HOLD_MS),
+    .AVOID_TURN_MAX (AVOID_TURN_MAX), .AVOID_HOLD_MS (AVOID_HOLD_MS),
     .W_TGT (AVOID_W_TGT), .W_PREV (AVOID_W_PREV)
 ) u_follow (
     .I_clk       (S_clk_100m),
@@ -434,11 +468,15 @@ mc_follow #(
     .I_tgt_cm    (S_uwb_cm),
     .I_obs_tog   (S_obs_res_tog),
     .I_obs_free  (S_obs_head_free),
+    .I_imu_ok    (S_imu_ok),
+    .I_yaw       (S_imu_yaw),
+    .I_gz        (S_imu_gz),
     .O_cmd_valid (S_cmd_valid),
     .O_cmd_stop  (S_cmd_stop),
     .O_cmd_l     (S_cmd_l),
     .O_cmd_r     (S_cmd_r),
-    .O_state     (S_cmd_state)
+    .O_state     (S_cmd_state),
+    .O_tgt_deg   (S_head_tgt_deg)
 );
 
 wire        S_dsi_clk;
@@ -629,6 +667,10 @@ mc_osd_dash #(
     .I_cmd_state   (S_cmd_state),
     .I_cmd_l       (S_cmd_l),
     .I_cmd_r       (S_cmd_r),
+    .I_head_tgt    (S_head_tgt_deg),
+    .I_imu_state   (S_imu_state),
+    .I_imu_yaw     (S_imu_yaw_deg),
+    .I_imu_gz      (S_imu_gz_dps),
 
     .I_aud_sd      (S_aud_sd),
     .I_aud_codec   (S_aud_codec),
@@ -656,7 +698,10 @@ mc_disp_if #(
     .REF_X0     (OBS_REF_X0),
     .REF_X1     (OBS_REF_X1),
     .REF_Y0     (OBS_REF_Y0),
-    .REF_Y1     (OBS_REF_Y1)
+    .REF_Y1     (OBS_REF_Y1),
+    .ROW_MIN    (OBS_ROW_MIN),
+    .LOGO_U0    (LOGO_U0),
+    .LOGO_V0    (LOGO_V0)
 ) u_disp (
     .I_rst_n         (S_pll_lock),
     .I_clk_dpll_ref  (S_clk_dpll_ref),

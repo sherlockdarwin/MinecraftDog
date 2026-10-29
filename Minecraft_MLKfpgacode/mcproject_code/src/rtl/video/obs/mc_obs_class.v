@@ -9,7 +9,7 @@
 //      判断：Hc[这个点的格] ≥ TC 且 Hy[这个点的格] ≥ TY → 地面（O_obs = 0），否则障碍（O_obs = 1）。
 //   3. 学习：参考区（REF_X0~X1 列、REF_Y0~Y1 行）里的点在本帧计数 Ac / Ay。一帧最后一个点处理完后更新模型：
 //        Hc[b] ← Hc[b] − Hc[b]/4 + Σ(b 和它周围 3×3 格的 Ac)     （色度相近的也算，避免落在格子边上的地面被当成障碍）
-//        Hy[y] ← Hy[y] − Hy[y]/4 + Σ(y−2 ~ y+2 格的 Ay)          （亮度放宽 ±2 格，阴影不至于全算成障碍）
+//        Hy[y] ← Hy[y] − Hy[y]/4 + Σ(y−YSPREAD ~ y+YSPREAD 格的 Ay)（亮度放宽 ±YSPREAD 格，阴影 / 反光不至于全算成障碍）
 //      参考区最多 511 个点（Ac / Ay 9 位）→ H 最大 4 × 511 < 4096，12 位不会溢出；然后把 Ac / Ay 清零。旧模型每帧只留 3/4：参考区被短暂挡住（比如脚踩进来）不会马上把模型带偏，
 //      换了一种地面几帧以后就学会。上电先把四张表清零（前一帧全判成障碍，第二帧开始正常）。
 //   时序：输入一拍一个点，两个点之间至少隔 3 拍（mc_obs_down 保证）；输出比输入晚 3 拍（附带行列号、亮度）。
@@ -22,6 +22,7 @@ module mc_obs_class #(
     parameter [6:0]  REF_Y1 = 7'd89,
     parameter [11:0] TC     = 12'd12,   // 色度直方图门限
     parameter [11:0] TY     = 12'd12,   // 亮度直方图门限
+    parameter [2:0]  YSPREAD = 3'd2,    // 学习时亮度往两边放宽几格（每格 16 级）：越大越不怕阴影 / 反光，但和地面一样灰的东西越难判出来
     parameter [6:0]  LAST_ROW = 7'd89,
     parameter [7:0]  LAST_COL = 8'd159
 )(
@@ -98,7 +99,7 @@ reg  [11:0] S_esum;                     // 邻格和
 reg  [11:0] S_eh;                       // 这一格的旧模型值
 assign O_busy = (S_est != E_IDLE);
 
-// 邻格：色度 3×3（j = 0~8 → dcb = j/3 − 1，dcr = j%3 − 1）；亮度 ±2（j = 0~4 → dy = j − 2）
+// 邻格：色度 3×3（j = 0~8 → dcb = j/3 − 1，dcr = j%3 − 1）；亮度 ±YSPREAD（j = 0~2·YSPREAD → dy = j − YSPREAD）
 reg  [3:0]  S_ncb, S_ncr;
 reg         S_nin;
 always @(*) begin
@@ -108,7 +109,8 @@ always @(*) begin
               (S_eb[3:0] == 4'd0 && (S_ej == 4'd0 || S_ej == 4'd3 || S_ej == 4'd6)) ||
               (S_eb[3:0] == 4'd15 && (S_ej == 4'd2 || S_ej == 4'd5 || S_ej == 4'd8)));
 end
-wire [4:0] S_ny  = {1'b0, S_eb[3:0]} + {1'b0, S_ej} - 5'd2;            // 亮度邻格（5 位，带越界）
+localparam [3:0] YN = {YSPREAD, 1'b0};                                  // 亮度邻格数 − 1（= 2·YSPREAD）
+wire [4:0] S_ny  = {1'b0, S_eb[3:0]} + {1'b0, S_ej} - {2'd0, YSPREAD};  // 亮度邻格（5 位：小于 0 绕到 25 以上、大于 15 都算越界，YSPREAD ≤ 7 不会混）
 wire       S_nyin = (S_ny <= 5'd15);
 
 // 地址选择
@@ -166,7 +168,7 @@ always @(posedge I_clk) begin
     if (S_wc_hy) S_hy[S_wa_hy] <= S_wd_hy;
 end
 
-// 引擎：每格先读 9（或 5）个邻格累加，再读出旧模型、写新模型
+// 引擎：每格先读 9（或 2·YSPREAD + 1）个邻格累加，再读出旧模型、写新模型
 //   读地址在 S_ej 计数时给出，下一拍数据到；S_ej 从 0 走到 N（N = 邻格数），第 N 拍收最后一个邻格
 reg  [11:0] S_hnew;
 reg         S_pend_last;                // 本帧最后一个点已经过了第 2 拍，等它的计数写完再启动引擎
@@ -204,11 +206,11 @@ always @(posedge I_clk or negedge I_rst_n) begin
                           else S_eb <= S_eb + 9'd1;
                       end else S_ej <= S_ej + 4'd1;
                   end
-            E_HY: begin                                                // 每格 6 拍：j = 0~4 发邻格读，j = 5 收最后一个、写
-                      S_e_dv <= S_nyin && (S_ej <= 4'd4);
+            E_HY: begin                                                // 每格 YN + 2 拍：j = 0~YN 发邻格读，j = YN + 1 收最后一个、写
+                      S_e_dv <= S_nyin && (S_ej <= YN);
                       if (S_ej != 4'd0 && S_e_dv) S_esum <= S_esum + {3'd0, S_ay_rd};
                       if (S_ej == 4'd1) S_eh <= S_hy_rd;
-                      if (S_ej == 4'd5) begin
+                      if (S_ej == YN + 4'd1) begin
                           S_wc_hy <= 1'b1; S_wa_hy <= S_eb[3:0];
                           S_wd_hy <= S_hnew;
                           S_ej <= 4'd0; S_esum <= 12'd0; S_e_dv <= 1'b0;

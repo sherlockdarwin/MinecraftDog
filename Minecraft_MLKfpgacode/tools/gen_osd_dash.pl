@@ -13,7 +13,7 @@
 use strict;
 use warnings;
 
-my $NROWS = 5;                                  # 文字框行数（和 mctop.v 的 OSD_ROWS 一致）
+my $NROWS = 6;                                  # 文字框行数（和 mctop.v 的 OSD_ROWS 一致）
 my $NCOLS = 45;                                 # 每行字符数（和 mctop.v 的 OSD_COLS 一致）
 
 # ---- 状态名表（按状态值从小到大排；同一个表里每个名字一样长）----
@@ -26,11 +26,12 @@ my %NAMES = (
     keys  => [3, map { sprintf("%d%d%d", ($_ >> 2) & 1, ($_ >> 1) & 1, $_ & 1) } 0 .. 7],
     plan  => [4, "GO  ", "STOP"],
     uwb   => [4, "NOLK", "LOST", "OK  "],
-    cmd   => [4, "LOST", "NCAM", "HERE", "BLK ", "TURN", "GO  ", "AVD ", "SPIN"],
+    cmd   => [4, "LOST", "NCAM", "HERE", "BLK ", "TURN", "GO  ", "AVD ", "SPIN", "NIMU"],
+    imu   => [4, "NOLK", "CFG ", "WAIT", "OK  ", "LOST"],
 );
 # 选择器编号（"用哪个信号当状态值"），对应生成的 Verilog 里的 S_selv；0 = 固定字符串
-my %SELID = (sd => 1, codec => 2, bgm => 3, sfx => 4, evt => 5, keys => 6, tail => 7, plan => 8, uwb => 9, cmd => 10);
-my %SELTAB = (sd => 'sd', codec => 'codec', bgm => 'state', sfx => 'state', evt => 'evt', keys => 'keys', tail => 'tail', plan => 'plan', uwb => 'uwb', cmd => 'cmd');
+my %SELID = (sd => 1, codec => 2, bgm => 3, sfx => 4, evt => 5, keys => 6, tail => 7, plan => 8, uwb => 9, cmd => 10, imu => 11);
+my %SELTAB = (sd => 'sd', codec => 'codec', bgm => 'state', sfx => 'state', evt => 'evt', keys => 'keys', tail => 'tail', plan => 'plan', uwb => 'uwb', cmd => 'cmd', imu => 'imu');
 my $SELMAX = 0; for my $v (values %SELID) { $SELMAX = $v if $v > $SELMAX; }
 my $SELW = 1; $SELW++ while ((1 << $SELW) <= $SELMAX);      # 选择器的位数
 
@@ -49,6 +50,9 @@ my @SRC = (
     ['ucm',   10,  0, 'I_uwb_cm'],
     ['cmdl',  14,  1, 'I_cmd_l'],
     ['cmdr',  14,  1, 'I_cmd_r'],
+    ['yaw',    9,  1, 'I_imu_yaw'],
+    ['htgt',   9,  1, 'I_head_tgt'],
+    ['gz',    12,  1, 'I_imu_gz'],
 );
 my %SRCID; for my $i (0 .. $#SRC) { $SRCID{$SRC[$i][0]} = $i; }
 my $SRCW = 1; $SRCW++ while ((1 << $SRCW) < @SRC);             # 取值来源编号的位数
@@ -106,6 +110,16 @@ my @ITEMS = (
     { row => 4, col => 33, num => 'cmdl', dig => 4 },
     { row => 4, col => 39, str => "R" },
     { row => 4, col => 40, num => 'cmdr', dig => 4 },
+    # 第 5 行：陀螺仪（状态 / 车头航向 / 角度环的目标航向 / Z 角速度）
+    { row => 5, col => 0,  str => "IMU " },
+    { row => 5, col => 4,  sel => 'imu' },
+    { row => 5, col => 9,  str => "YAW " },
+    { row => 5, col => 13, num => 'yaw', dig => 3 },
+    { row => 5, col => 17, str => "deg  TGT " },
+    { row => 5, col => 26, num => 'htgt', dig => 3 },
+    { row => 5, col => 30, str => "deg  GZ " },
+    { row => 5, col => 38, num => 'gz', dig => 3 },
+    { row => 5, col => 42, str => "d/s" },
 );
 
 # ---- 文字 ROM：先放状态名表，再放固定字符串（相同的字符串只放一份）----
@@ -174,7 +188,7 @@ my $DESCMSB = $DW - 1;
 print <<"EOT";
 `timescale 1ns / 1ps
 // =============================================================================
-// mc_osd_dash.v  屏幕中间状态带里的文字（5 行 × 45 列）：把相机自动曝光、霍尔、尾巴、按键、音频、避障、跟随状态排成文字
+// mc_osd_dash.v  屏幕中间状态带里的文字（6 行 × 45 列）：把相机自动曝光、霍尔、尾巴、按键、音频、避障、跟随、陀螺仪状态排成文字
 //   ★ 本文件由 tools/gen_osd_dash.pl 生成，不要手改：想改显示什么、显示在哪，改脚本里的 \@ITEMS 再重新生成。
 //
 //   实现：一张"项目表"（第几行第几列、是固定字符串 / 状态名 / 数字）+ 一张"文字表"（所有固定字符串和状态名，ROM）
@@ -184,12 +198,13 @@ print <<"EOT";
 //         写总线格式见 mc_osd_text.v：{we, row[3:0], col[6:0], char[7:0]}，链的第一级是 mc_osd_clear（复位后先清屏，再轮到本模块写）。
 //         复位后约 1 ms 画第一遍，之后每 100 ms 刷新一遍。只有一页。
 //
-//   版面（45 列 × 5 行）：
+//   版面（45 列 × 6 行）：
 //     GAIN 050  HALL 0            KEY 000 UP 00123s     ← 相机增益 / 霍尔（1 = 磁铁靠近）/（尾巴那一格 2026-10-25 注释掉了）/ 三个键（SW1 SW2 SW3）/ 开机秒数
 //     SD READY  CODEC OK    BGM PLAY  SFX IDLE EV+0     ← TF 卡（NO FAT 不是 FAT32 / BADFAT 参数不对 / RD ERR 读卡错）/ ES8388 / 背景音乐 / 音效 / 亮度档
 //     K1 SHORT  SW2/3 EV+/- SW1 2s reset EXP 2275       ← 最近一次按键事件 / 按键提示 / 曝光行数
-//     NEAR 045cm -12deg  GO   +06deg 150cm          ← 最近的障碍（255 = 1.5 m 内没有）/ 建议方向（STOP = 走不了）/ 那边能走多远
-//     UWB OK   -12deg 350cm  CMD GO   L+3000 R+2100 ← 主人在哪（OK / LOST = STM32 在发但没有有效帧 / NOLK = 300 ms 一个字节都没收到）/ 跟随决策（LOST NCAM HERE BLK TURN GO AVD SPIN）/ 左右轮 PWM
+//     NEAR 045cm -12deg  GO   +06deg 150cm          ← 最近的障碍（255 = 判断区里没有）/ 建议方向（STOP = 走不了）/ 那边能走多远
+//     UWB OK   -12deg 350cm  CMD GO   L+3000 R+2100 ← 主人在哪（OK / LOST = STM32 在发但没有有效帧 / NOLK = 300 ms 一个字节都没收到）/ 跟随决策（LOST NCAM HERE BLK TURN GO AVD SPIN NIMU）/ 左右轮 PWM
+//     IMU OK   YAW +012deg  TGT +015deg  GZ -003d/s ← 陀螺仪（NOLK 线上没动静 / LOST 线上有数据但没有有效帧（波特率不对） / CFG 正在配置 / WAIT 数据正常、等配置或等车停稳归零 / OK）/ 车头航向（上电归零，右转为正）/ 角度环的目标航向 / Z 角速度
 // =============================================================================
 module mc_osd_dash #(
     parameter ROWS = $NROWS,                     // 文字框行数、列数（只用来清屏；版面按 $NCOLS 列 × $NROWS 行排）
@@ -207,7 +222,7 @@ module mc_osd_dash #(
     input  wire [7:0]   I_cam_gain,             // 相机自动曝光：增益（0.3 dB 一级）（24 MHz 域，内部同步）
     input  wire [11:0]  I_cam_exp,              //               曝光行数（同上）
     input  wire [3:0]   I_cam_ev,               //               亮度档 0~8，显示成 −4~+4（同上）
-    input  wire [7:0]   I_obs_near,             // 避障：最近的障碍（厘米，255 = 1.5 m 内没有）（相机像素时钟域，内部同步）
+    input  wire [7:0]   I_obs_near,             // 避障：最近的障碍（厘米，255 = 判断区里没有）（相机像素时钟域，内部同步）
     input  wire [6:0]   I_obs_near_deg,         //       它的方向（度，有符号）
     input  wire [6:0]   I_obs_go_deg,           //       建议方向（度，有符号）
     input  wire [7:0]   I_obs_free,             //       那边能走多远（厘米）
@@ -218,9 +233,13 @@ module mc_osd_dash #(
     input  wire         I_uwb_link,             //       300 ms 内收到过字节（和 STM32 的线是通的）
     input  wire [7:0]   I_uwb_deg,              //       主人的角度（度，有符号，左负右正）
     input  wire [9:0]   I_uwb_cm,               //       主人的距离（厘米）
-    input  wire [2:0]   I_cmd_state,            //       决策状态（mc_follow：0 LOST 1 NCAM 2 HERE 3 BLK 4 TURN 5 GO 6 AVD 7 SPIN）
+    input  wire [3:0]   I_cmd_state,            //       决策状态（mc_follow：0 LOST 1 NCAM 2 HERE 3 BLK 4 TURN 5 GO 6 AVD 7 SPIN 8 NIMU）
     input  wire [13:0]  I_cmd_l,                //       左 / 右轮 PWM（有符号）
     input  wire [13:0]  I_cmd_r,
+    input  wire [8:0]   I_head_tgt,             //       角度环的目标航向（度，有符号）
+    input  wire [2:0]   I_imu_state,            // 陀螺仪：0 NOLK 1 CFG 2 WAIT 3 OK 4 LOST（mc_imu_jy61p）
+    input  wire [8:0]   I_imu_yaw,              //         车头航向（度，有符号）
+    input  wire [11:0]  I_imu_gz,               //         Z 角速度（度/秒，有符号）
 
     input  wire [2:0]   I_aud_sd,               // 音频：TF 卡状态 0 INIT 1 READY 2 NO SD 3 NO FAT 4 BADFAT 5 RD ERR
     input  wire [1:0]   I_aud_codec,            //       ES8388 配置状态 0 INIT 1 OK 2 ERR
@@ -356,27 +375,29 @@ wire [2:0] D_dig  = D_f1[2:0];
 ${SGN_WIRE}
 
 // 状态值（选择器）
-reg [2:0] S_selv;
+reg [3:0] S_selv;
 always \@* begin
     case (D_sel)
-        ${SELW}'d$SELID{sd}:  S_selv = (I_aud_sd > 3'd5) ? 3'd6 : I_aud_sd;
-        ${SELW}'d$SELID{codec}:  S_selv = {1'd0, I_aud_codec};
-        ${SELW}'d$SELID{bgm}:  S_selv = {1'd0, I_bgm_state};
-        ${SELW}'d$SELID{sfx}:  S_selv = {1'd0, I_sfx_state};
-        ${SELW}'d$SELID{evt}:  S_selv = S_evt;
-        ${SELW}'d$SELID{keys}:  S_selv = {I_key_pressed[0], I_key_pressed[1], I_key_pressed[2]};
-        ${SELW}'d$SELID{tail}:  S_selv = {1'd0, I_tail_seq};
-        ${SELW}'d$SELID{plan}:  S_selv = {2'd0, S_stop};
-        ${SELW}'d$SELID{uwb}:  S_selv = I_uwb_ok ? 3'd2 : {2'd0, I_uwb_link};
-        ${SELW}'d$SELID{cmd}:  S_selv = I_cmd_state;
-        default: S_selv = 3'd0;
+        ${SELW}'d$SELID{sd}:  S_selv = (I_aud_sd > 3'd5) ? 4'd6 : {1'd0, I_aud_sd};
+        ${SELW}'d$SELID{codec}:  S_selv = {2'd0, I_aud_codec};
+        ${SELW}'d$SELID{bgm}:  S_selv = {2'd0, I_bgm_state};
+        ${SELW}'d$SELID{sfx}:  S_selv = {2'd0, I_sfx_state};
+        ${SELW}'d$SELID{evt}:  S_selv = {1'd0, S_evt};
+        ${SELW}'d$SELID{keys}:  S_selv = {1'd0, I_key_pressed[0], I_key_pressed[1], I_key_pressed[2]};
+        ${SELW}'d$SELID{tail}:  S_selv = {2'd0, I_tail_seq};
+        ${SELW}'d$SELID{plan}:  S_selv = {3'd0, S_stop};
+        ${SELW}'d$SELID{uwb}:  S_selv = I_uwb_ok ? 4'd2 : {3'd0, I_uwb_link};
+        ${SELW}'d$SELID{cmd}: S_selv = I_cmd_state;
+        ${SELW}'d$SELID{imu}: S_selv = {1'd0, I_imu_state};
+        default: S_selv = 4'd0;
     endcase
 end
 
 // 状态值 × 长度（移位相加，不用乘法器）
 wire [8:0] S_off = (S_selv[0] ? {3'd0, D_f1}       : 9'd0) +
                    (S_selv[1] ? {2'd0, D_f1, 1'b0} : 9'd0) +
-                   (S_selv[2] ? {1'd0, D_f1, 2'b0} : 9'd0);
+                   (S_selv[2] ? {1'd0, D_f1, 2'b0} : 9'd0) +
+                   (S_selv[3] ? {D_f1, 3'b0}       : 9'd0);
 
 // 数字的取值：32 位（有符号的来源符号扩展）
 reg [31:0] S_v;

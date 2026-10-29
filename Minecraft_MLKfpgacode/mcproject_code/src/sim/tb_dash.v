@@ -1,17 +1,18 @@
 `timescale 1ns / 1ps
-// 测试 mc_osd_dash（屏幕中间状态带的文字，5 行 × 45 列，只有一页）+ mc_osd_text 的字符 RAM。
-// 每个场景都把整块字符 RAM（225 个字符）和测试台里按版面规则拼出来的期望逐字符比较（多一个、少一个、错位都会报），覆盖：
+// 测试 mc_osd_dash（屏幕中间状态带的文字，6 行 × 45 列，只有一页）+ mc_osd_text 的字符 RAM。
+// 每个场景都把整块字符 RAM（270 个字符）和测试台里按版面规则拼出来的期望逐字符比较（多一个、少一个、错位都会报），覆盖：
 //   · 全部文字和位置；没有项目的格子必须是空格（复位清屏）；
 //   · 数字转换：位数不够显示高位时只显示低位（开机秒数 32 位取低 5 位）、0、最大值、保留前导零；
 //     有符号数字（亮度档 −4~+4，显示 '+' / '-' 和一位数；4 位有符号的最大 +7 / 最小 −8）；曝光行数 4 位；
-//   · 跟随行：UWB 有 / 没有、有符号角度（8 位：显示低两位）、距离（10 位：显示低三位）、8 个决策状态、左右轮 PWM（14 位有符号，4 位 + 符号）；
+//   · 跟随行：UWB 有 / 没有、有符号角度（8 位：显示低两位）、距离（10 位：显示低三位）、9 个决策状态（含 NIMU）、左右轮 PWM（14 位有符号，4 位 + 符号）；
+//   · 陀螺仪行：5 个状态名（含 LOST）、车头航向 / 目标航向（9 位有符号，±180、0、个位数）、角速度（12 位有符号：显示低三位，±2000 → ±000）；三个数取不同的值（接反能看出来）；
 //   · 所有状态名（尾巴 / TF 卡 / 编解码器 / 背景音乐 / 音效）、未定义状态值显示 "?"；背景音乐和音效取不同的值（接反能看出来）；
 //   · 三个键的电平的 8 种组合、最近一次按键事件（含同时来的优先级）、开机秒数（先让它自己数，再强制成各种值）；
 //   · 刷新节奏：复位后第一遍很快就画完（不等 100 ms）、之后每个 100 ms 节拍恰好一遍（两遍之间总线安静）。
 // 为了仿真快：1 ms 节拍取 100 个时钟，100 ms 节拍取 10000 个时钟。
 module tb_dash;
 
-localparam COLS = 45, ROWS = 5, CELLS = 225;
+localparam COLS = 45, ROWS = 6, CELLS = 270;
 
 reg clk = 0, rst_n = 0;
 always #5 clk = ~clk;
@@ -35,7 +36,10 @@ reg        uwb_ok = 1'b0;
 reg        uwb_link = 1'b0;
 reg  [7:0] uwb_deg = 8'd0;
 reg  [9:0] uwb_cm = 10'd0;
-reg  [2:0] cmd_st = 3'd0;
+reg  [3:0] cmd_st = 4'd0;
+reg  [2:0] imu_st = 3'd0;
+reg  [8:0] imu_yaw = 9'd0, head_tgt = 9'd0;
+reg  [11:0] imu_gz = 12'd0;
 reg  [13:0] cmd_l = 14'd0, cmd_r = 14'd0;
 reg        hall = 0;
 reg  [1:0] tail_seq = 2'd0;
@@ -50,6 +54,7 @@ mc_osd_dash dut (
     .I_cam_gain(cam_gain), .I_cam_exp(cam_exp), .I_cam_ev(cam_ev), .I_obs_near(obs_near), .I_obs_near_deg(obs_ndeg), .I_obs_go_deg(obs_gdeg), .I_obs_free(obs_free), .I_obs_stop(obs_stop),
     .I_hall(hall), .I_tail_seq(tail_seq),
     .I_uwb_ok(uwb_ok), .I_uwb_link(uwb_link), .I_uwb_deg(uwb_deg), .I_uwb_cm(uwb_cm), .I_cmd_state(cmd_st), .I_cmd_l(cmd_l), .I_cmd_r(cmd_r),
+    .I_head_tgt(head_tgt), .I_imu_state(imu_st), .I_imu_yaw(imu_yaw), .I_imu_gz(imu_gz),
     .I_aud_sd(aud_sd), .I_aud_codec(aud_codec), .I_bgm_state(bgm_state), .I_sfx_state(sfx_state),
     .O_bus(bus)
 );
@@ -95,7 +100,11 @@ function [23:0] sdeg8;      input [7:0] v; integer e; reg [7:0] s, t, o; begin e
 function [23:0] dec3w;      input [9:0] v; reg [7:0] a, b, c; begin a = 8'h30 + (v / 100) % 10; b = 8'h30 + (v / 10) % 10; c = 8'h30 + v % 10; dec3w = {a, b, c}; end endfunction   // 10 位 → 低三位
 function [39:0] sdec4;      input [13:0] v; integer e; reg [7:0] s, a, b, c, d; begin e = (v > 8191) ? v - 16384 : v; s = (e < 0) ? 8'h2D : 8'h2B; if (e < 0) e = -e;
                             a = 8'h30 + (e / 1000) % 10; b = 8'h30 + (e / 100) % 10; c = 8'h30 + (e / 10) % 10; d = 8'h30 + e % 10; sdec4 = {s, a, b, c, d}; end endfunction   // 14 位有符号 → "±dddd"
-function [31:0] cmd_name;   input [2:0] v; case (v) 3'd0: cmd_name = "LOST"; 3'd1: cmd_name = "NCAM"; 3'd2: cmd_name = "HERE"; 3'd3: cmd_name = "BLK "; 3'd4: cmd_name = "TURN"; 3'd5: cmd_name = "GO  "; 3'd6: cmd_name = "AVD "; default: cmd_name = "SPIN"; endcase endfunction
+function [31:0] cmd_name;   input [3:0] v; case (v) 4'd0: cmd_name = "LOST"; 4'd1: cmd_name = "NCAM"; 4'd2: cmd_name = "HERE"; 4'd3: cmd_name = "BLK "; 4'd4: cmd_name = "TURN"; 4'd5: cmd_name = "GO  "; 4'd6: cmd_name = "AVD "; 4'd7: cmd_name = "SPIN"; default: cmd_name = "NIMU"; endcase endfunction
+function [31:0] imu_name;   input [2:0] v; case (v) 3'd0: imu_name = "NOLK"; 3'd1: imu_name = "CFG "; 3'd2: imu_name = "WAIT"; 3'd3: imu_name = "OK  "; default: imu_name = "LOST"; endcase endfunction
+function [31:0] sdec3;      input integer e; reg [7:0] s, a, b, c; begin s = (e < 0) ? 8'h2D : 8'h2B; if (e < 0) e = -e; a = 8'h30 + (e / 100) % 10; b = 8'h30 + (e / 10) % 10; c = 8'h30 + e % 10; sdec3 = {s, a, b, c}; end endfunction   // "±ddd"（低三位）
+function integer sx9;       input [8:0] v;  sx9  = (v > 255)  ? v - 512  : v; endfunction
+function integer sx12;      input [11:0] v; sx12 = (v > 2047) ? v - 4096 : v; endfunction
 function [15:0] evtxt;      input [3:0] v; integer e; begin e = v - 4; if (e > 7) e = e - 16; evtxt[15:8] = (e < 0) ? 8'h2D : 8'h2B; evtxt[7:0] = 8'h30 + ((e < 0) ? -e : e); end endfunction   // 档位 v → "−4"~"+4"（v 当成 v−4 的 4 位有符号数）
 
 task build_exp;                              // 按当前输入拼出整屏期望
@@ -119,6 +128,8 @@ task build_exp;                              // 按当前输入拼出整屏期�
         put(3, 19, obs_stop ? "STOP" : "GO  ", 4);  put(3, 24, sdeg(obs_gdeg), 3);  put(3, 27, "deg ", 4);  put(3, 31, dec3(obs_free), 3);  put(3, 34, "cm", 2);
         put(4, 0,  "UWB ", 4);  put(4, 4, uwb_ok ? "OK  " : uwb_link ? "LOST" : "NOLK", 4);  put(4, 9, sdeg8(uwb_deg), 3);  put(4, 12, "deg ", 4);  put(4, 16, dec3w(uwb_cm), 3);
         put(4, 19, "cm  CMD ", 8);  put(4, 27, cmd_name(cmd_st), 4);  put(4, 32, "L", 1);  put(4, 33, sdec4(cmd_l), 5);  put(4, 39, "R", 1);  put(4, 40, sdec4(cmd_r), 5);
+        put(5, 0,  "IMU ", 4);  put(5, 4, imu_name(imu_st), 4);  put(5, 9, "YAW ", 4);  put(5, 13, sdec3(sx9(imu_yaw)), 4);  put(5, 17, "deg  TGT ", 9);
+        put(5, 26, sdec3(sx9(head_tgt)), 4);  put(5, 30, "deg  GZ ", 8);  put(5, 38, sdec3(sx12(imu_gz)), 4);  put(5, 42, "d/s", 3);
     end
 endtask
 
@@ -209,18 +220,29 @@ initial begin
 
     // ---- 跟随：主人在哪、决策状态、左右轮 ----
     uwb_link = 1;
-    uwb_ok = 1; uwb_deg = -8'sd12; uwb_cm = 10'd350; cmd_st = 3'd5; cmd_l = 14'sd3000; cmd_r = -14'sd500;  settle; check("UWB -12 350 cm, GO L+3000 R-0500");
-    uwb_deg = 8'sd99; uwb_cm = 10'd999; cmd_st = 3'd4; cmd_l = -14'sd8192; cmd_r = 14'sd8191;               settle; check("UWB +99 999 cm, TURN extremes");
-    uwb_deg = -8'sd128; uwb_cm = 10'd1023; cmd_st = 3'd3; cmd_l = 14'sd7; cmd_r = -14'sd60;                 settle; check("8-bit -128 -> -28, 1023 -> 023, BLK");
-    uwb_deg = 8'sd127; cmd_st = 3'd2; cmd_l = 14'sd0; cmd_r = 14'sd0;                                         settle; check("+127 -> +27, HERE");
-    uwb_ok = 0; uwb_deg = 8'sd0; uwb_cm = 10'd0; cmd_st = 3'd1;                                               settle; check("UWB lost, NCAM");
+    uwb_ok = 1; uwb_deg = -8'sd12; uwb_cm = 10'd350; cmd_st = 4'd5; cmd_l = 14'sd3000; cmd_r = -14'sd500;  settle; check("UWB -12 350 cm, GO L+3000 R-0500");
+    uwb_deg = 8'sd99; uwb_cm = 10'd999; cmd_st = 4'd4; cmd_l = -14'sd8192; cmd_r = 14'sd8191;               settle; check("UWB +99 999 cm, TURN extremes");
+    uwb_deg = -8'sd128; uwb_cm = 10'd1023; cmd_st = 4'd3; cmd_l = 14'sd7; cmd_r = -14'sd60;                 settle; check("8-bit -128 -> -28, 1023 -> 023, BLK");
+    uwb_deg = 8'sd127; cmd_st = 4'd2; cmd_l = 14'sd0; cmd_r = 14'sd0;                                         settle; check("+127 -> +27, HERE");
+    uwb_ok = 0; uwb_deg = 8'sd0; uwb_cm = 10'd0; cmd_st = 4'd1;                                               settle; check("UWB lost, NCAM");
     uwb_link = 0;                                                                                              settle; check("no bytes from STM32 -> NOLK");
     uwb_ok = 1;                                                                                                settle; check("OK wins over the link flag");
     uwb_ok = 0; uwb_link = 1;                                                                                  settle; check("bytes but no frame -> LOST");
-    cmd_st = 3'd0;                                                                                             settle; check("LOST");
-    cmd_st = 3'd6; settle; check("AVD");
-    cmd_st = 3'd7; settle; check("SPIN");
-    cmd_st = 3'd0; settle; check("LOST again");
+    cmd_st = 4'd0;                                                                                             settle; check("LOST");
+    cmd_st = 4'd6; settle; check("AVD");
+    cmd_st = 4'd7; settle; check("SPIN");
+    cmd_st = 4'd8; settle; check("NIMU");
+    cmd_st = 4'd0; settle; check("LOST again");
+
+    // ---- 陀螺仪 ----
+    imu_st = 3'd1; imu_yaw = 9'd5;      head_tgt = -9'sd7;   imu_gz = 12'd3;      settle; check("IMU CFG, yaw +5, tgt -7, gz +3");
+    imu_st = 3'd2; imu_yaw = -9'sd180;  head_tgt = 9'd180;   imu_gz = -12'sd2000; settle; check("IMU WAIT, yaw -180, tgt +180, gz -2000 (low 3 digits)");
+    imu_st = 3'd3; imu_yaw = 9'd179;    head_tgt = -9'sd12;  imu_gz = 12'd2000;   settle; check("IMU OK, yaw 179, tgt -12, gz +2000");
+    imu_yaw = 9'd0; head_tgt = 9'd0; imu_gz = -12'sd999;                           settle; check("zeros, gz -999");
+    imu_yaw = -9'sd256; head_tgt = 9'd255; imu_gz = -12'sd2048;                    settle; check("9-bit / 12-bit extremes");
+    imu_yaw = 9'd34; head_tgt = 9'd56; imu_gz = 12'd78;                            settle; check("three different values");
+    imu_st = 3'd0;                                                                 settle; check("IMU NOLK");
+    imu_st = 3'd4;                                                                 settle; check("IMU LOST (line busy, no valid frame)");
 
     // ---- 尾巴动作 ----
     tail_seq = 2'd1; settle; check("tail HOME");

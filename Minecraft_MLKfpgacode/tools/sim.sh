@@ -17,6 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="$HERE/../mcproject_code/src"
 OUT="${SIM_OUT:-$HERE/../mcproject_code/src/sim/.out}"
 mkdir -p "$OUT"
+cp "$HERE/../mcproject_code/src/sim/data/"*.hex "$OUT/" 2>/dev/null   # 测试台要读的数据（安路 Logo 位图等）
 
 IV=iverilog; VVP=vvp
 if [ -n "$IVERILOG_HOME" ] && [ -x "$IVERILOG_HOME/bin/iverilog.exe" ]; then
@@ -37,7 +38,7 @@ rtl_for() {
     tb_tail)       echo "comm/mc_uart_tx.v tail/mc_stepper_emm.v tail/mc_tail.v";;
     tb_osd)        echo "video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/osd/mc_osd_clear.v";;
     tb_bench)      echo "hmi/mc_bench.v";;
-    tb_top)        echo "mctop.v system/mc_rst_sync.v system/mc_tick.v system/mc_sync_bits.v system/mc_activity_mon.v system/mc_hold_reset.v hmi/mc_key.v hmi/mc_bench.v comm/mc_uart_tx.v comm/mc_uart_rx.v comm/mc_m0_link.v app/mc_follow.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/osd/mc_osd_clear.v video/osd/mc_osd_dash.v audio/mc_audio.v audio/mc_es8388_cfg.v audio/mc_i2c_wr.v audio/mc_i2s_tx.v audio/mc_sd_spi.v audio/mc_sd_arb.v audio/mc_audio_mix.v audio/mc_fat32.v audio/mc_fat_dir.v audio/mc_fat_rd.v audio/mc_wav_player.v sensor/mc_hall.v app/mc_behavior.v ../sim/models/sd_card_model.v ../sim/models/i2c_ack_slave.v video/obs/mc_obs.v video/obs/mc_obs_down.v video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v video/obs/mc_obs_lut.v ../sim/stubs/stub_mcsys_pll.v ../sim/stubs/stub_mc_cam_if.v ../sim/stubs/stub_mc_framebuf.v ../sim/stubs/stub_mc_disp_if.v";;
+    tb_top)        echo "mctop.v system/mc_rst_sync.v system/mc_tick.v system/mc_sync_bits.v system/mc_activity_mon.v system/mc_hold_reset.v hmi/mc_key.v hmi/mc_bench.v comm/mc_uart_tx.v comm/mc_uart_rx.v comm/mc_m0_link.v sensor/mc_imu_jy61p.v app/mc_follow.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/osd/mc_osd_clear.v video/osd/mc_osd_dash.v audio/mc_audio.v audio/mc_es8388_cfg.v audio/mc_i2c_wr.v audio/mc_i2s_tx.v audio/mc_sd_spi.v audio/mc_sd_arb.v audio/mc_audio_mix.v audio/mc_fat32.v audio/mc_fat_dir.v audio/mc_fat_rd.v audio/mc_wav_player.v sensor/mc_hall.v app/mc_behavior.v ../sim/models/sd_card_model.v ../sim/models/i2c_ack_slave.v video/obs/mc_obs.v video/obs/mc_obs_down.v video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v video/obs/mc_obs_lut.v ../sim/stubs/stub_mcsys_pll.v ../sim/stubs/stub_mc_cam_if.v ../sim/stubs/stub_mc_framebuf.v ../sim/stubs/stub_mc_disp_if.v";;
     tb_fb)         echo "video/fb/mc_framebuf.v video/fb/video_in.v video/fb/video_out.v video/fb/mc_to_user_interface.v ../ip/w128_d512_fifo/w128_d512_fifo.v ../ip/w128_d512_fifo/soft_fifo_al_4057d6b76aa6.v ../ip/w155_d512_fifo/w155_d512_fifo.v ../ip/w155_d512_fifo/soft_fifo_al_f58e8b3e1f3d.v ../sim/stubs/stub_ddr_wrapper.v";;
     tb_i2s)        echo "audio/mc_i2s_tx.v";;
     tb_es8388)     echo "audio/mc_i2c_wr.v audio/mc_es8388_cfg.v";;
@@ -53,12 +54,15 @@ rtl_for() {
     tb_scale)      echo "video/isp/mc_scale.v";;
     tb_ae)         echo "video/cam/mc_ae.v video/cam/uicfgimx415.v video/cam/uii2c.v video/cam/uiimx415reg.v system/mc_sync_bits.v ../sim/models/i2c_rec_slave.v";;
     tb_obs_down)   echo "video/obs/mc_obs_down.v";;
-    tb_obs_core)   echo "video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v video/obs/mc_obs_lut.v system/mc_sync_bits.v";;
-    tb_obs_view)   echo "video/obs/mc_obs_view.v video/obs/mc_obs_lut.v system/mc_sync_bits.v";;
+    tb_obs_core|tb_obs_core_ys4) echo "video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v ../sim/models/mc_obs_lut_t15.v system/mc_sync_bits.v";;   # 测试专用的固定几何表（场景按它设计）
+    tb_obs_core_cur) echo "video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v video/obs/mc_obs_lut.v system/mc_sync_bits.v";;            # 车上的几何表
+    tb_obs_view)   echo "video/obs/mc_obs_view.v system/mc_sync_bits.v";;
     tb_isp)        echo "video/isp/mc_crop.v video/isp/isp_top.v video/isp/demosaic/demosaic.v video/isp/demosaic/raw_matrix_3x3_buffer.v video/isp/demosaic/mipi_to_raw_converter.v video/isp/demosaic/line_buffer_demosaic.v video/isp/demosaic/zhenghe.v video/isp/demosaic/bilinear_interpolation.v video/isp/data128_96/data128_96.v video/isp/awb.v video/isp/signal_delay.v ../sim/stubs/stub_awb_delay_ram.v ../sim/stubs/stub_demosaic_rams.v";;
-    tb_follow)     echo "app/mc_follow.v video/obs/mc_obs_lut.v system/mc_sync_bits.v";;
+    tb_follow)     echo "app/mc_follow.v ../sim/models/mc_obs_lut_t15.v system/mc_sync_bits.v";;   # 方向角用测试专用的固定几何表（场景按它设计）
     tb_m0_link)    echo "comm/mc_m0_link.v comm/mc_uart_rx.v comm/mc_uart_tx.v";;
-    tb_mixer)      echo "video/disp/mc_mixer.v system/mc_sync_bits.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/obs/mc_obs_view.v video/obs/mc_obs_lut.v";;
+    tb_imu)        echo "sensor/mc_imu_jy61p.v comm/mc_uart_rx.v comm/mc_uart_tx.v";;
+    tb_mixer)      echo "video/disp/mc_mixer.v system/mc_sync_bits.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/obs/mc_obs_view.v video/osd/mc_osd_logo.v video/osd/mc_logo_rom.v";;
+    tb_logo)       echo "video/osd/mc_osd_logo.v video/osd/mc_logo_rom.v";;
     tb_dash)       echo "system/mc_sync_bits.v video/osd/mc_font8x16.v video/osd/mc_osd_text.v video/osd/mc_osd_clear.v video/osd/mc_osd_dash.v";;
     *) echo "";;
   esac
@@ -100,7 +104,7 @@ for tb in $TBS; do
   esac
   files=""
   for f in $(rtl_for "$tb"); do files="$files $SRC/rtl/$f"; done
-  if ! "$IV" -g2005 -Wall -Wno-timescale -o "$OUT/$tb.vvp" "$SRC/sim/$tb.v" $files 2> "$OUT/$tb.warn"; then
+  if ! "$IV" -g2005 -Wall -Wno-timescale -I "$SRC/sim" -o "$OUT/$tb.vvp" "$SRC/sim/$tb.v" $files 2> "$OUT/$tb.warn"; then
     echo "[$tb] 编译失败："; cat "$OUT/$tb.warn"; FAILED=1; continue
   fi
   [ -s "$OUT/$tb.warn" ] && grep -v "^$" "$OUT/$tb.warn" | head -20

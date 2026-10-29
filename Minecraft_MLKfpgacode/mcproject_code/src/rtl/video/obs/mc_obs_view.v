@@ -4,7 +4,7 @@
 //
 //   画面：160×90 网格，每格放大成 5×5 像素 → 800×450，放在 v = V0 ~ V0+449。
 //     颜色（亮度 y 取自小图）：地面（能走）= 偏绿 (y, y+96, y)；障碍 = 偏紫 (y+64, y+32, y+128)；
-//     1.5 m 线（mc_obs_lut 的 O_row_min）以上（不判断）= 暗灰 (y, y, y)。y = 亮度 / 2。
+//     判断区（第 ROW_MIN 行，和扫描用的同一个数）以上（太远，不判断）= 暗灰 (y, y, y)。y = 亮度 / 2。
 //   叠加：红框（障碍，2 像素宽）> 黄框（地面参考区，1 像素宽）> 画面。
 //     框表按扇区（每 10 格一个）存：这一格所在扇区如果有框，就看这一格是不是在框的边上。
 //   建议方向：画面上方 v = V0−10 ~ V0−3 一条绿条，盖住选中方向 b 两边的扇区（b−1 和 b，方向在绿条正中）；要停的时候不画。
@@ -21,7 +21,8 @@ module mc_obs_view #(
     parameter [7:0]  REF_X0  = 8'd56,
     parameter [7:0]  REF_X1  = 8'd103,
     parameter [6:0]  REF_Y0  = 7'd82,
-    parameter [6:0]  REF_Y1  = 7'd89
+    parameter [6:0]  REF_Y1  = 7'd89,
+    parameter [6:0]  ROW_MIN = 7'd29  // 这一行以上画暗灰（要和 mc_obs 的一致）
 )(
     input  wire        I_clk,
     input  wire        I_vsync,
@@ -130,11 +131,6 @@ always @(posedge I_clk) begin
     S3_cx <= S2_cx; S3_cy <= S2_cy; S3_sx <= S2_sx; S3_sy <= S2_sy; S3_sec <= S2_sec;
 end
 
-// 1.5 m 线（mc_obs_lut 生成，和扫描用的同一个数）：这一行以上画暗灰
-wire [6:0] S_row_min;
-mc_obs_lut u_lut (.I_row (7'd0), .O_dist (), .I_sec (4'd0), .O_sec_deg (), .I_head (4'd0), .O_head_deg (), .I_tb (4'd0), .I_tj (4'd0), .O_thr (),
-                  .O_row_min (S_row_min));
-
 // 第 4 拍：上色、叠加
 wire [6:0] S_y   = S3_pix[7:1];
 wire       S_obs = S3_pix[0];
@@ -157,7 +153,7 @@ always @(posedge I_clk) begin
     else if (S3_bar)                 S4_rgb <= S_gobar ? 24'h00FF00 : 24'h000000;
     else if (S_boxedge)              S4_rgb <= 24'hFF0000;
     else if (S_refedge)              S4_rgb <= 24'hFFDC00;
-    else if (S3_cy < S_row_min)      S4_rgb <= {1'b0, S_y, 1'b0, S_y, 1'b0, S_y};
+    else if (S3_cy < ROW_MIN)        S4_rgb <= {1'b0, S_y, 1'b0, S_y, 1'b0, S_y};
     else if (S_obs)                  S4_rgb <= {{1'b0, S_y} + 8'd64, {1'b0, S_y} + 8'd32, {1'b0, S_y} + 8'd128};
     else                             S4_rgb <= {1'b0, S_y, {1'b0, S_y} + 8'd96, 1'b0, S_y};
     O_hit <= S4_hit;

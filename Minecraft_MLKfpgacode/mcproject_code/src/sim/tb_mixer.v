@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-// 测试 mc_mixer（屏幕画面合成：相机窗口 / 状态方块 / 文字层 / 没有相机）。
+// 测试 mc_mixer（屏幕画面合成：相机窗口 / 状态方块 / 文字层 / 安路 Logo / 没有相机）。
 //   用缩小的版面跑（面板 104×168，相机窗口 104×56，8 个 10×10 的状态方块，文字框 11 列 × 2 行、8×16 字符），
 //   整个逻辑是参数化的，缩小以后一帧只有约 2 万个时钟。整帧扫描，逐像素和测试台里按"版面规则"算出来的期望值核对：
 //     期望 = 文字框内：前景 / 背景色（字形用另一个 mc_osd_text 实例当参考，直接喂画布坐标）；
@@ -8,7 +8,7 @@
 //   覆盖：有相机；**没有相机（I_win_en = 0）：窗口里是背景色，状态方块和文字照常**；状态位变化时方块颜色变化；
 //         相机帧是否到来在帧起始处锁存：帧中途 I_win_en 变化，这一帧不变，下一帧才变；文字框底色盖住测试图案背景（BGP = 1）。
 //   相机像素和读使能的对齐：读使能之后第 2 个时钟给数据（和厂商 video_out 的接口约定一样）。
-//   避障画面（OBV 在面板里时）：先是还没发布（黑）；最后写入内容并发布：格子亮度按列 / 行变（1.5 m 线以上画灰），
+//   避障画面（OBV 在面板里时）：先是还没发布（黑）；最后写入内容并发布：格子亮度按列 / 行变（判断区上沿 ROW_MIN 以上画灰、以下的地面偏绿），
 //         建议方向 = 2（扇区 1、2 的分界线）：方向条盖住扇区 1、2（u 50~149）：检查这一层在画布上的位置（u、v 都不能偏一个像素）。
 module tb_mixer_case #(
     parameter BGP  = 0,                      // 1：背景用测试图案（这里是蓝色），文字框的底色必须盖住它
@@ -17,7 +17,10 @@ module tb_mixer_case #(
     parameter BGEN = 1,                      // TXT_BG_EN：0 = 文字框没有底色，只有笔画盖住下面的东西
     parameter [23:0] FG  = 24'hFFFFFF,       // 文字颜色 / 文字框底色
     parameter [23:0] BGT = 24'h000000,
-    parameter [10:0] OBV = 11'd830           // 避障画面起始行（默认在这块小面板外面；放进来时检查它的范围、优先级、对齐）
+    parameter [10:0] OBV = 11'd830,          // 避障画面起始行（默认在这块小面板外面；放进来时检查它的范围、优先级、对齐）
+    parameter [6:0] RMN = 7'd29,           // 避障画面：这一行以上画暗灰（ROW_MIN；默认 29 = 小面板里看得见的 10 行全是灰的）
+    parameter LGU = 2000,                    // 安路 Logo 左上角（默认在面板外面；放进来时它比小面板大，只露出左上一块）
+    parameter LGV = 2000
 )(
     output reg        fin,
     output reg [31:0] err
@@ -59,7 +62,8 @@ mc_mixer #(
     .PANEL_W(PW), .PANEL_H(PH), .IMG_W(IMG_W), .IMG_H(IMG_H),
     .SQ_V0(SQ_V0), .SQ_U0(SQ_U0), .SQ_W(SQ_W), .SQ_H(SQ_H), .SQ_PITCH(SQ_PITCH),
     .TXT_U0(TU0), .TXT_V0(TV0), .TXT_COLS(TCOLS), .TXT_ROWS(TROWS), .TXT_SH(0),
-    .BG_PATTERN(BGP), .TXT_FG(FG), .TXT_BG(BGT), .TXT_BG_EN(BGEN), .OBS_V0(OBV)
+    .BG_PATTERN(BGP), .TXT_FG(FG), .TXT_BG(BGT), .TXT_BG_EN(BGEN), .OBS_V0(OBV), .ROW_MIN(RMN),
+    .LOGO_U0(LGU), .LOGO_V0(LGV)
 ) dut (
     .I_clk(clk), .I_vsync(vsync), .I_hsync(hsync), .I_de(de), .I_bg_data(24'h0000FF),
     .I_win_en(win_en), .I_status(status),
@@ -177,6 +181,9 @@ task obs_publish;                           // 写面板里看得见的格子（
 endtask
 
 // ---------------- 期望值 ----------------
+reg [1:0] logo [0:480 * 128 - 1];                // 安路 Logo 位图（生成脚本写的颜色号）
+initial $readmemh("logo_480x128.hex", logo);
+function [23:0] logo_pal; input [1:0] k; logo_pal = (k == 0) ? 24'hFFFFFF : (k == 1) ? 24'h1E2D5A : (k == 2) ? 24'hDC232D : 24'h969EB6; endfunction
 function [23:0] expect_px;
     input integer x, y;
     input         win_f;
@@ -194,11 +201,13 @@ function [23:0] expect_px;
         if (y >= SQ_V0 && y < SQ_V0 + SQ_H)
             for (k = 0; k < 8; k = k + 1)
                 if (x >= SQ_U0 + k * SQ_PITCH && x < SQ_U0 + k * SQ_PITCH + SQ_W) begin sqa = 1; sqo = st[k]; end
-        // 叠放优先级（从上到下）：文字层 > 相机窗口 > 避障画面（没发布：黑色）> 状态方块 > 背景
+        // 叠放优先级（从上到下）：文字层 > Logo > 相机窗口 > 避障画面（没发布：黑色）> 状态方块 > 背景
         if (txt_ovr)    e = stroke ? FG : BGT;
+        else if (x >= LGU && x < LGU + 480 && y >= LGV && y < LGV + 128) e = logo_pal(logo[(y - LGV) * 480 + (x - LGU)]);
         else if (inwin) e = cam_val(x, y);
         else if ((y >= OBV - 10) && (y < OBV - 2)) e = (obs_on && x / 50 >= 1 && x / 50 <= 2) ? 24'h00FF00 : 24'h000000;
-        else if ((y >= OBV) && (y < OBV + 450))    e = obs_on ? {3{1'b0, obs_y(x / 5, (y - OBV) / 5)}} : 24'h000000;
+        else if ((y >= OBV) && (y < OBV + 450))    e = !obs_on ? 24'h000000 : ((y - OBV) / 5 < RMN) ? {3{1'b0, obs_y(x / 5, (y - OBV) / 5)}} :                       // 判断区以上：暗灰
+                                                       {1'b0, obs_y(x / 5, (y - OBV) / 5), {1'b0, obs_y(x / 5, (y - OBV) / 5)} + 8'd96, 1'b0, obs_y(x / 5, (y - OBV) / 5)};   // 地面：偏绿
         else if (sqa)   e = sqo ? 24'h00C800 : 24'hC80000;
         else            e = BGC;
         expect_px = e;
@@ -314,11 +323,11 @@ module tb_mixer;
 wire f0, f1, f2, f3;
 wire [31:0] e0, e1, e2, e3;
 tb_mixer_case #(.BGP(0)) c0 (.fin(f0), .err(e0));
-tb_mixer_case #(.BGP(1), .OBV(120)) c1 (.fin(f1), .err(e1));      // 背景是测试图案：文字框底色盖住它、窗口没有相机时露出背景；避障画面区（v 110~117、120~167）没发布时是黑的、发布后是内容
+tb_mixer_case #(.BGP(1), .OBV(120), .LGU(10), .LGV(100)) c1 (.fin(f1), .err(e1));   // Logo 在 v 100~167：压着文字框最后 2 行（文字在上）、避障方向条和画面（Logo 在上）      // 背景是测试图案：文字框底色盖住它、窗口没有相机时露出背景；避障画面区（v 110~117、120~167）没发布时是黑的、发布后是内容
 // 版面重叠（方块起始行 50 压在相机窗口 0~55 行里、文字框 54~85 行压在方块和窗口上）+ 自定义文字颜色：检查叠放优先级、颜色参数
-tb_mixer_case #(.BGP(0), .SQV(50), .TV(54), .FG(24'h123456), .BGT(24'hABCDEF)) c2 (.fin(f2), .err(e2));
+tb_mixer_case #(.BGP(0), .SQV(50), .TV(54), .FG(24'h123456), .BGT(24'hABCDEF), .LGU(30), .LGV(40)) c2 (.fin(f2), .err(e2));   // Logo 在 v 40~：压着相机窗口、状态方块（Logo 在上）和文字框（文字在上）
 // 文字框没有底色（TXT_BG_EN = 0）：只有笔画盖住下面的东西，其余透出窗口 / 方块 / 测试图案背景
-tb_mixer_case #(.BGP(1), .SQV(50), .TV(54), .BGEN(0), .FG(24'h00FFFF), .OBV(120)) c3 (.fin(f3), .err(e3));
+tb_mixer_case #(.BGP(1), .SQV(50), .TV(54), .BGEN(0), .FG(24'h00FFFF), .OBV(120), .RMN(4)) c3 (.fin(f3), .err(e3));   // 避障画面第 4 行起是判断区（地面偏绿）：ROW_MIN 要传到 mc_obs_view
 initial begin
     wait (f0 && f1 && f2 && f3);
     if (e0 + e1 + e2 + e3 == 0) $display("PASS  tb_mixer");

@@ -3,7 +3,7 @@
 // mc_obs_scan.v  列扫描 → 16 个方向的最近障碍 → 障碍框 → 选方向
 //
 //   1. 列扫描（随去噪后的障碍图逐点做）：每列记住"最靠下的一段障碍"（连续 ≥ 2 行才算，挡掉单行误判）的上沿 / 下沿行号。
-//      只看第 ROW_MIN 行以下（mc_obs_lut：再往上的地面超过 1.5 m，不判断）。下沿 = 这一列离车最近的障碍点。
+//      只看第 ROW_MIN 行以下（再往上太远，先不管；第几行对应多远见 mc_obs_lut 的距离表）。下沿 = 这一列离车最近的障碍点。
 //   2. 一帧扫完：160 列每 10 列一个扇区（16 个方向，左 → 右）：扇区里有没有障碍、最近的下沿（行号最大）、
 //      最高的上沿（行号最小）、障碍的最左 / 最右列。
 //   3. 画框：相邻扇区都有障碍、而且上下范围重叠 → 算同一个障碍，合成一个框（上沿取最小、下沿取最大、左右取两头）。
@@ -15,6 +15,7 @@
 //   6. 输出：框表（16 个扇区 × 4 字节，经写总线送到显示）+ 结果寄存器（方向、距离、最近的障碍、9 个方向各能走多远）；O_done 打一拍。
 // =============================================================================
 module mc_obs_scan #(
+    parameter [6:0] ROW_MIN = 7'd29,   // 从这一行起往下才判断障碍（网格行 0~89）
     parameter [7:0] D_CAP  = 8'd150,    // 选方向时最远算到多少厘米
     parameter [7:0] D_STOP = 8'd35,     // 最好的方向也不到这么远 → 停
     parameter [6:0] LAST_ROW = 7'd89,
@@ -39,7 +40,7 @@ module mc_obs_scan #(
     output reg  signed [6:0] O_go_deg,  // 它的方向（度，左负右正）
     output reg  [7:0]  O_go_free,       // 它能走多远（厘米，最多 D_CAP）
     output reg         O_stop,          // 哪边都走不了
-    output reg  [7:0]  O_near_cm,       // 最近的障碍（厘米，255 = 1.5 m 内没有）
+    output reg  [7:0]  O_near_cm,       // 最近的障碍（厘米，255 = 判断区里没有）
     output reg  signed [6:0] O_near_deg,// 它的方向
     output reg  [71:0] O_head_free      // 方向 4~12 各能走多远（厘米，255 = 没挡），方向 4 在 [7:0]
 );
@@ -51,7 +52,6 @@ reg  [6:0]  S_lut_row;
 reg  [3:0]  S_lut_sec, S_lut_head;
 wire [7:0]  S_lut_dist;
 wire signed [6:0] S_sec_deg, S_head_deg;
-wire [6:0]  S_row_min;
 reg  [3:0]  S_hb;                       // 选方向：正在算的方向
 reg  [3:0]  S_hj;                       //         正在比的扇区
 wire [7:0]  S_thr;                      //         扇区 S_hj 挡住方向 S_hb 的距离门限
@@ -59,8 +59,7 @@ mc_obs_lut u_lut (
     .I_row (S_lut_row), .O_dist (S_lut_dist),
     .I_sec (S_lut_sec), .O_sec_deg (S_sec_deg),
     .I_head (S_lut_head), .O_head_deg (S_head_deg),
-    .I_tb (S_hb), .I_tj (S_hj), .O_thr (S_thr),
-    .O_row_min (S_row_min)
+    .I_tb (S_hb), .I_tj (S_hj), .O_thr (S_thr)
 );
 
 // ---------------------------------------------------------------------------
@@ -199,7 +198,7 @@ always @(posedge I_clk or negedge I_rst_n) begin
             // 1. 扫描：跟着输入走
             ST_SCAN: begin
                 S1_v <= I_valid;
-                S1_f <= I_obs && (I_row >= S_row_min);
+                S1_f <= I_obs && (I_row >= ROW_MIN);
                 S1_row <= I_row; S1_col <= I_col;
                 if (S1_v) begin S_we <= 1'b1; S_wa <= S1_col; S_wd <= S_new; end
                 if (I_frame_done) begin S_st <= ST_WAIT; S_wait <= 3'd0; end

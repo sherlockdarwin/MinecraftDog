@@ -20,6 +20,8 @@ module mc_obs_core #(
     parameter [6:0]  REF_Y1 = 7'd89,
     parameter [11:0] TC     = 12'd12,
     parameter [11:0] TY     = 12'd12,
+    parameter [2:0]  YSPREAD = 3'd2,
+    parameter [6:0]  ROW_MIN = 7'd29,
     parameter [7:0]  D_CAP  = 8'd150,
     parameter [7:0]  D_STOP = 8'd35
 )(
@@ -54,7 +56,7 @@ wire       S_c_v, S_c_obs;
 wire [6:0] S_c_row;
 wire [7:0] S_c_col, S_c_y;
 mc_obs_class #(
-    .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1), .TC (TC), .TY (TY)
+    .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1), .TC (TC), .TY (TY), .YSPREAD (YSPREAD)
 ) u_class (
     .I_clk (I_clk), .I_rst_n (I_rst_n),
     .I_valid (I_valid), .I_row (I_row), .I_col (I_col), .I_rgb (I_rgb),
@@ -75,7 +77,7 @@ mc_obs_morph u_morph (
 wire       S_bw;
 wire [5:0] S_baddr;
 wire [7:0] S_bdata;
-mc_obs_scan #(.D_CAP (D_CAP), .D_STOP (D_STOP)) u_scan (
+mc_obs_scan #(.ROW_MIN (ROW_MIN), .D_CAP (D_CAP), .D_STOP (D_STOP)) u_scan (
     .I_clk (I_clk), .I_rst_n (I_rst_n),
     .I_valid (S_m_v), .I_row (S_m_row), .I_col (S_m_col), .I_obs (S_m_obs), .I_frame_done (S_m_done),
     .O_bw (S_bw), .O_baddr (S_baddr), .O_bdata (S_bdata), .O_done (O_done),

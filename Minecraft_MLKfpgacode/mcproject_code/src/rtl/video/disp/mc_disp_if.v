@@ -44,6 +44,10 @@ module mc_disp_if #(
     parameter [7:0]  REF_X1 = 8'd103,
     parameter [6:0]  REF_Y0 = 7'd82,
     parameter [6:0]  REF_Y1 = 7'd89,
+    parameter [6:0]  ROW_MIN = 7'd29,    // 避障画面：这一行以上画暗灰（要和 mc_obs 的一致）
+    // ---- 安路 Logo（见 mc_osd_logo.v）----
+    parameter LOGO_U0  = 160,       // 480×128 横幅的左上角（画布坐标）
+    parameter LOGO_V0  = 678,
     // ---- D-PHY ----
     parameter DPLL_MULTI_RATIO = 20
 )(
@@ -172,7 +176,10 @@ mc_mixer #(
     .REF_X0     (REF_X0),
     .REF_X1     (REF_X1),
     .REF_Y0     (REF_Y0),
-    .REF_Y1     (REF_Y1)
+    .REF_Y1     (REF_Y1),
+    .ROW_MIN    (ROW_MIN),
+    .LOGO_U0    (LOGO_U0),
+    .LOGO_V0    (LOGO_V0)
 ) u_mixer (
     .I_clk     (S_dsi_clk),
     .I_vsync   (S_vsync),

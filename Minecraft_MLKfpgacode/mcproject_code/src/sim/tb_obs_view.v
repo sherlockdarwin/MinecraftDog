@@ -5,7 +5,7 @@
 //     画面：格 = (u/5, (v−V0)/5)，格内偏移 = 余数；扇区 = 格列 / 10。
 //       红框：这个扇区有框，格在框里，并且（左列且偏移 < 2）或（右列且偏移 ≥ 3）或（上行且偏移 < 2）或（下行且偏移 ≥ 3）。
 //       黄框：参考区边上 1 像素（左列偏移 0、右列偏移 4、上行偏移 0、下行偏移 4）。
-//       否则：1.5 m 线（ROW_MIN）以上暗灰 (y,y,y)；障碍 (y+64, y+32, y+128)；地面 (y, y+96, y)。y = 存的 7 位亮度。
+//       否则：判断区上沿（参数 ROW_MIN，这里故意用 41：不是默认的 29、也不是 mctop 的 60，没传进去就对不上）以上暗灰 (y,y,y)；障碍 (y+64, y+32, y+128)；地面 (y, y+96, y)。y = 存的 7 位亮度。
 //     方向条：有效且不停时，扇区是选中方向 b 两边的那两个（b−1、b）→ 绿，否则黑。还没发布过：整块黑。
 //   场景：一块缓冲写满图（亮度、障碍位按公式），框表里一个跨 3 个扇区的框、一个单列单行的框、一个压在参考区右下角的框（红盖黄）；发布后下一帧才生效；
 //         帧中间换发布块、换建议方向都不影响这一帧；换块后显示另一块的内容；停的时候不画方向条。
@@ -13,6 +13,7 @@
 module tb_obs_view;
 
 localparam V0 = 20;
+localparam RMIN = 41;
 
 reg clk = 0, wclk = 0;
 always #7 clk = ~clk;
@@ -26,7 +27,7 @@ reg  [5:0]  go = 0;
 wire        hit, dbank;
 wire [23:0] rgb;
 
-mc_obs_view #(.V0(V0)) dut (
+mc_obs_view #(.V0(V0), .ROW_MIN(RMIN)) dut (
     .I_clk(clk), .I_vsync(vs), .I_u(u), .I_v(v), .O_hit(hit), .O_rgb(rgb),
     .I_wclk(wclk), .I_wbus(wbus), .I_pub_bank(pub), .I_pub_valid(pvalid), .I_go(go), .O_disp_bank(dbank)
 );
@@ -142,7 +143,7 @@ endtask
 
 integer k;
 initial begin
-    ROW_MIN = 29;
+    ROW_MIN = RMIN;
     pval = 0; nchk = 0;
     repeat (5) @(posedge clk);
     // 还没发布：整块黑

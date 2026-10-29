@@ -9,7 +9,8 @@ module mc_disp_if #(
     parameter [3:0] TPG_MODE = 4'd9, parameter BG_PATTERN = 0,
     parameter TXT_U0 = 1, parameter TXT_V0 = 1, parameter TXT_COLS = 45, parameter TXT_ROWS = 1, parameter TXT_SH = 1,
     parameter [10:0] OBS_V0 = 11'd1, parameter [7:0] REF_X0 = 8'd1, parameter [7:0] REF_X1 = 8'd1,
-    parameter [6:0] REF_Y0 = 7'd1, parameter [6:0] REF_Y1 = 7'd1,
+    parameter [6:0] REF_Y0 = 7'd1, parameter [6:0] REF_Y1 = 7'd1, parameter [6:0] ROW_MIN = 7'd1,
+    parameter LOGO_U0 = 1, parameter LOGO_V0 = 1,
     parameter DPLL_MULTI_RATIO = 20
 )(
     input  wire         I_rst_n,

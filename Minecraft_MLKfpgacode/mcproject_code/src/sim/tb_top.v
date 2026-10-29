@@ -5,6 +5,7 @@
 //   → 喂食（霍尔：进食音效）→ 状态灯真值表 → SW1 按住复位（背景音乐重新开始）；
 //   尾巴（步进电机）2026-10-25 在 mctop.v 里注释掉了，这里和它有关的检查也都注释掉了（mc_tail 本身还由 tb_tail 测）。
 //   MSPM0 串口：每 20 "ms" 发一帧（替身相机没图 → 一直是 #S*）、收主人位置帧 → 文字第 5 行、超时后又是 LOST。
+//   陀螺仪：测试台里一个只会发帧的 JY61P（已经是 115200、只发 52 / 53 帧）→ 上电探测到 → 发 4 条配置命令 → 归零 → 文字第 6 行、跟随决策。
 //
 // 为了仿真快（整个顶层的行为级仿真每个时钟都要算几百个 always 块，很慢），用 defparam 把时间全部压缩：
 //   mc_tick 按 1 MHz 时钟工作（"1 ms" = 1000 个 100MHz 时钟，"10 ms 节拍" = 100 us）、按键去抖/长按缩短、
@@ -26,6 +27,8 @@ reg  hall = 0;                                  // 霍尔传感器：1 = 磁铁�
 // wire step_tx;                                 // 尾巴注释掉了
 reg  m0_rx = 1'b1;                              // MSPM0 → FPGA
 wire m0_tx;
+reg  imu_rx = 1'b1;                             // JY61P → FPGA
+wire imu_tx;
 wire [12:0] ddr_addr; wire [1:0] ddr_ba; wire [0:0] ddr_cke, ddr_odt, ddr_cs_n, ddr_ck_p, ddr_ck_n;
 wire ddr_ras_n, ddr_cas_n, ddr_we_n;
 wire [1:0] ddr_dm, ddr_dqs_p, ddr_dqs_n; wire [15:0] ddr_dq;
@@ -41,6 +44,7 @@ mctop dut (
     .O_dsi_pwm(dsi_pwm), .O_dsi_rst_n(dsi_rst_n),
     /* .O_step_tx(step_tx), */ .I_hall_n(~hall),              // 模块低有效：测试台里 hall = 1 表示磁铁靠近
     .O_m0_tx(m0_tx), .I_m0_rx(m0_rx),
+    .O_imu_tx(imu_tx), .I_imu_rx(imu_rx),
     .O_aud_mclk(aud_mclk), .O_aud_sclk(aud_sclk), .O_aud_lrck(aud_lrck), .O_aud_dsdin(aud_dsdin),
     .O_aud_cclk(aud_cclk), .IO_aud_cdata(aud_sda), .O_spk_ctl(spk_ctl),
     .O_sd_cs_n(sd_cs_n), .O_sd_sck(sd_sck), .O_sd_mosi(sd_mosi), .I_sd_miso(sd_miso),
@@ -68,6 +72,10 @@ defparam dut.u_hold_rst.HOLD_MS      = 3;            // SW1 按住 3 ms 复位�
 // defparam dut.u_tail.INIT_DELAY_MS    = 20;           // 上电 20 "ms" 后自动回零（真实是 1000 ms，由 tb_tail 覆盖）
 defparam dut.u_hall.DEBOUNCE_MS      = 3;            // 霍尔去抖 3 个"毫秒"
 defparam dut.u_m0.BAUD               = 1_000_000;    // MSPM0 串口 1 Mbps（真实 115200 由 tb_m0_link 覆盖）
+defparam dut.u_imu.CLK_HZ            = 10_000_000;   // 陀螺仪串口快 10 倍（"115200" = 每位 86 个时钟 = 860 ns；真实波特率由 tb_imu 覆盖）
+defparam dut.u_imu.BOOT_MS           = 20;
+defparam dut.u_imu.PROBE_MS          = 10;
+defparam dut.u_imu.STILL_MS          = 20;
 
 integer errors = 0;
 task fail; input [255:0] msg; begin $display("FAIL %0s (t=%0t)", msg, $time); errors = errors + 1; end endtask
@@ -117,6 +125,50 @@ always @(posedge dut.S_clk_100m) if (wire_en) begin
     `WCHK(dut.u_m0.I_cmd_valid,   dut.u_follow.O_cmd_valid, "MSPM0 link command strobe is not the follow decision's")
     `WCHK(dut.u_m0.I_rx,          m0_rx,                 "MSPM0 link receive pin")
     `WCHK(m0_tx,                  dut.u_m0.O_tx,         "MSPM0 link transmit pin")
+    `WCHK(dut.u_imu.I_clk,        dut.S_clk_100m,        "IMU clock is not the 100 MHz clock")
+    `WCHK(dut.u_imu.I_rst_n,      dut.S_rst_n_100m,      "IMU reset")
+    `WCHK(dut.u_imu.I_tick_1ms,   dut.S_tick_1ms,        "IMU 1 ms tick")
+    `WCHK(dut.u_imu.I_rx,         imu_rx,                "IMU receive pin")
+    `WCHK(imu_tx,                 dut.u_imu.O_tx,        "IMU transmit pin")
+    `WCHK(dut.u_follow.I_imu_ok,  dut.u_imu.O_ok,        "follow decision IMU-ok is not the IMU's")
+    `WCHK(dut.u_follow.I_yaw,     dut.u_imu.O_yaw,       "follow decision heading is not the IMU's yaw")
+    `WCHK(dut.u_follow.I_gz,      dut.u_imu.O_gz,        "follow decision yaw rate is not the IMU's gz")
+    `WCHK(dut.u_dash.I_imu_state, dut.u_imu.O_state,     "dashboard IMU state is not the IMU's")
+    `WCHK(dut.u_dash.I_imu_yaw,   dut.u_imu.O_yaw_deg,   "dashboard yaw is not the IMU's degrees")
+    `WCHK(dut.u_dash.I_imu_gz,    dut.u_imu.O_gz_dps,    "dashboard yaw rate is not the IMU's deg/s")
+    `WCHK(dut.u_dash.I_head_tgt,  dut.u_follow.O_tgt_deg, "dashboard target heading is not the follow decision's")
+    `WCHK(dut.u_dash.I_cmd_state, dut.u_follow.O_state,  "dashboard decision state is not the follow decision's")
+end
+
+// ---- JY61P（已经是 115200、只输出 52 / 53 帧；串口按 u_imu 的 CLK_HZ 压缩成每位 860 ns）：一直发，FPGA 发的字节记下来 ----
+localparam IMU_BIT = 860;
+reg signed [15:0] imu_yaw_raw = 16'sd1000, imu_gz_raw = 16'sd0;
+task imu_byte; input [7:0] b; integer k; begin imu_rx = 1'b0; #(IMU_BIT); for (k = 0; k < 8; k = k + 1) begin imu_rx = b[k]; #(IMU_BIT); end imu_rx = 1'b1; #(IMU_BIT); end endtask
+task imu_frame;
+    input [7:0] typ; input [15:0] d3;
+    reg [7:0] s;
+    begin
+        s = 8'h55 + typ + 8'h11 + 8'h22 + 8'h33 + 8'h44 + d3[7:0] + d3[15:8];
+        imu_byte(8'h55); imu_byte(typ); imu_byte(8'h11); imu_byte(8'h22); imu_byte(8'h33); imu_byte(8'h44);
+        imu_byte(d3[7:0]); imu_byte(d3[15:8]); imu_byte(8'h00); imu_byte(8'h00); imu_byte(s);
+    end
+endtask
+initial begin : imu_model
+    #(50_000);
+    forever begin imu_frame(8'h52, imu_gz_raw); imu_frame(8'h53, imu_yaw_raw); #(100_000); end   // 约 0.29 ms 仿真时间（29 "ms"）一组，小于 100 "ms" 的超时
+end
+reg [7:0] imu_cmd [0:63];
+integer   imu_cn = 0;
+initial begin : imu_cmd_decoder
+    integer k; reg [7:0] c;
+    forever begin
+        @(negedge imu_tx);
+        #(IMU_BIT / 2);
+        for (k = 0; k < 8; k = k + 1) begin #(IMU_BIT); c[k] = imu_tx; end
+        #(IMU_BIT);
+        if (imu_cn < 64) imu_cmd[imu_cn] = c;
+        imu_cn = imu_cn + 1;
+    end
 end
 
 // "一个节拍(10 ms)" = 100 us 仿真时间
@@ -294,7 +346,7 @@ endtask
 // 0a 窗口：强制前存下的原值（见 0a 的说明）
 reg sv_ddr, sv_panel, sv_cfg, sv_csi, sv_isp, sv_lane;
 reg [7:0] sv_gain; reg [11:0] sv_exp; reg [3:0] sv_ev; reg [2:0] sv_asd;
-reg sv_uok, sv_ulk, sv_rt; reg [7:0] sv_udeg; reg [9:0] sv_ucm; reg [2:0] sv_cst; reg [13:0] sv_cl, sv_cr; reg [71:0] sv_hf;
+reg sv_uok, sv_ulk, sv_rt; reg [7:0] sv_udeg; reg [9:0] sv_ucm; reg [3:0] sv_cst; reg [13:0] sv_cl, sv_cr; reg [71:0] sv_hf;
 reg [24:0] sv_wbus; reg sv_pb, sv_pv, sv_stop; reg [5:0] sv_go; reg [7:0] sv_near, sv_free; reg [6:0] sv_ndeg, sv_gdeg;   reg [1:0] sv_acd, sv_bst, sv_sst;
 integer i, s0, lock_low_seen, t, e0, n1;
 initial begin
@@ -305,20 +357,25 @@ initial begin
 
     // ---------- 0. 配置区的参数是否真的送到了下游（版面：相机 800×448、方块 v 456 高 40、文字 v 504 三行；完整视场取窗；音量最大 33）----------
     if (dut.u_disp.IMG_W !== 800 || dut.u_disp.IMG_H !== 448) fail("camera window size parameters");
-    if (dut.u_disp.SQ_V0 !== 456 || dut.u_disp.SQ_H !== 40)   fail("status square row / height parameters");
-    if (dut.u_disp.TXT_V0 !== 504 || dut.u_disp.TXT_ROWS !== 5 || dut.u_disp.TXT_U0 !== 40 || dut.u_disp.TXT_COLS !== 45) fail("text box parameters");
-    if (dut.u_dash.ROWS !== 5 || dut.u_dash.COLS !== 45) fail("dashboard rows / cols parameters");
+    if (dut.u_disp.LOGO_U0 !== 160 || dut.u_disp.LOGO_V0 !== 690) fail("logo position parameters");
+    if (dut.u_disp.SQ_V0 !== 452 || dut.u_disp.SQ_H !== 40)   fail("status square row / height parameters");
+    if (dut.u_disp.TXT_V0 !== 496 || dut.u_disp.TXT_ROWS !== 6 || dut.u_disp.TXT_U0 !== 40 || dut.u_disp.TXT_COLS !== 45) fail("text box parameters");
+    if (dut.u_dash.ROWS !== 6 || dut.u_dash.COLS !== 45) fail("dashboard rows / cols parameters");
     if (dut.u_follow.STOP_CM !== 300 || dut.u_follow.START_PWM !== 3000 || dut.u_follow.KP_D !== 10 || dut.u_follow.MAX_FWD !== 5000 ||
-        dut.u_follow.ANGLE_FILTER !== 3 || dut.u_follow.DEADBAND !== 5 || dut.u_follow.TURN_PER10K !== 30 || dut.u_follow.TURN_MAX_10K !== 900 ||
-        dut.u_follow.TURN_STEP !== 12 || dut.u_follow.PIVOT_ENTER !== 90 || dut.u_follow.PIVOT_CONFIRM_MS !== 300 || dut.u_follow.PIVOT_EXIT !== 40 ||
-        dut.u_follow.PIVOT_PWM !== 2200 || dut.u_follow.MAX_WHEEL !== 6500 || dut.u_follow.ACC !== 200 || dut.u_follow.DEC !== 400) fail("follow parameters");
-    if (dut.u_follow.AVOID_CM !== 100 || dut.u_follow.CLEAR_CM !== 60 || dut.u_follow.SPIN_CM !== 45 || dut.u_follow.KP_OBS !== 20 ||
-        dut.u_follow.SPIN_PWM !== 2200 || dut.u_follow.AVOID_PER10K !== 120 || dut.u_follow.AVOID_MAX_10K !== 3000 || dut.u_follow.AVOID_STEP !== 40 ||
+        dut.u_follow.ANGLE_FILTER !== 3 || dut.u_follow.DEADBAND !== 4 ||
+        dut.u_follow.PIVOT_ENTER !== 90 || dut.u_follow.PIVOT_CONFIRM_MS !== 300 || dut.u_follow.PIVOT_EXIT !== 40 ||
+        dut.u_follow.PIVOT_PWM !== 2200 || dut.u_follow.MAX_WHEEL !== 6500 || dut.u_follow.ACC !== 200 || dut.u_follow.DEC !== 400 || dut.u_follow.TURN_SLEW !== 600) fail("follow parameters");
+    if (dut.u_follow.HEAD_KP !== 55 || dut.u_follow.HEAD_KI !== 20 || dut.u_follow.HEAD_KD !== 8 || dut.u_follow.HEAD_I_MAX !== 400 ||
+        dut.u_follow.HEAD_I_ZONE !== 10 || dut.u_follow.TURN_MAX !== 800) fail("heading loop parameters");
+    if (dut.u_follow.AVOID_CM !== 100 || dut.u_follow.CLEAR_CM !== 60 || dut.u_follow.SPIN_CM !== 60 || dut.u_follow.KP_OBS !== 20 ||
+        dut.u_follow.SPIN_PWM !== 2200 || dut.u_follow.AVOID_TURN_MAX !== 1200 ||
         dut.u_follow.AVOID_HOLD_MS !== 500 || dut.u_follow.W_TGT !== 2 || dut.u_follow.W_PREV !== 1) fail("avoidance parameters");
 //  if (dut.u_tail.SWING_DEG !== 45 || dut.u_tail.RPM !== 10) fail("tail parameters");   （尾巴注释掉了）
     if (dut.u_disp.OBS_V0 !== 830 || dut.u_disp.REF_X0 !== 56 || dut.u_disp.REF_X1 !== 103 || dut.u_disp.REF_Y0 !== 82 || dut.u_disp.REF_Y1 !== 89) fail("obstacle view parameters of the display");
+    if (dut.u_obs.u_core.u_class.YSPREAD !== dut.OBS_YSPREAD || dut.OBS_YSPREAD !== 2) fail("obstacle luma spread not passed down to the classifier");
+    if (dut.u_obs.u_core.u_scan.ROW_MIN !== 60 || dut.u_disp.ROW_MIN !== 60) fail("obstacle judged rows (ROW_MIN) not passed down to the scan / the display");
     if (dut.u_obs.REF_X0 !== 56 || dut.u_obs.REF_X1 !== 103 || dut.u_obs.REF_Y0 !== 82 || dut.u_obs.REF_Y1 !== 89 || dut.u_obs.TC !== 12 || dut.u_obs.TY !== 12 ||
-        dut.u_obs.D_CAP !== 150 || dut.u_obs.D_STOP !== 35) fail("obstacle parameters");
+        dut.u_obs.D_CAP !== 150 || dut.u_obs.D_STOP !== 60) fail("obstacle parameters");
     if (dut.u_cam.CROP_X0_GRP !== 1 || dut.u_cam.CROP_Y0 !== 13 || dut.u_cam.OUT_H !== 448) fail("camera parameters (1920x1080 from group 1 / row 13, scaled to 448 rows)");
     if (dut.u_audio.u_cfg.SPK_VOL !== dut.AUD_SPK_VOL) fail("speaker volume parameter not passed down");   // 值在 mctop.v 配置区调
 
@@ -386,11 +443,11 @@ initial begin
     sv_uok = dut.S_uwb_ok; sv_udeg = dut.S_uwb_deg; sv_ucm = dut.S_uwb_cm; sv_cst = dut.S_cmd_state; sv_cl = dut.S_cmd_l; sv_cr = dut.S_cmd_r;
     sv_hf = dut.S_obs_head_free; sv_rt = dut.S_obs_res_tog;
     force dut.S_uwb_link = 1'b0;                                            // 和 S_uwb_ok（强制 1）不一样
-    force dut.S_uwb_ok = 1'b1; force dut.S_uwb_deg = -8'sd23; force dut.S_uwb_cm = 10'd456; force dut.S_cmd_state = 3'd4;
+    force dut.S_uwb_ok = 1'b1; force dut.S_uwb_deg = -8'sd23; force dut.S_uwb_cm = 10'd456; force dut.S_cmd_state = 4'd12;
     force dut.S_cmd_l = 14'sd1234; force dut.S_cmd_r = -14'sd567; force dut.S_cmd_stop = 1'b0; force dut.S_cmd_valid = 1'b0;
     force dut.S_obs_head_free = 72'h0123456789ABCDEF5A; force dut.S_obs_res_tog = ~sv_rt;
     #(1_000);
-    if (dut.u_dash.I_uwb_ok !== 1'b1 || dut.u_dash.I_uwb_deg !== 8'hE9 || dut.u_dash.I_uwb_cm !== 10'd456 || dut.u_dash.I_cmd_state !== 3'd4 ||
+    if (dut.u_dash.I_uwb_ok !== 1'b1 || dut.u_dash.I_uwb_deg !== 8'hE9 || dut.u_dash.I_uwb_cm !== 10'd456 || dut.u_dash.I_cmd_state !== 4'd12 ||
         dut.u_dash.I_cmd_l !== 14'd1234 || dut.u_dash.I_cmd_r !== 14'h3DC9) fail("dashboard follow inputs");
     if (dut.u_dash.I_uwb_link !== 1'b0) fail("dashboard link input is not the MSPM0 link's");
     if (dut.u_follow.I_tgt_ok !== 1'b1 || dut.u_follow.I_tgt_deg !== -8'sd23 || dut.u_follow.I_tgt_cm !== 10'd456) fail("follow decision target inputs are not the MSPM0 link's");
@@ -458,6 +515,17 @@ initial begin
     expect_text(2, 0,  "K3 LONG   SW2/3 EV+/- SW1 2s reset EXP 1717  ", 45);
     expect_text(3, 0,  "NEAR 255cm +00deg  STOP +00deg 000cm         ", 45);   // 没有相机帧：上电时的值
     expect_text(4, 0,  "UWB NOLK +00deg 000cm  CMD LOST L+0000 R+0000", 45);   // 还没收到过字节
+
+    // ---------- 3. 陀螺仪：探测到 115200 → 4 条配置命令 → 车停稳归零 → 文字第 6 行 ----------
+    t = 0; while (dut.u_imu.O_ok !== 1'b1 && t < 8000) begin #10_000; t = t + 1; end
+    if (dut.u_imu.O_ok !== 1'b1) fail("IMU did not become ready");
+    if (imu_cn != 20) begin $display("FAIL IMU: FPGA sent %0d bytes, expected 4 commands = 20", imu_cn); errors = errors + 1; end
+    else if (imu_cmd[0] !== 8'hFF || imu_cmd[1] !== 8'hAA || imu_cmd[2] !== 8'h69 || imu_cmd[7] !== 8'h02 || imu_cmd[8] !== 8'h0C ||
+             imu_cmd[12] !== 8'h03 || imu_cmd[13] !== 8'h09 || imu_cmd[17] !== 8'h00) fail("IMU configuration commands");
+    imu_yaw_raw = 16'sd1000 - 16'sd5461; imu_gz_raw = -16'sd164;          // 右转了 30°、正在 10°/s 右转（模块逆时针为正）
+    #(1_500_000);
+    expect_text(5, 0,  "IMU OK   YAW +030deg  TGT +030deg  GZ +010d/s", 45);   // 没有 UWB → 停（LOST），目标航向 = 车头
+    if (dut.S_cmd_state !== 4'd0) fail("decision state should be LOST without UWB");
 
     // ---------- 3a. MSPM0 串口：每 20 "ms" 一帧 #S*；收到主人位置 → 文字第 5 行（没相机 → NCAM，还是停）；300 "ms" 没新帧也没字节 → NOLK；$S& → LOST ----------
     m0_chk = m0n;
