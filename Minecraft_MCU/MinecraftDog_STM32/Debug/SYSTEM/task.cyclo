@@ -13,9 +13,9 @@
 ../SYSTEM/task.c:234:13:Task_FormatUint	4
 ../SYSTEM/task.c:248:13:Task_FPGA_Display	3
 ../SYSTEM/task.c:273:13:Task_ShowSmallLine	4
-../SYSTEM/task.c:291:13:Task_FormatHex	2
-../SYSTEM/task.c:306:13:Task_UWB_StatsDisplay	2
-../SYSTEM/task.c:338:13:Task_Tail_Display	4
-../SYSTEM/task.c:355:6:Task_UWB_Display	5
-../SYSTEM/task.c:403:10:Get_Time	1
-../SYSTEM/task.c:408:6:Scheduler_Run	3
+../SYSTEM/task.c:291:13:Task_FormatInt	5
+../SYSTEM/task.c:311:13:Task_UWB_StatsDisplay	8
+../SYSTEM/task.c:363:13:Task_Tail_Display	4
+../SYSTEM/task.c:380:6:Task_UWB_Display	5
+../SYSTEM/task.c:428:10:Get_Time	1
+../SYSTEM/task.c:433:6:Scheduler_Run	3

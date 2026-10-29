@@ -13,9 +13,11 @@
 #define MOTOR_R_PWM_CHANNEL  (TIM_CHANNEL_2)
 
 /* 左右轮接反了就设 1: PWM_Control_Car(左, 右) 会把左轮命令给 B 路、右轮命令给 A 路。
- * 2026-10-21 上车实测: 屏幕显示主人在右 (UWB 角度对), 跟随时车却往左拐 -> A 路接的是右轮, 设 1。
+ * 2026-10-21 跟随时车往反方向拐, 当时以为是电机左右接反了, 设成了 1;
+ * 2026-10-29 查出来其实是三个 UWB 基站的角度正负号都反了 (uwb.h 的 UWB_*_ANGLE_SIGN),
+ * 两个反正好抵消, 所以跟随一直是对的。角度改对以后这里改回 0, 拐弯方向和之前一样。
  * 试电机 (两轮同速) 看不出这个问题, 只有拐弯时才看得出来。FPGA 发来的左右轮命令也经过这里。 */
-#define MOTOR_SWAP_LR  (1U)
+#define MOTOR_SWAP_LR  (0U)
 
 #define MOTOR_DIR_FORWARD  (0)
 #define MOTOR_DIR_BACK     (1)

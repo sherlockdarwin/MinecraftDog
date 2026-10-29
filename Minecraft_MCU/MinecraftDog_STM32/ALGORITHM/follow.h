@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 /* Follow distance and validity limits. */
-#define FOLLOW_STOP_DISTANCE_CM       (300U)
+#define FOLLOW_STOP_DISTANCE_CM       (200U)
 #define FOLLOW_LOST_DISTANCE_CM       (2000U)
 
 /* 20 ms 一次, 数值都是轮子 PWM 命令 (满量程 8000), 按 1 kg 左右的车调:
@@ -25,15 +25,17 @@
  *   -> 10-21 修好 UWB 左右不分以后转向有点不灵敏: 0.25%/度、最多 8%, 起步 3000
  *   -> 10-21 (自己调) 距离系数 10、平滑 1/3、0.3%/度: 不大转弯了, 但有点过于谨慎
  *   -> 10-21 方向盘每 20 ms 最多变 15 (原来 10)、转向最多 10% (原来 8%): 摇摆明显、又有突变
- *   -> 10-21 取中间: 每 20 ms 最多变 12、最多 9%。 */
+ *   -> 10-21 取中间: 每 20 ms 最多变 12、最多 9%
+ *   -> 10-29 UWB 角度正负号改对 (以前和电机左右对调互相抵消), 参数没动; 小角度一样,
+ *      大角度以前被算大了 (60° 算成 120° 就原地转), 现在按真实角度。 */
 #define FOLLOW_START_PWM              (3000)   /* 起步: 600 推不动, 2500 能走 */
 #define FOLLOW_DISTANCE_KP_PWM_PER_CM (10)     /* 每远 1 cm 多加多少 */
 #define FOLLOW_MAX_FORWARD_PWM        (5000)
 #define FOLLOW_ANGLE_FILTER           (3)      /* 角度平滑: 越大越稳、反应越慢 (3 ≈ 50 ms) */
 #define FOLLOW_ANGLE_DEADBAND_DEG     (5)      /* ±5° 以内当正前方 (只滤掉 UWB 抖动) */
-#define FOLLOW_TURN_PER10K_PER_DEG    (30)     /* 超出死区每 1°, 转向加前进的 0.3% (单位 0.01%) */
-#define FOLLOW_TURN_MAX_PER10K        (900)    /* 转向最多 = 前进的 9% */
-#define FOLLOW_TURN_STEP_PWM          (12)     /* 转向每 20 ms 最多变 12 (1 秒最多变 600) */
+#define FOLLOW_TURN_PER10K_PER_DEG    (40)     /* 超出死区每 1°, 转向加前进的 0.3% (单位 0.01%) */
+#define FOLLOW_TURN_MAX_PER10K        (1000)    /* 转向最多 = 前进的 9% */
+#define FOLLOW_TURN_STEP_PWM          (15)     /* 转向每 20 ms 最多变 12 (1 秒最多变 600) */
 #define FOLLOW_PIVOT_ENTER_DEG        (90)     /* 偏超过 90° (人在侧面 / 后面) 才原地转 */
 #define FOLLOW_PIVOT_CONFIRM_MS       (300U)   /* 而且要一直超过 0.3 秒 */
 #define FOLLOW_PIVOT_EXIT_DEG         (40)

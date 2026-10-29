@@ -208,7 +208,7 @@ static void Task_FormatWheel(char *text, int16_t value)
  *     y =  32  尾巴 (小字 6x8)      "tail WAG   near" / "tail IDLE  far", 见 Task_Tail_Display
  *     y =  40  FPGA 状态           "FPGA RUN" / "FPGA STOP" / "FPGA no link"
  *     y =  56  FPGA 的轮子命令      "L+3000 R-0500"   (RUN 时才有)
- *     y =  72 ~ 111  UWB 排查 (小字 6x8, 见 Task_UWB_StatsDisplay)
+ *     y =  72 ~ 103  UWB 排查 (小字 6x8): 收到的字节 + 三个基站各自的角度 / 距离, 见 Task_UWB_StatsDisplay
  *     y = 112  跟随测试模式         由 follow_mode.c 写
  * 每行都补空格写满 16 个字, 把上一次的字盖掉。 */
 #define DISP_LINE_LEN  (16U)
@@ -287,50 +287,75 @@ static void Task_ShowSmallLine(uint16_t y, const char *text, uint16_t color)
     LCD_ShowString(0U, y, line, color, LCD_BLACK, 8U);
 }
 
-/* value 写成 digits 位十六进制 */
-static void Task_FormatHex(char *text, uint32_t value, uint8_t digits)
+/* 带符号的 value 右对齐写进 text[0 .. width-1], 符号紧挨着数字 ("  -5", " +45", "-123", "   0") */
+static void Task_FormatInt(char *text, int32_t value, uint8_t width)
 {
-    static const char hex[] = "0123456789ABCDEF";
+    uint32_t magnitude = (uint32_t) ((value < 0) ? -value : value);
+    uint8_t i = 0U;
 
-    while (digits-- > 0U) {
-        text[digits] = hex[value & 0x0FU];
-        value >>= 4;
+    Task_FormatUint(&text[1], magnitude, (uint8_t) (width - 1U));
+    text[0] = ' ';
+    while (((i + 1U) < width) && (text[i + 1U] == ' ')) {
+        i++;
     }
+    text[i] = (value < 0) ? '-' : ((value > 0) ? '+' : ' ');
 }
 
-/* 排查 UWB (小字, 左 / 前 / 右, 只显示后 4 位):
- *     rx  收到的字节        ok  解出的定位帧        ck  校验不对的帧
- *     F len/ver   前基站最近一个定位帧的长度字段 / 版本号 (规格书: 0025 / 0100)
- *     F xor       帧里的校验字节 / 算出来的异或 (两个一样才算 ok)
- * rx 一直是 0 = 线上没数据; rx 涨 ok 不涨 = 看 ck 和下面两行。 */
+/* 排查 UWB (小字):
+ *     y =  72  "rx L1480 F1480 R1480"   每个基站收到的字节 (后 4 位, 正常每秒涨约 1480)
+ *     y =  80  "L  -23deg   3.50 m"      左 / 前 / 右基站自己最近一帧解出来的角度和距离, 不经过合成:
+ *     y =  88  "F   +5deg   3.42 m"        角度 = 基站自己的本地角 (它自己看: 左负右正, 0 = 它正对的方向;
+ *                                            已经按 uwb.h 的 UWB_*_ANGLE_SIGN 换过正负号)
+ *     y =  96  "R  +88deg   3.47 m"        绿字 = 最上面一行用的是这个基站; 灰字 "no data" = 500 ms 没新帧
+ * 三个基站装在同一辆车上, 距离应该差不多; 哪个和另外两个总差很多, 或者角度不对, 就是它的问题。 */
 static void Task_UWB_StatsDisplay(void)
 {
-    char rx_line[] = "rx     0    0    0";
-    char ok_line[] = "ok     0    0    0";
-    char ck_line[] = "ck     0    0    0";
-    char hdr_line[] = "F len 0000 ver 0000";
-    char xor_line[] = "F xor 00 calc 00";
+    static const char anchor_name[UWB_ANCHOR_COUNT] = {'L', 'F', 'R'};
+    static const uint16_t anchor_y[UWB_ANCHOR_COUNT] = {80U, 88U, 96U};
+    char rx_line[] = "rx L     F     R    ";
+    uint32_t now = Get_Time();
+    UWB_Target target;
+    bool have_target = UWB_GetTarget(now, &target);
     UWB_Stats stats;
     uint32_t source;
 
     for (source = 0U; source < (uint32_t) UWB_ANCHOR_COUNT; source++) {
+        char line[] = "?    0deg   0.00 m";
+        UWB_Measurement m;
+        uint32_t cm;
+        int32_t angle;
+
         UWB_GetStats((UWB_Anchor) source, &stats);
-        Task_FormatUint(&rx_line[4U + source * 5U], stats.rx_bytes % 10000U, 4U);
-        Task_FormatUint(&ok_line[4U + source * 5U], stats.frames % 10000U, 4U);
-        Task_FormatUint(&ck_line[4U + source * 5U], stats.checksum_errors % 10000U, 4U);
+        Task_FormatUint(&rx_line[4U + source * 6U], stats.rx_bytes % 10000U, 4U);
+
+        line[0] = anchor_name[source];
+        if (!UWB_GetMeasurement((UWB_Anchor) source, &m) ||
+            ((uint32_t) (now - m.update_time_ms) > UWB_DATA_TIMEOUT_MS)) {
+            memcpy(&line[1], "  no data", 10U);     /* 连 '\0' 一起拷 */
+            Task_ShowSmallLine(anchor_y[source], line, LCD_GRAY);
+            continue;
+        }
+
+        angle = m.azimuth_deg;
+        if (angle > 999) {
+            angle = 999;
+        } else if (angle < -999) {
+            angle = -999;
+        }
+        cm = (m.distance_cm > 9999U) ? 9999U : m.distance_cm;
+
+        Task_FormatInt(&line[2], angle, 4U);
+        Task_FormatUint(&line[11], cm / 100U, 2U);
+        line[14] = (char) ('0' + ((cm % 100U) / 10U));
+        line[15] = (char) ('0' + (cm % 10U));
+
+        Task_ShowSmallLine(anchor_y[source], line,
+                           (have_target && (target.source == (UWB_Anchor) source)) ?
+                           LCD_GREEN : LCD_WHITE);
     }
 
-    UWB_GetStats(UWB_ANCHOR_FORWARD, &stats);
-    Task_FormatHex(&hdr_line[6], stats.last_length, 4U);
-    Task_FormatHex(&hdr_line[15], stats.last_version, 4U);
-    Task_FormatHex(&xor_line[6], stats.last_xor_rx, 2U);
-    Task_FormatHex(&xor_line[14], stats.last_xor_calc, 2U);
-
     Task_ShowSmallLine(72U, rx_line, LCD_CYAN);
-    Task_ShowSmallLine(80U, ok_line, LCD_CYAN);
-    Task_ShowSmallLine(88U, ck_line, LCD_CYAN);
-    Task_ShowSmallLine(96U, hdr_line, LCD_YELLOW);
-    Task_ShowSmallLine(104U, xor_line, LCD_YELLOW);
+    Task_ShowSmallLine(104U, "", LCD_WHITE);
 }
 
 /* 尾巴 (小字): 状态 BOOT 等驱动器上电 / HOME 回零 / IDLE 空闲 / WAG 摇摆, 后面 near = 主人在 3 m 以内。

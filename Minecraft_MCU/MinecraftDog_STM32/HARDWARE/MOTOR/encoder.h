@@ -17,8 +17,9 @@
 
 /* 两路编码器: TIM8 (E1A PC6 / E1B PC7) 和 TIM2 (E2A PA15 / E2B PB3), 都是 TI1+TI2 四倍频,
  * 和 MSPM0 版"A、B 两相双边沿中断"计数一样。
- * 左右接反了就设 ENCODER_SWAP_LR = 1: 2026-10-21 实测和电机一样接反了 (见 motor.h 的 MOTOR_SWAP_LR),
- * 所以现在 左轮 = TIM2 (PA15 / PB3), 右轮 = TIM8 (PC6 / PC7)。 */
+ * 左右接反了就设 ENCODER_SWAP_LR = 1: 2026-10-21 按"和电机一样接反了"设成 1,
+ * 所以现在 左轮 = TIM2 (PA15 / PB3), 右轮 = TIM8 (PC6 / PC7)。
+ * ★ 2026-10-29 发现电机其实没接反 (见 motor.h), 这个也可能没反, 没验证; 现在控制里没用编码器。 */
 #define ENCODER_SWAP_LR  (1U)
 
 typedef enum {

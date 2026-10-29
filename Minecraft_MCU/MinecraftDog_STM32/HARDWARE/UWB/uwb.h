@@ -27,6 +27,21 @@
 #define UWB_RIGHT_MOUNT_OFFSET_DEG    (90)
 #endif
 
+/* 基站发来的角度乘这个数, 换成程序里用的"从基站往外看左负右正"。
+ * 2026-10-29 屏幕上逐个看过: 三个基站发来的都是"左正右负" (和厂家例程相反, 可能是天线装法), 所以都是 -1。
+ * 以后哪个基站换了装法、单独反了, 就只改它自己的。 */
+#ifndef UWB_LEFT_ANGLE_SIGN
+#define UWB_LEFT_ANGLE_SIGN           (-1)
+#endif
+
+#ifndef UWB_FORWARD_ANGLE_SIGN
+#define UWB_FORWARD_ANGLE_SIGN        (-1)
+#endif
+
+#ifndef UWB_RIGHT_ANGLE_SIGN
+#define UWB_RIGHT_ANGLE_SIGN          (-1)
+#endif
+
 /* 三基站合成 (UWB_GetTarget, 原理见 uwb.c): 左右只听前基站。前基站连续 UWB_SIDE_CONFIRM_FRAMES 帧
  * 都在 ±UWB_SIDE_TRUST_DEG 以内、而且是同一边, 才换边; 再往外 (信标在侧面, 前基站在测角边缘,
  * 偶尔会跳到另一边) 沿用上一次的左右。 */
@@ -71,7 +86,8 @@ bool UWB_GetTarget(uint32_t now_ms, UWB_Target *target);
 
 /* 排查接线用的计数 (每个基站一份):
  *   rx_bytes 一直是 0          -> 串口线上没数据: 查 基站 TX -> STM32 RX、共地
- *   rx_bytes 在涨, frames 是 0 -> 收到了但解不出: 看 checksum_errors 和 last_* (屏幕最下面一行) */
+ *   rx_bytes 在涨, frames 是 0 -> 收到了但解不出: 看 checksum_errors 和 last_*
+ *   (屏幕上现在只显示 rx_bytes, 其余在 Debug 里调 UWB_GetStats 看) */
 typedef struct {
     uint32_t rx_bytes;          /* 收到的字节总数 */
     uint32_t frames;            /* 校验通过的定位帧 (0x2001) */

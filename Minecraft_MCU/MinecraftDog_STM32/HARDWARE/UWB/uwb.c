@@ -55,6 +55,12 @@ static const int16_t g_mount_offset_deg[UWB_ANCHOR_COUNT] = {
     UWB_RIGHT_MOUNT_OFFSET_DEG,
 };
 
+static const int8_t g_angle_sign[UWB_ANCHOR_COUNT] = {
+    UWB_LEFT_ANGLE_SIGN,
+    UWB_FORWARD_ANGLE_SIGN,
+    UWB_RIGHT_ANGLE_SIGN,
+};
+
 static uint16_t UWB_ReadBE16(const uint8_t *data)
 {
     return (uint16_t) (((uint16_t) data[0] << 8U) | data[1]);
@@ -130,7 +136,8 @@ static void UWB_DecodeFrame(
     measurement->anchor_id      = UWB_ReadBE32(&frame[12]);
     measurement->tag_id         = UWB_ReadBE32(&frame[16]);
     measurement->distance_cm    = UWB_ReadBE32(&frame[20]);
-    measurement->azimuth_deg    = (int16_t) UWB_ReadBE16(&frame[24]);
+    measurement->azimuth_deg    = (int16_t) (g_angle_sign[source] *
+                                             (int16_t) UWB_ReadBE16(&frame[24]));   /* 正负号见 uwb.h */
     measurement->tag_status     = UWB_ReadBE16(&frame[28]);
     measurement->update_time_ms = now_ms;
     measurement->frame_count++;
