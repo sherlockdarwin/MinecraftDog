@@ -14,14 +14,25 @@
 //        NIMU  陀螺仪没准备好（没归零 / 收不到）            → 停（平滑重来）
 //        NCAM  OBS_TIMEOUT_MS 内没有新的避障结果（相机没图） → 停
 //        HERE  主人在 STOP_CM 以内                           → 停
-//        TURN  |a| > PIVOT_ENTER 并保持 PIVOT_CONFIRM_MS（回到 PIVOT_EXIT 以内才退出）→ 原地转 ±PIVOT_PWM，转向主人
 //   3. 往前走：前进 = START_PWM + (距离 − STOP_CM) × KP_D，最多 MAX_FWD。再看避障（9 个方向 4~12，8 = 正前方）：
 //        挡路 = 正前方能走的距离 < AVOID_CM，或者离主人方向最近的那个方向能走的距离 < AVOID_CM
-//        不挡路：GO   目标航向 = 主人方向（和现在的目标差不到 DEADBAND 度就不改：一段一段走直线）；
-//                     刚绕完障碍 AVOID_HOLD_MS 以内先保持绕行的航向直走（AVD）
+//        TURN  |a| > PIVOT_ENTER 并保持 PIVOT_CONFIRM_MS（回到 PIVOT_EXIT 以内才退出）→ 原地转 ±PIVOT_PWM，转向主人。
+//              不进 TURN：刚绕完障碍、还在直走那段（不挡路、绕完直走还没走够）——车头扫过的地方相机看不到，障碍还在车旁边；
+//              正在找出口 / 困住了（找出口自己会转）。确认时间照算，能进的时候马上进。
+//        不挡路：刚绕完障碍还没走够 AVOID_HOLD_CM → AVD 保持绕行的航向直走
+//                  （走了多远按发出去的前进量估：满量程 8000 ≈ CMS_FULL cm/s，每次减掉上一次的前进量）；
+//                远处挡路 → AVD 提前绕：主人在看得到的方向里（离它最近的方向差 ≤ FAR_ANG 度）、主人那个方向能走的距离
+//                  < T = min(AVOID_FAR_CM, 主人距离 − OWNER_GAP_CM)（再远的可能就是主人自己的腿），
+//                  在能走 ≥ T 的方向里挑代价最小的（同下），目标航向 = 车头 + 它（回差同下）；一个都没有就照常 GO，近了再绕；
+//                否则 GO   目标航向 = 主人方向（和现在的目标差不到 DEADBAND 度就不改：一段一段走直线）
 //        挡路：  在能走 ≥ AVOID_CM 的方向里挑代价最小的（一个都没有，就在 ≥ CLEAR_CM 的里挑）：
 //                W_TGT × |方向 − a| + W_PREV × |方向 − 上次绕行的方向|（上次的方向存成世界方向，车转了也对得上）
-//                没有 → BLK 停；正前方 < SPIN_CM → SPIN 原地转向它（±SPIN_PWM）；否则 AVD 目标航向 = 车头 + 它（同样有 DEADBAND 回差）
+//                正前方 < SPIN_CM → SPIN 原地转向它（±SPIN_PWM）；否则 AVD 目标航向 = 车头 + 它（同样有 DEADBAND 回差）
+//                一个都没有 → 找出口：先停 SCAN_PAUSE_MS 看（BLK），再往主人那边（a ≥ 0 往右）原地转 ±SPIN_PWM（SPIN），
+//                  转过 SCAN_DEG（或转了 SCAN_STEP_MS 还没转够）就停下再看……哪一次看到能走的方向就照常绕过去；
+//                  每次停着看完，把这一步实际转过的角度（从这一步开始转到现在，含停下时滑过的；往反方向的不算）加起来：
+//                  满 360°（360 × 182）、或者已经转了 2 × ⌈360 / SCAN_DEG⌉ 步（电机转不动）还没有 → 困住：BLK 停、O_stuck = 1（狗叫），
+//                  直到看到能走的方向（障碍挪开）或者停车条件（LOST / NIMU / NCAM / HERE）
 //        前进不超过 START_PWM + (前面能走的距离 − CLEAR_CM) × KP_OBS（"前面" = 正前方和要去的方向里近的那个）
 //   4. 角度环（GO / AVD）：e = H_tgt − 车头（度）；转向 = HEAD_KP × e + HEAD_KI × ∫e dt − HEAD_KD × 角速度（°/s），
 //      积分分离：|e| ≤ HEAD_I_ZONE 才积分（大转弯时不积，转过去不会冲过头）；积分项限在 ±HEAD_I_MAX；
@@ -38,8 +49,8 @@ module mc_follow #(
     parameter PERIOD_MS        = 20,
     parameter OBS_TIMEOUT_MS   = 100,
     // ---- 跟随 ----
-    parameter STOP_CM          = 300,
-    parameter START_PWM        = 3000,
+    parameter STOP_CM          = 200,
+    parameter START_PWM        = 3300,
     parameter KP_D             = 10,      // PWM / 厘米
     parameter MAX_FWD          = 5000,
     parameter ANGLE_FILTER     = 3,
@@ -66,9 +77,15 @@ module mc_follow #(
     parameter KP_OBS           = 20,      // PWM / 厘米
     parameter SPIN_PWM         = 2200,
     parameter AVOID_TURN_MAX   = 1200,    // PWM：AVD 时转向最多多少
-    parameter AVOID_HOLD_MS    = 500,
+    parameter AVOID_HOLD_CM    = 50,      // 绕完以后直走多远
+    parameter CMS_FULL         = 92,      // 满量程 8000 时每秒走多少厘米（估的，只用来换算 AVOID_HOLD_CM）
     parameter W_TGT            = 2,
-    parameter W_PREV           = 1
+    parameter W_PREV           = 1,
+    parameter AVOID_FAR_CM     = 200,     // 远处挡路：主人方向这么远以内有东西就提前绕（≤ AVOID_CM = 不提前绕）
+    parameter OWNER_GAP_CM     = 60,      //   只算比主人近这么多的（再远的可能是主人自己）
+    parameter SCAN_DEG         = 20,      // 找出口：每步转多少度（12 ~ 120）
+    parameter SCAN_PAUSE_MS    = 200,     //   每步停下来看多久（PERIOD_MS ~ 127 × PERIOD_MS）
+    parameter SCAN_STEP_MS     = 1000     //   一步转这么久还没转够也算一步（电机转不动 / 陀螺仪不动）（同上）
 )(
     input  wire               I_clk,
     input  wire               I_rst_n,
@@ -90,12 +107,19 @@ module mc_follow #(
     output reg  signed [13:0] O_cmd_l,
     output reg  signed [13:0] O_cmd_r,
     output reg  [3:0]         O_state,
-    output wire signed [8:0]  O_tgt_deg         // 目标航向（度，四舍五入；停的时候 = 当时的车头），给屏幕
+    output wire signed [8:0]  O_tgt_deg,        // 目标航向（度，四舍五入；停的时候 = 当时的车头），给屏幕
+    output wire               O_stuck           // 困住了（转了一圈没有出口）→ 狗叫
 );
 
 localparam [3:0] M_LOST = 4'd0, M_NCAM = 4'd1, M_HERE = 4'd2, M_BLK = 4'd3, M_TURN = 4'd4, M_GO = 4'd5, M_AVD = 4'd6, M_SPIN = 4'd7, M_NIMU = 4'd8;
 localparam CONF_N  = (PIVOT_CONFIRM_MS + PERIOD_MS - 1) / PERIOD_MS;   // 原地转要确认几次（经过 ≥ PIVOT_CONFIRM_MS）
-localparam HOLD_N  = AVOID_HOLD_MS / PERIOD_MS;                        // 绕完以后直走几次
+localparam HOLD_Q  = AVOID_HOLD_CM * (8000000 / PERIOD_MS) / CMS_FULL; // 绕完以后直走：前进量（PWM）每次累加，加到这么多 = 走了 AVOID_HOLD_CM
+localparam FAR_ANG = 3;                                                 // 远处挡路只在主人在看得到的方向里时算（离它最近的方向差 ≤ 3°）
+localparam SCAN_MAX = 2 * ((360 + SCAN_DEG - 1) / SCAN_DEG);            // 找出口：转了这么多步还不够一圈（电机转不动）也算困住
+localparam ROUND_BAM = 360 * 182;
+localparam SCAN_BAM = SCAN_DEG * 182;
+localparam PAUSE_N = SCAN_PAUSE_MS / PERIOD_MS;
+localparam STEP_N  = SCAN_STEP_MS / PERIOD_MS;
 localparam KIC     = (HEAD_KI * PERIOD_MS * 256 + 500) / 1000;          // 积分：每次 KIC × e16 / 16（1/256 PWM）
 localparam KDC     = HEAD_KD * 4000;                                    // 微分：KDC × 角速度原始值 / 65536
 localparam IMAXQ   = HEAD_I_MAX * 256;
@@ -197,11 +221,23 @@ reg  [7:0]  S_af, S_bf;                 // 它能走多远
 reg         S_pv;                       // 上次绕行的方向有效
 reg  signed [15:0] S_hprev;             // 上次绕行的方向（世界）
 reg  signed [6:0]  S_ppsi;              // 它相对车头的角度（度，限在 ±63）
-reg  [7:0]  S_hold;                     // 绕完以后还要直走几次
+reg  [23:0] S_hold;                     // 绕完以后还要直走多远（前进量 × 次数，见 HOLD_Q）
 reg         S_av;                       // 这一次用绕行的转向上限
 reg         S_hv;                       // 目标航向有效（停车 / 原地转以后重新定）
 reg  signed [15:0] S_htgt;              // 目标航向（世界）
 reg  signed [15:0] S_hc;                // 选中的绕行方向（世界）
+reg  [7:0]  S_tfar;                     // 远处挡路的门限 T（厘米）
+reg         S_fok;                      // 有能走 ≥ T 的方向
+reg  [11:0] S_fc;                       // 它们里最小的代价
+reg  signed [6:0] S_fpsi;               // 它的角度
+reg  [7:0]  S_ffr;                      // 它能走多远
+reg  signed [15:0] S_hfar;              // 它的世界方向
+reg         S_scan, S_sph, S_sdir;      // 找出口：正在找 / 停着看（0 = 转）/ 往右转
+reg  [6:0]  S_scnt;                     //   这一段（停 / 转）第几次
+reg  [5:0]  S_snum;                     //   转完了几步
+reg  [16:0] S_stot;                     //   这次找出口一共转了多少（航向角单位）
+reg  signed [15:0] S_s0;                //   这一步开始时的车头
+reg         S_stuck;                    // 困住了
 reg  signed [15:0] S_fwd;
 reg  [7:0]  S_flim;                     // 前进上限按这个距离算
 reg  [15:0] S_arelu, S_prelu, S_ebu;    // 主人 / 上次绕行方向 / 目标航向 和车头的差：绝对值
@@ -220,22 +256,6 @@ wire signed [15:0] S_prel  = S_hprev - S_yaw;
 wire [21:0] S_prel45 = mul45(S_prelu) + 22'd4096;
 wire [7:0]  S_pdeg  = S_prel45[20:13];
 wire [5:0]  S_pd63  = (S_pdeg > 8'd63) ? 6'd63 : S_pdeg[5:0];
-// 原地转的状态（这一次之后的值）
-reg         S_piv_n, S_pend_n;
-reg  [4:0]  S_pcnt_n;
-always @* begin
-    S_piv_n = S_piv; S_pend_n = S_pend; S_pcnt_n = S_pcnt;
-    if (!S_piv) begin
-        if (S_aa <= PIVOT_ENTER)  S_pend_n = 1'b0;
-        else if (!S_pend)         begin S_pend_n = 1'b1; S_pcnt_n = 5'd0; end
-        else begin
-            S_pcnt_n = (S_pcnt == 5'd31) ? 5'd31 : S_pcnt + 5'd1;
-            if (S_pcnt_n >= CONF_N) S_piv_n = 1'b1;
-        end
-    end else if (S_aa < PIVOT_EXIT) begin
-        S_piv_n = 1'b0; S_pend_n = 1'b0;
-    end
-end
 // 搜索：方向 S_hb 的角度、能走多远、角度差、代价
 wire [7:0]  S_fb   = S_fl[8 * (S_hb - 4'd4) +: 8];
 wire signed [9:0] S_d1 = $signed({{3{S_psi[6]}}, S_psi}) - $signed({S_a[8], S_a});
@@ -250,11 +270,37 @@ wire signed [6:0] S_cpsi = S_aok ? S_apsi : S_bpsi;              // 绕行方向
 wire [7:0]  S_cf   = S_aok ? S_af : S_bf;
 wire [7:0]  S_fmav = (S_f0 < S_cf)  ? S_f0 : S_cf;                // 绕行时：正前方和绕行方向里近的
 wire        S_blk  = (S_f0 < AVOID_CM) || (S_btf < AVOID_CM);
+wire        S_far  = (S_btd <= FAR_ANG) && (S_btf < S_tfar);        // 远处挡路
+wire [7:0]  S_fmfr = (S_f0 < S_ffr) ? S_f0 : S_ffr;               // 提前绕时：正前方和要去的方向里近的
+wire [15:0] S_fru  = S_fr[15] ? 16'd0 : S_fr;                      // 上一次发出去的前进量（直走那段用来估走了多远）
+// 找出口：这一步往要转的方向转了多少
+wire signed [15:0] S_sd  = S_sdir ? S_yaw - S_s0 : S_s0 - S_yaw;
+wire        S_sgo  = (S_sd >= SCAN_BAM);                              // 有符号比较：往反方向转的是负数，不算
+wire [16:0] S_stn  = S_stot + (S_sd[15] ? 17'd0 : {1'b0, S_sd});        // 加上这一步实际转的
+// 原地转的状态（这一次之后的值）
+wire        S_nopiv = (!S_blk && S_hold != 24'd0) || S_scan;   // 刚绕完还在直走、找出口（困住时也还在"找出口"里）：先不原地转
+reg         S_piv_n, S_pend_n;
+reg  [4:0]  S_pcnt_n;
+always @* begin
+    S_piv_n = S_piv; S_pend_n = S_pend; S_pcnt_n = S_pcnt;
+    if (!S_piv) begin
+        if (S_aa <= PIVOT_ENTER)  S_pend_n = 1'b0;
+        else if (!S_pend)         begin S_pend_n = 1'b1; S_pcnt_n = 5'd0; end
+        else begin
+            S_pcnt_n = (S_pcnt == 5'd31) ? 5'd31 : S_pcnt + 5'd1;
+            if (S_pcnt_n >= CONF_N && !S_nopiv) S_piv_n = 1'b1;
+        end
+    end else if (S_aa < PIVOT_EXIT) begin
+        S_piv_n = 1'b0; S_pend_n = 1'b0;
+    end
+end
 // 目标航向的回差：新的方向和现在的目标差多少
 wire signed [15:0] S_dgo  = S_hown - S_htgt;
 wire [15:0] S_dgou = S_dgo[15] ? -S_dgo : S_dgo;
 wire signed [15:0] S_dav  = S_hc - S_htgt;
 wire [15:0] S_davu = S_dav[15] ? -S_dav : S_dav;
+wire signed [15:0] S_dfa  = S_hfar - S_htgt;
+wire [15:0] S_dfau = S_dfa[15] ? -S_dfa : S_dfa;
 // 角度环
 wire signed [15:0] S_eb   = S_htgt - S_yaw;
 wire [21:0] S_eb45 = mul45(S_ebu);
@@ -277,7 +323,9 @@ always @(posedge I_clk or negedge I_rst_n) begin
         S_piv <= 1'b0; S_pend <= 1'b0; S_pcnt <= 5'd0;
         S_m <= M_LOST; S_k <= 4'd0; S_hb <= 4'd8; S_btd <= 8'd255; S_btf <= 8'd0; S_bok <= 1'b0; S_bc <= 12'd4095;
         S_aok <= 1'b0; S_ac <= 12'd4095; S_apsi <= 7'sd0; S_af <= 8'd0; S_bpsi <= 7'sd0; S_bf <= 8'd0;
-        S_pv <= 1'b0; S_hprev <= 16'sd0; S_ppsi <= 7'sd0; S_hold <= 8'd0; S_av <= 1'b0; S_hv <= 1'b0; S_htgt <= 16'sd0; S_hc <= 16'sd0;
+        S_pv <= 1'b0; S_hprev <= 16'sd0; S_ppsi <= 7'sd0; S_hold <= 24'd0; S_av <= 1'b0; S_hv <= 1'b0; S_htgt <= 16'sd0; S_hc <= 16'sd0;
+        S_tfar <= 8'd0; S_fok <= 1'b0; S_fc <= 12'd4095; S_fpsi <= 7'sd0; S_ffr <= 8'd0; S_hfar <= 16'sd0;
+        S_scan <= 1'b0; S_sph <= 1'b0; S_sdir <= 1'b0; S_scnt <= 7'd0; S_snum <= 6'd0; S_stot <= 17'd0; S_s0 <= 16'sd0; S_stuck <= 1'b0;
         S_fwd <= 16'sd0; S_flim <= 8'd0; S_arelu <= 16'd0; S_prelu <= 16'd0; S_ebu <= 16'd0; S_arelneg <= 1'b0; S_prelneg <= 1'b0; S_ebneg <= 1'b0; S_e16 <= 13'sd0; S_p <= 24'sd0; S_di <= 24'sd0; S_iacc <= 24'sd0; S_d <= 24'sd0;
         S_ft <= 16'sd0; S_tt <= 16'sd0; S_fr <= 16'sd0; S_to <= 16'sd0;
         S_dq <= 16'd0; S_drem <= 9'd0; S_dcnt <= 5'd0;
@@ -323,45 +371,67 @@ always @(posedge I_clk or negedge I_rst_n) begin
                         S_ppsi <= S_prelneg ? -$signed({1'b0, S_pd63}) : $signed({1'b0, S_pd63});
                         S_f <= F_DEC1;
                     end
-            F_DEC1: begin                                             // 2. 停的条件、原地转
+            F_DEC1: begin                                             // 2. 停的条件
                         if (!S_fresh)             begin S_m <= M_NCAM; S_f <= F_STOP; end
                         else if (S_cm <= STOP_CM) begin S_m <= M_HERE; S_f <= F_STOP; end
-                        else begin
-                            S_piv <= S_piv_n; S_pend <= S_pend_n; S_pcnt <= S_pcnt_n;
-                            if (S_piv_n) begin S_m <= M_TURN; S_f <= F_SPIN; end
-                            else begin                                // 3. 往前走：先搜 9 个方向
-                                S_fwd <= ((START_PWM + (S_cm - STOP_CM) * KP_D) > MAX_FWD) ? MAX_FWD : START_PWM + (S_cm - STOP_CM) * KP_D;
-                                S_k <= 4'd0; S_hb <= pref(4'd0); S_btd <= 8'd255; S_btf <= 8'd0;
-                                S_aok <= 1'b0; S_ac <= 12'd4095; S_bok <= 1'b0; S_bc <= 12'd4095;
-                                S_f <= F_SRCH;
-                            end
+                        else begin                                    // 3. 往前走：先搜 9 个方向
+                            S_fwd <= ((START_PWM + (S_cm - STOP_CM) * KP_D) > MAX_FWD) ? MAX_FWD : START_PWM + (S_cm - STOP_CM) * KP_D;
+                            S_tfar <= (S_cm < OWNER_GAP_CM) ? 8'd0 : ((S_cm - OWNER_GAP_CM) > AVOID_FAR_CM) ? AVOID_FAR_CM : S_cm - OWNER_GAP_CM;
+                            S_k <= 4'd0; S_hb <= pref(4'd0); S_btd <= 8'd255; S_btf <= 8'd0;
+                            S_aok <= 1'b0; S_ac <= 12'd4095; S_bok <= 1'b0; S_bc <= 12'd4095; S_fok <= 1'b0; S_fc <= 12'd4095;
+                            S_f <= F_SRCH;
                         end
                     end
             F_SRCH: begin                                             // 9 拍：离主人最近的方向；能走的方向里代价最小的
                         if (S_dt < S_btd) begin S_btd <= S_dt; S_btf <= S_fb; end
                         if (S_fb >= AVOID_CM && S_cost < S_ac) begin S_ac <= S_cost; S_aok <= 1'b1; S_apsi <= S_psi; S_af <= S_fb; end
                         if (S_fb >= CLEAR_CM && S_cost < S_bc) begin S_bc <= S_cost; S_bok <= 1'b1; S_bpsi <= S_psi; S_bf <= S_fb; end
+                        if (S_fb >= S_tfar   && S_cost < S_fc) begin S_fc <= S_cost; S_fok <= 1'b1; S_fpsi <= S_psi; S_ffr <= S_fb; end
                         if (S_k == 4'd8) S_f <= F_PREP;
                         else begin S_k <= S_k + 4'd1; S_hb <= pref(S_k + 4'd1); end
                     end
             F_PREP: begin                                             // 绕行方向换成世界方向
-                        S_hc <= S_yaw + bam({S_cpsi[6], S_cpsi});
+                        S_hc   <= S_yaw + bam({S_cpsi[6], S_cpsi});
+                        S_hfar <= S_yaw + bam({S_fpsi[6], S_fpsi});
                         S_f <= F_DEC2;
                     end
-            F_DEC2: begin                                             // 挡不挡路、目标航向
-                        if (!S_blk) begin
-                            if (S_hold != 8'd0) begin                 // 刚绕完：保持航向直走
-                                S_m <= M_AVD; S_av <= 1'b1; S_hold <= S_hold - 8'd1;
+            F_DEC2: begin                                             // 原地转向主人、挡不挡路、目标航向
+                        S_piv <= S_piv_n; S_pend <= S_pend_n; S_pcnt <= S_pcnt_n;
+                        if (S_piv_n) begin
+                            S_m <= M_TURN; S_f <= F_SPIN;
+                        end else if (!S_blk) begin
+                            S_scan <= 1'b0; S_stuck <= 1'b0;
+                            if (S_hold != 24'd0) begin                // 刚绕完：保持航向直走，走够 AVOID_HOLD_CM
+                                S_m <= M_AVD; S_av <= 1'b1; S_hold <= (S_hold > {8'd0, S_fru}) ? S_hold - {8'd0, S_fru} : 24'd0;
                                 if (!S_hv) begin S_htgt <= S_yaw; S_hv <= 1'b1; end
+                                S_flim <= S_fmin;
+                            end else if (S_far && S_fok) begin        // 远处挡路：提前绕
+                                S_m <= M_AVD; S_av <= 1'b1; S_hprev <= S_hfar; S_pv <= 1'b1;
+                                if (!S_hv || S_dfau > DB_BAM) begin S_htgt <= S_hfar; S_hv <= 1'b1; end
+                                S_flim <= S_fmfr;
                             end else begin
                                 S_m <= M_GO; S_av <= 1'b0; S_pv <= 1'b0;
                                 if (!S_hv || S_dgou > DB_BAM) begin S_htgt <= S_hown; S_hv <= 1'b1; end
+                                S_flim <= S_fmin;
                             end
-                            S_flim <= S_fmin; S_f <= F_LIM;
-                        end else if (!S_bok) begin
-                            S_m <= M_BLK; S_f <= F_STOP;
+                            S_f <= F_LIM;
+                        end else if (!S_bok) begin                    // 哪边都不到 CLEAR_CM：找出口
+                            if (S_stuck) begin
+                                S_m <= M_BLK; S_f <= F_STOP;
+                            end else if (!S_scan) begin               // 开始：先停下看
+                                S_scan <= 1'b1; S_sph <= 1'b1; S_scnt <= 7'd0; S_snum <= 6'd0; S_stot <= 17'd0; S_s0 <= S_yaw; S_sdir <= ~S_a[8];
+                                S_m <= M_BLK; S_f <= F_STOP;
+                            end else if (S_sph) begin                 // 停着看
+                                if (S_scnt != PAUSE_N - 1) begin S_scnt <= S_scnt + 7'd1; S_m <= M_BLK; S_f <= F_STOP; end
+                                else if (S_stn >= ROUND_BAM || S_snum == SCAN_MAX) begin S_stuck <= 1'b1; S_m <= M_BLK; S_f <= F_STOP; end
+                                else begin S_stot <= S_stn; S_sph <= 1'b0; S_scnt <= 7'd0; S_s0 <= S_yaw; S_m <= M_SPIN; S_f <= F_SPIN; end
+                            end else begin                            // 转：转够了（或者转太久）就停下看
+                                if (S_sgo || S_scnt == STEP_N - 1) begin S_snum <= S_snum + 6'd1; S_sph <= 1'b1; S_scnt <= 7'd0; S_m <= M_BLK; S_f <= F_STOP; end
+                                else begin S_scnt <= S_scnt + 7'd1; S_m <= M_SPIN; S_f <= F_SPIN; end
+                            end
                         end else begin
-                            S_hprev <= S_hc; S_pv <= 1'b1; S_hold <= HOLD_N;
+                            S_scan <= 1'b0; S_stuck <= 1'b0;
+                            S_hprev <= S_hc; S_pv <= 1'b1; S_hold <= HOLD_Q;
                             if (S_f0 < SPIN_CM) begin S_m <= M_SPIN; S_htgt <= S_hc; S_hv <= 1'b0; S_f <= F_SPIN; end
                             else begin
                                 S_m <= M_AVD; S_av <= 1'b1;
@@ -395,13 +465,13 @@ always @(posedge I_clk or negedge I_rst_n) begin
                         S_ft <= S_fwd;
                         S_f <= F_RAMP;
                     end
-            F_SPIN: begin                                             // 原地转（TURN：朝主人；SPIN：朝能走的方向）
+            F_SPIN: begin                                             // 原地转（TURN：朝主人；SPIN：朝能走的方向 / 找出口时往定好的那边）
                         S_iacc <= 24'sd0; S_hv <= 1'b0;
-                        S_pv <= (S_m == M_SPIN) ? S_pv : 1'b0; S_hold <= (S_m == M_SPIN) ? S_hold : 8'd0;
+                        S_pv <= (S_m == M_SPIN) ? S_pv : 1'b0; S_hold <= (S_m == M_SPIN) ? S_hold : 24'd0;
                         if (S_m == M_TURN) S_htgt <= S_hown;
                         S_ft <= 16'sd0;
-                        if ((S_m == M_TURN) ? (S_a > 9'sd0) : (S_cpsi > 7'sd0)) S_tt <= (S_m == M_TURN) ?  PIVOT_PWM :  SPIN_PWM;
-                        else                                                    S_tt <= (S_m == M_TURN) ? -PIVOT_PWM : -SPIN_PWM;
+                        if ((S_m == M_TURN) ? (S_a > 9'sd0) : S_bok ? (S_cpsi > 7'sd0) : S_sdir) S_tt <= (S_m == M_TURN) ?  PIVOT_PWM :  SPIN_PWM;
+                        else                                                                     S_tt <= (S_m == M_TURN) ? -PIVOT_PWM : -SPIN_PWM;
                         S_f <= F_RAMP;
                     end
             F_RAMP: begin                                             // 5. 前进走斜坡、转向限速
@@ -414,8 +484,9 @@ always @(posedge I_clk or negedge I_rst_n) begin
                         O_cmd_l <= clampw(S_fr + S_to); O_cmd_r <= clampw(S_fr - S_to);
                         S_f <= F_WAIT;
                     end
-            F_STOP: begin                                             // 停：命令直接归 0，绕行的记忆、积分清掉，目标航向 = 现在的车头
-                        S_fr <= 16'sd0; S_to <= 16'sd0; S_pv <= 1'b0; S_hold <= 8'd0; S_hv <= 1'b0; S_iacc <= 24'sd0; S_htgt <= S_yaw;
+            F_STOP: begin                                             // 停：命令直接归 0，绕行的记忆、积分清掉，目标航向 = 现在的车头；不是找出口（BLK）的停，找出口也作废
+                        S_fr <= 16'sd0; S_to <= 16'sd0; S_pv <= 1'b0; S_hold <= 24'd0; S_hv <= 1'b0; S_iacc <= 24'sd0; S_htgt <= S_yaw;
+                        if (S_m != M_BLK) begin S_scan <= 1'b0; S_stuck <= 1'b0; end
                         O_cmd_valid <= 1'b1; O_cmd_stop <= 1'b1; O_cmd_l <= 14'sd0; O_cmd_r <= 14'sd0; O_state <= S_m;
                         S_f <= F_WAIT;
                     end
@@ -429,5 +500,6 @@ wire signed [22:0] S_t45 = ($signed({{7{S_htgt[15]}}, S_htgt}) <<< 5) + ($signed
                            ($signed({{7{S_htgt[15]}}, S_htgt}) <<< 2) +  $signed({{7{S_htgt[15]}}, S_htgt});
 wire signed [22:0] S_tr45 = S_t45 + 23'sd4096;
 assign O_tgt_deg = S_tr45[21:13];
+assign O_stuck   = S_stuck;
 
 endmodule

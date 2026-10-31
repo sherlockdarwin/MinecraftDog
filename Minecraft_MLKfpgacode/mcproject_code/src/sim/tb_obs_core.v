@@ -4,7 +4,7 @@
 //     分类：Y=(R+2G+B)>>2，Cb=B−Y，Cr=R−Y，色度格 = 限幅(⌊(c+64)/8⌋, 0, 15)，亮度格 = Y>>4；
 //           每帧结束：Hc ← Hc − ⌊Hc/4⌋ + Σ3×3 邻格的本帧参考区计数（≤ 4095），Hy 同理（±YS 格；本文件 YS = 2，tb_obs_core_ys4.v 用 4）；地面 = Hc ≥ 12 且 Hy ≥ 12。
 //     去噪：3×3 里 ≥ 5 个障碍（越界复制边上的点）。
-//     列扫描：只看第 ROW_MIN 行以下（宏 TB_OBS_RM，本文件 29；tb_obs_core_cur.v 用 mctop 现在的 60）；每列最靠下的一段连续 ≥ 2 行的障碍 → 上沿、下沿。
+//     列扫描：只看第 ROW_MIN 行以下（宏 TB_OBS_RM，本文件 29；tb_obs_core_cur.v 用 mctop 现在的 53）；每列最靠下的一段连续 ≥ 2 行的障碍 → 上沿、下沿。
 //     扇区 / 合框 / 距离（实数公式：离地 174 mm；本文件和 _ys4 下倾 15°，配测试专用的固定几何表 models/mc_obs_lut_t15.v，下面的场景按它设计；
 //       _cur 用车上的几何表：按"第 60 行看到 135 cm、那条线左右宽 170 cm"反推的倾角和焦距（宏 TB_OBS_REAL））/ 两帧取小 / 最近障碍 /
 //     选方向：方向 b = 4~12（扇区 b−1、b 的分界线）；扇区 j 挡住 b ⇔ 距离 ≤ floor(15 / sin(地面上 j 靠近 b 的那条边和 b 的夹角))（挨着的两个扇区多远都挡）；
@@ -37,7 +37,7 @@
 `endif
 module tb_obs_core;
 localparam YS = `TB_OBS_YS;            // 亮度邻格放宽几格（YSPREAD）：本文件 2（下面的边界场景按 ±2 设计）；tb_obs_core_ys4.v 用 4、tb_obs_core_cur.v 用 mctop 现在的值（2）
-localparam RM = `TB_OBS_RM;            // 从第几行起判断障碍（ROW_MIN）：本文件 29（第 15~21 帧的场景按它设计）；tb_obs_core_cur.v 用 60（mctop 现在的值）
+localparam RM = `TB_OBS_RM;            // 从第几行起判断障碍（ROW_MIN）：本文件 29（第 15~21 帧的场景按它设计）；tb_obs_core_cur.v 用 53（mctop 现在的值）
 localparam GEO_REAL = `TB_OBS_REAL;      // 0：测试专用的 15° 几何表；1：车上的几何表（mc_obs_lut.v）
 localparam DSTOP = `TB_OBS_DSTOP;        // 最好的方向也不到这么远就停（D_STOP）
 integer F17_BOT;                        // 第 17 帧一整面墙的下沿：最靠下的、距离还 ≥ D_STOP 的一行（15° 表：67 = 35 cm 正好等于；车上的表按表算）

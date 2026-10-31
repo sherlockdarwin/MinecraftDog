@@ -30,18 +30,20 @@ wire              v0, s0, v1, s1;
 wire signed [13:0] l0, r0, l1, r1;
 wire [3:0]        st0, st1;
 wire signed [8:0] td0, td1;
+wire              k0, k1;                 // 困住了
 
 mc_follow d0 (.I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick), .I_tgt_ok(tgt_ok), .I_tgt_deg(tdeg0), .I_tgt_cm(tgt_cm),
               .I_obs_tog(otog), .I_obs_free(ofree), .I_imu_ok(imu_ok), .I_yaw(yaw0), .I_gz(gz0),
-              .O_cmd_valid(v0), .O_cmd_stop(s0), .O_cmd_l(l0), .O_cmd_r(r0), .O_state(st0), .O_tgt_deg(td0));
+              .O_cmd_valid(v0), .O_cmd_stop(s0), .O_cmd_l(l0), .O_cmd_r(r0), .O_state(st0), .O_tgt_deg(td0), .O_stuck(k0));
 mc_follow #(
-    .STOP_CM(250), .START_PWM(2500), .KP_D(20), .MAX_FWD(6400), .ANGLE_FILTER(1), .DEADBAND(2),
+    .STOP_CM(150), .START_PWM(2500), .KP_D(20), .MAX_FWD(6400), .ANGLE_FILTER(1), .DEADBAND(2),
     .PIVOT_ENTER(60), .PIVOT_CONFIRM_MS(200), .PIVOT_EXIT(30), .PIVOT_PWM(3000), .MAX_WHEEL(6000), .ACC(300), .DEC(500), .TURN_SLEW(700),
     .HEAD_KP(25), .HEAD_KI(50), .HEAD_KD(10), .HEAD_I_MAX(250), .HEAD_I_ZONE(6), .TURN_MAX(1500),
-    .AVOID_CM(120), .CLEAR_CM(70), .SPIN_CM(50), .KP_OBS(30), .SPIN_PWM(6500), .AVOID_TURN_MAX(2500), .AVOID_HOLD_MS(300), .W_TGT(3), .W_PREV(2)
+    .AVOID_CM(120), .CLEAR_CM(70), .SPIN_CM(50), .KP_OBS(30), .SPIN_PWM(6500), .AVOID_TURN_MAX(2500), .AVOID_HOLD_CM(30), .CMS_FULL(120), .W_TGT(3), .W_PREV(2),
+    .AVOID_FAR_CM(180), .OWNER_GAP_CM(160), .SCAN_DEG(90), .SCAN_PAUSE_MS(60), .SCAN_STEP_MS(200)
 ) d1 (.I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick), .I_tgt_ok(tgt_ok), .I_tgt_deg(tdeg1), .I_tgt_cm(tgt_cm),
       .I_obs_tog(otog), .I_obs_free(ofree), .I_imu_ok(imu_ok), .I_yaw(yaw1), .I_gz(gz1),
-      .O_cmd_valid(v1), .O_cmd_stop(s1), .O_cmd_l(l1), .O_cmd_r(r1), .O_state(st1), .O_tgt_deg(td1));
+      .O_cmd_valid(v1), .O_cmd_stop(s1), .O_cmd_l(l1), .O_cmd_r(r1), .O_state(st1), .O_tgt_deg(td1), .O_stuck(k1));
 
 integer errors = 0;
 always @(errors) if (errors > 20) begin #1; $display("FAIL  tb_follow: too many errors"); $finish; end
@@ -50,20 +52,24 @@ always @(errors) if (errors > 20) begin #1; $display("FAIL  tb_follow: too many 
 integer P_STOP [0:1], P_START [0:1], P_KPD [0:1], P_MAXF [0:1], P_AF [0:1], P_DB [0:1];
 integer P_PIN [0:1], P_PCONF [0:1], P_POUT [0:1], P_PPWM [0:1], P_MAXW [0:1], P_ACC [0:1], P_DEC [0:1];
 integer P_KP [0:1], P_KI [0:1], P_KD [0:1], P_IMAX [0:1], P_TMAX [0:1], P_SLEW [0:1], P_IZ [0:1];
-integer P_AVOID [0:1], P_CLEAR [0:1], P_SPIN [0:1], P_KPO [0:1], P_SPWM [0:1], P_AMAX [0:1], P_HOLD [0:1], P_WT [0:1], P_WP [0:1];
-integer KIC [0:1];
+integer P_AVOID [0:1], P_CLEAR [0:1], P_SPIN [0:1], P_KPO [0:1], P_SPWM [0:1], P_AMAX [0:1], P_HOLDCM [0:1], P_CMS [0:1], P_WT [0:1], P_WP [0:1];
+integer P_FAR [0:1], P_GAP [0:1], P_SDEG [0:1], P_SPAUSE [0:1], P_SSTEP [0:1];
+integer KIC [0:1], HQ [0:1];
 task set_params;
     integer i;
     begin
-        P_STOP[0] = 300; P_START[0] = 3000; P_KPD[0] = 10; P_MAXF[0] = 5000; P_AF[0] = 3; P_DB[0] = 4;
+        P_STOP[0] = 200; P_START[0] = 3300; P_KPD[0] = 10; P_MAXF[0] = 5000; P_AF[0] = 3; P_DB[0] = 4;
         P_PIN[0] = 90; P_PCONF[0] = 300; P_POUT[0] = 40; P_PPWM[0] = 2200; P_MAXW[0] = 6500; P_ACC[0] = 200; P_DEC[0] = 400;
         P_KP[0] = 55; P_KI[0] = 20; P_KD[0] = 8; P_IMAX[0] = 400; P_TMAX[0] = 800; P_SLEW[0] = 600; P_IZ[0] = 10;
-        P_AVOID[0] = 100; P_CLEAR[0] = 60; P_SPIN[0] = 60; P_KPO[0] = 20; P_SPWM[0] = 2200; P_AMAX[0] = 1200; P_HOLD[0] = 500; P_WT[0] = 2; P_WP[0] = 1;
-        P_STOP[1] = 250; P_START[1] = 2500; P_KPD[1] = 20; P_MAXF[1] = 6400; P_AF[1] = 1; P_DB[1] = 2;
+        P_AVOID[0] = 100; P_CLEAR[0] = 60; P_SPIN[0] = 60; P_KPO[0] = 20; P_SPWM[0] = 2200; P_AMAX[0] = 1200; P_HOLDCM[0] = 50; P_CMS[0] = 92; P_WT[0] = 2; P_WP[0] = 1;
+        P_FAR[0] = 200; P_GAP[0] = 60; P_SDEG[0] = 20; P_SPAUSE[0] = 200; P_SSTEP[0] = 1000;
+        P_STOP[1] = 150; P_START[1] = 2500; P_KPD[1] = 20; P_MAXF[1] = 6400; P_AF[1] = 1; P_DB[1] = 2;
         P_PIN[1] = 60; P_PCONF[1] = 200; P_POUT[1] = 30; P_PPWM[1] = 3000; P_MAXW[1] = 6000; P_ACC[1] = 300; P_DEC[1] = 500;
         P_KP[1] = 25; P_KI[1] = 50; P_KD[1] = 10; P_IMAX[1] = 250; P_TMAX[1] = 1500; P_SLEW[1] = 700; P_IZ[1] = 6;
-        P_AVOID[1] = 120; P_CLEAR[1] = 70; P_SPIN[1] = 50; P_KPO[1] = 30; P_SPWM[1] = 6500; P_AMAX[1] = 2500; P_HOLD[1] = 300; P_WT[1] = 3; P_WP[1] = 2;
+        P_AVOID[1] = 120; P_CLEAR[1] = 70; P_SPIN[1] = 50; P_KPO[1] = 30; P_SPWM[1] = 6500; P_AMAX[1] = 2500; P_HOLDCM[1] = 30; P_CMS[1] = 120; P_WT[1] = 3; P_WP[1] = 2;
+        P_FAR[1] = 180; P_GAP[1] = 160; P_SDEG[1] = 90; P_SPAUSE[1] = 60; P_SSTEP[1] = 200;   // 间距 160 > 停车 150：好造"主人比间距还近"
         for (i = 0; i < 2; i = i + 1) KIC[i] = $rtoi(P_KI[i] * 20.0 * 256.0 / 1000.0 + 0.5);    // 规格：KI × 周期 × 256 / 1000 四舍五入
+        for (i = 0; i < 2; i = i + 1) HQ[i] = P_HOLDCM[i] * 8000 * 50 / P_CMS[i];   // 规格：前进量每 20 ms 累加，加到 HOLD_CM ÷（CMS / 8000 cm/s × 0.02 s）（整数，向下取整）
     end
 endtask
 
@@ -71,6 +77,8 @@ endtask
 integer HEAD_DEG [0:15];
 integer avalid [0:1], hown [0:1], piv [0:1], pend [0:1], since [0:1], fr [0:1], to [0:1];
 integer pv [0:1], hprev [0:1], hold [0:1], hv [0:1], htgt [0:1], iacc [0:1];
+integer scan [0:1], sph [0:1], sdir [0:1], scnt [0:1], snum [0:1], sy0 [0:1], stuck [0:1], lastnp [0:1], stot [0:1];
+integer e_stk [0:1];
 integer age;                              // 避障结果的"年龄"（节拍）
 integer nper = 0;
 integer e_stop [0:1], e_l [0:1], e_r [0:1], e_st [0:1], e_td [0:1];
@@ -82,6 +90,8 @@ integer lastpsi [0:1];                    // 上次绕行方向（相对当时�
 integer c_tie, c_hyst, c_fallback, c_lim, c_clampw, c_pend_reset, c_reacq;
 integer c_e_piv, c_e_spin, c_e_avoid, c_e_clear, c_ntie, c_btie, c_slim, c_hlim, c_ncam_near, c_flip, c_reenter, c_stale_go, c_stale_turn, c_clampn;
 integer c_prnd, c_pwrap, c_stopgo, c_half, c_slew, c_izone, c_dbkeep, c_dbeq, c_dbret, c_avkeep, c_avret, c_holdlock, c_wrap, c_dterm, c_iclp, c_iclpn, c_tclp, c_tclpa, c_efloor, c_pclamp, c_prot, c_nimu, c_lostnimu, c_round;
+integer c_far, c_far_eq, c_far_gap, c_far_ang3, c_far_ang4, c_far_none, c_far_t0, c_far_lim, c_far_hyst, c_far_keep, c_far_ret, c_hold_part, c_nopiv_hold, c_nopiv_scan, c_piv_after;
+integer c_sc_stop, c_sc_start, c_sc_exit, c_sc_left, c_sc_lt, c_sc_neg, c_sc_eq, c_sc_to, c_stuck, c_stuck_stay, c_tot_eq, c_tot_lt, c_stuck_max;
 
 function integer iabs; input integer x; iabs = (x < 0) ? -x : x; endfunction
 function integer imin; input integer a, b; imin = (a < b) ? a : b; endfunction
@@ -117,12 +127,16 @@ endfunction
 
 task stop_it;                             // 停：命令归 0、绕行记忆 / 积分清掉、目标航向 = 车头
     input integer i, m;
-    begin fr[i] = 0; to[i] = 0; pv[i] = 0; hold[i] = 0; hv[i] = 0; iacc[i] = 0; htgt[i] = YW[i]; e_stop[i] = 1; e_st[i] = m; end
+    begin
+        fr[i] = 0; to[i] = 0; pv[i] = 0; hold[i] = 0; hv[i] = 0; iacc[i] = 0; htgt[i] = YW[i]; e_stop[i] = 1; e_st[i] = m;
+        if (m != 3) begin if (i == 0 && (scan[0] || stuck[0])) c_sc_stop = c_sc_stop + 1; scan[i] = 0; stuck[i] = 0; end   // 别的原因停车：找出口作废
+    end
 endtask
 
 task decide;
     integer i, m, mm, d, a, aa, fwd, k, b, psi, f, dt, cost, btd, btf, aok, ac, apsi, af, bok, bc, bpsi, bf, cpsi, cf, f0, blk, av, flim, lim;
     integer ft, tt, ol, orr, c9_7, c9_9, btc, lim2, ppsi, hc, e, e16, p, di, dd, t, tmax, ex, pt, pw;
+    integer tfar, fok, fc, fpsi, ffr, far, nopiv, sd, tn;
     begin
         nper = nper + 1;
         for (i = 0; i < 2; i = i + 1) begin
@@ -157,34 +171,44 @@ task decide;
                 else if (tgt_cm <= P_STOP[i]) stop_it(i, 2);
                 else begin
                     aa = iabs(a);
+                    // 先看路（原地转要不要进，取决于这一次挡不挡路）
+                    fwd = P_START[i] + (tgt_cm - P_STOP[i]) * P_KPD[i];
+                    if (fwd > P_MAXF[i]) fwd = P_MAXF[i];
+                    tfar = tgt_cm - P_GAP[i]; if (tfar > P_FAR[i]) tfar = P_FAR[i]; if (tfar < 0) tfar = 0;     // 远处挡路的门限
+                    btd = 1000; btf = 0; aok = 0; ac = 1000000; bok = 0; bc = 1000000; apsi = 0; af = 0; bpsi = 0; bf = 0; btc = -1;
+                    fok = 0; fc = 1000000; fpsi = 0; ffr = 0;
+                    for (k = 0; k < 9; k = k + 1) begin
+                        b = pref(k); psi = HEAD_DEG[b]; f = ff(b);
+                        dt = iabs(psi - a);
+                        if (dt == btd && i == 0 && ((f < P_AVOID[i]) != (btf < P_AVOID[i]))) c_ntie = c_ntie + 1;
+                        if (dt < btd) begin btd = dt; btf = f; end
+                        cost = P_WT[i] * dt + (pv[i] ? P_WP[i] * iabs(psi - ppsi) : 0);
+                        if (f >= P_AVOID[i] && cost == ac && i == 0) c_tie = c_tie + 1;
+                        if (f >= P_CLEAR[i] && cost == bc) btc = cost;
+                        if (f >= P_AVOID[i] && cost < ac) begin ac = cost; aok = 1; apsi = psi; af = f; end
+                        if (f >= P_CLEAR[i] && cost < bc) begin bc = cost; bok = 1; bpsi = psi; bf = f; end
+                        if (f >= tfar && cost < fc) begin fc = cost; fok = 1; fpsi = psi; ffr = f; end
+                    end
+                    cpsi = aok ? apsi : bpsi; cf = aok ? af : bf;
+                    f0 = ff(8);
+                    blk = (f0 < P_AVOID[i]) || (btf < P_AVOID[i]);
+                    far = (btd <= 3) && (btf < tfar);
+                    nopiv = (!blk && hold[i] > 0) || scan[i] || stuck[i];
                     if (!piv[i]) begin
                         if (i == 0 && aa == P_PIN[i]) c_e_piv = c_e_piv + 1;
                         if (aa <= P_PIN[i]) begin if (pend[i] && i == 0) c_pend_reset = c_pend_reset + 1; pend[i] = 0; exitp[i] = 0; end
                         else if (!pend[i]) begin pend[i] = 1; since[i] = nper; if (exitp[i] && i == 0) c_reenter = c_reenter + 1; exitp[i] = 0; end
-                        else if ((nper - since[i]) * 20 >= P_PCONF[i]) piv[i] = 1;
+                        else if ((nper - since[i]) * 20 >= P_PCONF[i]) begin
+                            if (!nopiv) begin piv[i] = 1; if (i == 0 && lastnp[i]) c_piv_after = c_piv_after + 1; end
+                            else if (i == 0) begin if (scan[i] || stuck[i]) c_nopiv_scan = c_nopiv_scan + 1; else c_nopiv_hold = c_nopiv_hold + 1; end
+                        end
                     end else if (aa < P_POUT[i]) begin piv[i] = 0; pend[i] = 0; exitp[i] = 1; end
+                    lastnp[i] = !piv[i] && pend[i] && (nper - since[i]) * 20 >= P_PCONF[i];
                     if (piv[i]) begin
                         m = 4; pv[i] = 0; hold[i] = 0; hv[i] = 0; iacc[i] = 0; htgt[i] = hown[i];
                         ft = 0; tt = (a > 0) ? P_PPWM[i] : -P_PPWM[i];
                     end else begin
-                        fwd = P_START[i] + (tgt_cm - P_STOP[i]) * P_KPD[i];
-                        if (fwd > P_MAXF[i]) fwd = P_MAXF[i];
-                        btd = 1000; btf = 0; aok = 0; ac = 1000000; bok = 0; bc = 1000000; apsi = 0; af = 0; bpsi = 0; bf = 0; btc = -1;
-                        for (k = 0; k < 9; k = k + 1) begin
-                            b = pref(k); psi = HEAD_DEG[b]; f = ff(b);
-                            dt = iabs(psi - a);
-                            if (dt == btd && i == 0 && ((f < P_AVOID[i]) != (btf < P_AVOID[i]))) c_ntie = c_ntie + 1;
-                            if (dt < btd) begin btd = dt; btf = f; end
-                            cost = P_WT[i] * dt + (pv[i] ? P_WP[i] * iabs(psi - ppsi) : 0);
-                            if (f >= P_AVOID[i] && cost == ac && i == 0) c_tie = c_tie + 1;
-                            if (f >= P_CLEAR[i] && cost == bc) btc = cost;
-                            if (f >= P_AVOID[i] && cost < ac) begin ac = cost; aok = 1; apsi = psi; af = f; end
-                            if (f >= P_CLEAR[i] && cost < bc) begin bc = cost; bok = 1; bpsi = psi; bf = f; end
-                        end
-                        cpsi = aok ? apsi : bpsi; cf = aok ? af : bf;
                         if (i == 0 && !aok && bok) c_fallback = c_fallback + 1;
-                        f0 = ff(8);
-                        blk = (f0 < P_AVOID[i]) || (btf < P_AVOID[i]);
                         if (i == 0 && blk && bok) begin
                             if (f0 == P_SPIN[i])               c_e_spin  = c_e_spin + 1;
                             if (aok && af == P_AVOID[i])       c_e_avoid = c_e_avoid + 1;
@@ -192,11 +216,43 @@ task decide;
                             if (!aok && btc == bc && !pv[i])   c_btie    = c_btie + 1;
                         end
                         av = 0; flim = 255;
+                        if (i == 0 && blk && !bok) begin
+                            if (!scan[0] && !stuck[0]) c_sc_start = c_sc_start + 1;
+                        end
                         if (!blk) begin
-                            if (hold[i] > 0) begin
-                                m = 6; av = 1; hold[i] = hold[i] - 1;
+                            if (i == 0 && (scan[0] || stuck[0])) c_sc_exit = c_sc_exit + 1;
+                            scan[i] = 0; stuck[i] = 0;
+                            if (hold[i] > 0) begin                     // 绕完直走：每次减掉上一次发出去的前进量
+                                m = 6; av = 1;
+                                if (i == 0 && fr[i] > 0 && hold[i] > fr[i]) c_hold_part = c_hold_part + 1;
+                                hold[i] = (hold[i] > fr[i]) ? hold[i] - (fr[i] > 0 ? fr[i] : 0) : 0;
                                 if (!hv[i]) begin htgt[i] = YW[i]; hv[i] = 1; if (i == 0) c_holdlock = c_holdlock + 1; end
+                                flim = imin(f0, btf);
+                            end else if (far && fok) begin             // 远处挡路：提前绕
+                                m = 6; av = 1;
+                                hc = w16(YW[i] + fpsi * 182);
+                                if (i == 0 && pv[i]) begin               // 没有"上次方向"那一项就会选别的：记一次
+                                    c9_7 = 1000000; c9_9 = 0;
+                                    for (k = 0; k < 9; k = k + 1) begin
+                                        b = pref(k); f = ff(b); dt = P_WT[i] * iabs(HEAD_DEG[b] - a);
+                                        if (f >= tfar && dt < c9_7) begin c9_7 = dt; c9_9 = HEAD_DEG[b]; end
+                                    end
+                                    if (c9_9 != fpsi) c_far_hyst = c_far_hyst + 1;
+                                end
+                                hprev[i] = hc; pv[i] = 1; lastpsi[i] = fpsi;
+                                if (hv[i] && iabs(w16(hc - htgt[i])) <= P_DB[i] * 182) begin if (i == 0) c_far_keep = c_far_keep + 1; end
+                                else begin if (hv[i] && i == 0) c_far_ret = c_far_ret + 1; htgt[i] = hc; hv[i] = 1; end
+                                flim = imin(f0, ffr);
+                                lim = P_START[i] + (ffr - P_CLEAR[i]) * P_KPO[i];
+                                if (i == 1 && ffr < f0 && lim < fwd && fr[i] + P_ACC[i] > lim) c_far_lim = c_far_lim + 1;   // 限幅真起作用（斜坡已经快爬到了）
+                                if (i == 0) c_far = c_far + 1;
+                                if (btd == 3) c_far_ang3 = c_far_ang3 + 1;
+                                if (tgt_cm - P_GAP[i] < P_FAR[i]) c_far_gap = c_far_gap + 1;
                             end else begin
+                                if (far && !fok && i == 0) c_far_none = c_far_none + 1;
+                                if (btd <= 3 && btf == tfar) c_far_eq = c_far_eq + 1;
+                                if (btd == 4 && btf < tfar) c_far_ang4 = c_far_ang4 + 1;
+                                if (i == 1 && tgt_cm < P_GAP[i] && btf >= P_AVOID[i] && btf < P_FAR[i]) c_far_t0 = c_far_t0 + 1;
                                 m = 5; av = 0; pv[i] = 0;
                                 if (i == 0 && !hv[i] && lastm[i] != 4 && lastm[i] != 5 && lastm[i] != 6 && lastm[i] != 7 &&
                                     hown[i] != htgt[i] && iabs(w16(hown[i] - htgt[i])) <= P_DB[i] * 182) c_stopgo = c_stopgo + 1;   // 停车后：目标航向必须重新定（停车时的车头在回差里也不能留）
@@ -207,11 +263,42 @@ task decide;
                                     if (hv[i] && i == 1 && iabs(w16(hown[i] - htgt[i])) <= P_DB[i] * 182 + 182) c_dbret = c_dbret + 1;
                                     htgt[i] = hown[i]; hv[i] = 1;
                                 end
+                                flim = imin(f0, btf);
                             end
-                            flim = imin(f0, btf);
-                        end else if (!bok) begin
+                        end else if (!bok) begin                       // 找出口
                             m = 3;
+                            if (stuck[i]) begin
+                                if (i == 0) c_stuck_stay = c_stuck_stay + 1;
+                            end else if (!scan[i]) begin
+                                scan[i] = 1; sph[i] = 1; scnt[i] = 0; snum[i] = 0; stot[i] = 0; sy0[i] = YW[i]; sdir[i] = (a >= 0);
+                                if (i == 0 && a < 0) c_sc_left = c_sc_left + 1;
+                            end else if (sph[i]) begin
+                                if (scnt[i] != P_SPAUSE[i] / 20 - 1) scnt[i] = scnt[i] + 1;
+                                else begin                             // 停着看完：加上这一步实际转的（往反方向不算），满一圈或者步数到了上限 → 困住
+                                    sd = sdir[i] ? w16(YW[i] - sy0[i]) : w16(sy0[i] - YW[i]);
+                                    tn = stot[i] + ((sd > 0) ? sd : 0);
+                                    if (i == 0 && tn == 360 * 182) c_tot_eq = c_tot_eq + 1;
+                                    if (i == 0 && tn == 360 * 182 - 1) c_tot_lt = c_tot_lt + 1;
+                                    if (tn >= 360 * 182 || snum[i] == 2 * ((360 + P_SDEG[i] - 1) / P_SDEG[i])) begin
+                                        stuck[i] = 1; if (i == 0) c_stuck = c_stuck + 1; if (i == 1 && tn < 360 * 182) c_stuck_max = c_stuck_max + 1;
+                                    end else begin stot[i] = tn; sph[i] = 0; scnt[i] = 0; sy0[i] = YW[i]; m = 7; end
+                                end
+                            end else begin
+                                sd = sdir[i] ? w16(YW[i] - sy0[i]) : w16(sy0[i] - YW[i]);
+                                if (i == 0 && sd == P_SDEG[i] * 182 - 1) c_sc_lt = c_sc_lt + 1;
+                                if (i == 0 && sd < 0) c_sc_neg = c_sc_neg + 1;
+                                if (sd >= P_SDEG[i] * 182 || scnt[i] == P_SSTEP[i] / 20 - 1) begin
+                                    if (i == 0) begin if (sd == P_SDEG[i] * 182) c_sc_eq = c_sc_eq + 1; if (sd < P_SDEG[i] * 182) c_sc_to = c_sc_to + 1; end
+                                    snum[i] = snum[i] + 1; sph[i] = 1; scnt[i] = 0;
+                                end else begin scnt[i] = scnt[i] + 1; m = 7; end
+                            end
+                            if (m == 7) begin                          // 找出口时转：往定好的那边
+                                hv[i] = 0; iacc[i] = 0;
+                                ft = 0; tt = sdir[i] ? P_SPWM[i] : -P_SPWM[i];
+                            end
                         end else begin
+                            if (i == 0 && (scan[0] || stuck[0])) c_sc_exit = c_sc_exit + 1;
+                            scan[i] = 0; stuck[i] = 0;
                             if (i == 0 && pv[i]) begin               // 没有"上次方向"那一项就会选别的：记一次
                                 c9_7 = 1000000; c9_9 = 0;
                                 for (k = 0; k < 9; k = k + 1) begin
@@ -240,7 +327,7 @@ task decide;
                                 if (pick(i, a, pw, aok ? P_AVOID[i] : P_CLEAR[i]) != cpsi) c_pwrap = c_pwrap + 1;
                             end
                             hc = w16(YW[i] + cpsi * 182);
-                            hprev[i] = hc; pv[i] = 1; hold[i] = P_HOLD[i] / 20; lastpsi[i] = cpsi;
+                            hprev[i] = hc; pv[i] = 1; hold[i] = HQ[i]; lastpsi[i] = cpsi;
                             if (f0 < P_SPIN[i]) begin
                                 m = 7; htgt[i] = hc; hv[i] = 0; iacc[i] = 0;
                                 ft = 0; tt = (cpsi > 0) ? P_SPWM[i] : -P_SPWM[i];
@@ -343,6 +430,17 @@ function real hdeg; input real ow; input integer y; real dd; begin dd = ow - y; 
 localparam TICK = 200;                    // 一个"毫秒"节拍 = 200 个时钟（仿真加速）
 integer ntick = 0;
 reg     cam_on = 0;
+// 闭环找出口用的"世界"：四面都是 30 cm 的墙，只有世界方向 world_gap 左右 12° 有个口子（world_open = 1 时）；按默认实例的车头算每个方向能走多远
+reg     world_on = 0, world_open = 0;
+real    world_gap;
+integer wb;
+real    wd;
+task world_view;
+    begin
+        wd = hdeg(world_gap, yaw0);
+        for (wb = 4; wb <= 12; wb = wb + 1) ofree[8*(wb-4) +: 8] = (world_open && HEAD_DEG[wb] - wd <= 12.0 && wd - HEAD_DEG[wb] <= 12.0) ? 8'd255 : 8'd30;
+    end
+endtask
 integer pending = 0, pending1 = 0;
 integer last_cmd_tick = -1;
 task one_tick;
@@ -359,6 +457,7 @@ task one_tick;
         if (plant) plant_step;
         if (age < 100) age = age + 1;
         if (cam_on && ntick % 5 == 0) begin
+            if (world_on) world_view;
             repeat (10) @(posedge clk);
             @(posedge oclk) otog <= ~otog;
             age = 0;
@@ -371,18 +470,18 @@ always @(posedge clk) if (v0) begin
     if (last_cmd_tick >= 0 && ntick - last_cmd_tick != 20) begin $display("FAIL commands %0d ticks apart", ntick - last_cmd_tick); errors = errors + 1; end
     last_cmd_tick = ntick;
     pending = 0;
-    if (s0 !== e_stop[0][0] || l0 !== e_l[0] || r0 !== e_r[0] || st0 !== e_st[0] || td0 !== e_td[0]) begin
-        $display("FAIL [default] period %0d: stop %b L %0d R %0d state %0d tgt %0d, expected %0d %0d %0d %0d %0d (ok %b imu %b deg %0d yaw %0d gz %0d cm %0d age %0d)",
-                 nper, s0, l0, r0, st0, td0, e_stop[0], e_l[0], e_r[0], e_st[0], e_td[0], tgt_ok, imu_ok, TD[0], YW[0], GZ[0], tgt_cm, age);
+    if (s0 !== e_stop[0][0] || l0 !== e_l[0] || r0 !== e_r[0] || st0 !== e_st[0] || td0 !== e_td[0] || k0 !== stuck[0][0]) begin
+        $display("FAIL [default] period %0d: stop %b L %0d R %0d state %0d tgt %0d stuck %b, expected %0d %0d %0d %0d %0d %0d (ok %b imu %b deg %0d yaw %0d gz %0d cm %0d age %0d)",
+                 nper, s0, l0, r0, st0, td0, k0, e_stop[0], e_l[0], e_r[0], e_st[0], e_td[0], stuck[0], tgt_ok, imu_ok, TD[0], YW[0], GZ[0], tgt_cm, age);
         errors = errors + 1;
     end
 end
 always @(posedge clk) if (v1) begin
     if (!pending1) begin $display("FAIL [other] command without a decision tick (tick %0d)", ntick); errors = errors + 1; end
     pending1 = 0;
-    if (s1 !== e_stop[1][0] || l1 !== e_l[1] || r1 !== e_r[1] || st1 !== e_st[1] || td1 !== e_td[1]) begin
-        $display("FAIL [other] period %0d: stop %b L %0d R %0d state %0d tgt %0d, expected %0d %0d %0d %0d %0d (deg %0d yaw %0d gz %0d)",
-                 nper, s1, l1, r1, st1, td1, e_stop[1], e_l[1], e_r[1], e_st[1], e_td[1], TD[1], YW[1], GZ[1]);
+    if (s1 !== e_stop[1][0] || l1 !== e_l[1] || r1 !== e_r[1] || st1 !== e_st[1] || td1 !== e_td[1] || k1 !== stuck[1][0]) begin
+        $display("FAIL [other] period %0d: stop %b L %0d R %0d state %0d tgt %0d stuck %b, expected %0d %0d %0d %0d %0d %0d (deg %0d yaw %0d gz %0d cm %0d)",
+                 nper, s1, l1, r1, st1, td1, k1, e_stop[1], e_l[1], e_r[1], e_st[1], e_td[1], stuck[1], TD[1], YW[1], GZ[1], tgt_cm);
         errors = errors + 1;
     end
 end
@@ -397,6 +496,25 @@ task deg;  input integer d; begin tdeg0 = d; tdeg1 = d; end endtask
 task head; input integer y; begin yaw0 = y; yaw1 = y; end endtask
 task rate_; input integer g; begin gz0 = g; gz1 = g; end endtask
 task lose; begin tgt_ok = 0; periods(1); tgt_ok = 1; end endtask
+
+// 找出口（车头由测试台给）：在"转"的那段里，每个周期把车头摆到"这一步开始时的车头 + sx"（往要转的方向为正）
+//   默认：第 1 步先差 1 个单位、再正好 SCAN_DEG；第 2 步往反方向（转太久才算一步，也不算转了多少）；后面每步 22°，
+//         离一圈还差不到 2 步时：scan_mode = 1 正好补满一圈（360 × 182），= 0 补到差 1 个单位（再转一步才困住）。另一组同样，后面每步 100°。
+integer sx, scan_mode = 1;
+task scan_drive;
+    begin
+        if (scan[0] && !sph[0]) begin
+            sx = (snum[0] == 0) ? ((scnt[0] == 0) ? P_SDEG[0] * 182 - 1 : P_SDEG[0] * 182) : (snum[0] == 1) ? -1000 :
+                 (360 * 182 - stot[0] > 2 * 22 * 182 || 360 * 182 - stot[0] - 1 < P_SDEG[0] * 182) ? 22 * 182 : 360 * 182 - stot[0] - 1 + scan_mode;
+            yaw0 = w16(sy0[0] + (sdir[0] ? sx : -sx));
+        end
+        if (scan[1] && !sph[1]) begin
+            sx = (snum[1] == 0) ? ((scnt[1] == 0) ? P_SDEG[1] * 182 - 1 : P_SDEG[1] * 182) : (snum[1] == 1) ? 0 : 100 * 182;
+            yaw1 = w16(sy0[1] + (sdir[1] ? sx : -sx));
+        end
+        periods(1);
+    end
+endtask
 
 // 闭环检查：默认实例的 角度环误差（目标航向 − 车头）和 对主人的误差（主人世界方向 − 车头），度
 real emax, emin, omax, omin;
@@ -418,20 +536,24 @@ task track;
 endtask
 
 // ---------------- 场景 ----------------
-real PI, F, ct;
-integer b, i, sv;
+real PI, F, ct, turned;
+integer b, i, sv, sv2, t, yp;
 initial begin
     PI = 3.14159265358979; F = 960.0 / $tan(36.0 * PI / 180.0); ct = $cos(15.0 * PI / 180.0);   // 方向角按测试专用的 15° 几何表（sim.sh 给 tb_follow 编的是 models/mc_obs_lut_t15.v，车上的表不影响这里的场景）
     for (b = 0; b < 16; b = b + 1) HEAD_DEG[b] = $rtoi($atan((120.0 * b - 960.0) * ct / F) * 180.0 / PI + ((b >= 8) ? 0.5 : -0.5));
     set_params;
     for (i = 0; i < 2; i = i + 1) begin avalid[i] = 0; hown[i] = 0; piv[i] = 0; pend[i] = 0; since[i] = 0; fr[i] = 0; to[i] = 0; pv[i] = 0; hprev[i] = 0; hold[i] = 0;
-                                        hv[i] = 0; htgt[i] = 0; iacc[i] = 0; lastm[i] = 0; exitp[i] = 0; lastpsi[i] = 0; e_stop[i] = 1; e_l[i] = 0; e_r[i] = 0; end
+                                        hv[i] = 0; htgt[i] = 0; iacc[i] = 0; lastm[i] = 0; exitp[i] = 0; lastpsi[i] = 0; e_stop[i] = 1; e_l[i] = 0; e_r[i] = 0;
+                                        scan[i] = 0; sph[i] = 0; sdir[i] = 0; scnt[i] = 0; snum[i] = 0; sy0[i] = 0; stuck[i] = 0; lastnp[i] = 0; stot[i] = 0; end
     for (i = 0; i < 9; i = i + 1) cnt[i] = 0;
     c_tie = 0; c_hyst = 0; c_fallback = 0; c_lim = 0; c_clampw = 0; c_pend_reset = 0; c_reacq = 0;
     c_e_piv = 0; c_e_spin = 0; c_e_avoid = 0; c_e_clear = 0; c_ntie = 0; c_btie = 0; c_slim = 0; c_hlim = 0;
     c_ncam_near = 0; c_flip = 0; c_reenter = 0; c_stale_go = 0; c_stale_turn = 0; c_clampn = 0;
     c_dbkeep = 0; c_dbeq = 0; c_dbret = 0; c_avkeep = 0; c_avret = 0; c_holdlock = 0; c_wrap = 0; c_dterm = 0; c_iclp = 0; c_iclpn = 0; c_tclp = 0; c_tclpa = 0;
     c_prnd = 0; c_pwrap = 0; c_stopgo = 0; c_half = 0; c_slew = 0; c_izone = 0; c_efloor = 0; c_pclamp = 0; c_prot = 0; c_nimu = 0; c_lostnimu = 0; c_round = 0;
+    c_far = 0; c_far_eq = 0; c_far_gap = 0; c_far_ang3 = 0; c_far_ang4 = 0; c_far_none = 0; c_far_t0 = 0; c_far_lim = 0; c_far_hyst = 0; c_far_keep = 0; c_far_ret = 0;
+    c_hold_part = 0; c_nopiv_hold = 0; c_nopiv_scan = 0; c_piv_after = 0;
+    c_sc_stop = 0; c_sc_start = 0; c_sc_exit = 0; c_sc_left = 0; c_sc_lt = 0; c_sc_neg = 0; c_sc_eq = 0; c_sc_to = 0; c_stuck = 0; c_stuck_stay = 0; c_tot_eq = 0; c_tot_lt = 0; c_stuck_max = 0;
     age = 100;
     head(12000);
     repeat (5) @(posedge clk); rst_n = 1;
@@ -450,11 +572,12 @@ initial begin
     head(12000); deg(-10); periods(20);
     tgt_cm = 999; deg(0); periods(25);                                    // 远：前进到上限
     deg(40); periods(25);                                                 // 远 + 偏：另一组的轮子被限幅
-    deg(0); tgt_cm = 300; periods(2);                                     // 300 → HERE（另一组 250 还在走）
-    tgt_cm = 301; periods(2);
-    tgt_cm = 250; periods(2);
+    deg(0); tgt_cm = 300; periods(8);                                     // 中间距离：前进 = 起步 + (距离 − 停车距离) × 系数（两组都不到上限）
+    tgt_cm = 200; periods(2);                                             // 200 → HERE（另一组 150 还在走）
+    tgt_cm = 201; periods(2);
+    tgt_cm = 150; periods(2);
     tgt_cm = 600;
-    deg(3); periods(6); tgt_cm = 240; periods(2); tgt_cm = 600; periods(4); deg(0); periods(4);   // 停车再走、主人在回差里：目标航向重新定成主人方向（不留停车时的车头）
+    deg(3); periods(6); tgt_cm = 140; periods(2); tgt_cm = 600; periods(4); deg(0); periods(4);   // 停车再走、主人在回差里：目标航向重新定成主人方向（不留停车时的车头）
     deg(99); periods(3); deg(0); periods(3);                              // 角度跳一下：不原地转
     deg(99); periods(12); deg(0); periods(6);                             // 超过了但没保持够就回来：等待作废
     deg(99); periods(25);                                                 // 一直在侧面：确认以后原地转（另一组更早）
@@ -486,7 +609,7 @@ initial begin
     set_free(255, 255, 255, 255, 40, 255, 255, 255, 255); periods(25);          // 太近 → 原地转向能走的方向（另一组的轮子走到负向限幅）
     set_free(255, 255, 255, 255, 60, 255, 255, 255, 255); periods(3);          // 正好 SPIN_CM（60）：一边走一边绕（另一组 SPIN_CM 50，也是绕）
     set_free(255, 255, 255, 255, 150, 255, 255, 255, 255); periods(10);        // 正前方 150：不挡路，但前进被限（SPIN 以后先锁住现在的车头直走）
-    all_free; periods(28);
+    all_free; periods(70);                                                     // 绕完直走按距离（默认约 50 个周期）走完，回到 GO
     set_free(70, 70, 70, 70, 50, 70, 70, 70, 70); periods(3);                  // 只有 ≥ CLEAR 的、左右 5° 一样：挑先看的（左）
     set_free(70, 70, 70, 60, 50, 59, 70, 70, 70); periods(3);                  // 正好 CLEAR（60）算能走，59 不算
     set_free(255, 255, 255, 100, 80, 99, 255, 255, 255); periods(3);           // 正好 AVOID（100）算能走，99 不算
@@ -503,7 +626,7 @@ initial begin
     @(posedge clk);
     if (!otog) begin repeat (10) @(posedge clk); @(posedge oclk) otog <= 1'b1; age = 0; end
     periods(7);
-    tgt_cm = 200; periods(2);                                             // 相机断了 + 主人很近：报 NCAM
+    tgt_cm = 150; periods(2);                                             // 相机断了 + 主人很近：报 NCAM
     cam_on = 1; all_free; tgt_cm = 600; deg(30); periods(8);
     tgt_ok = 0; periods(2);                                               // UWB 丢了 → LOST
     tgt_ok = 1; deg(-30); tgt_cm = 450; periods(6);                       // 找回在左边：平滑从新角度开始
@@ -518,6 +641,50 @@ initial begin
     head(12000 - 51 * 182); set_free(255, 255, 255, 255, 80, 255, 255, 255, 255); periods(1);    // 车往左转 51°：上次方向相对车头 +70°（限到 63；不限按 6 位回绕成 6 会选 15°）
     all_free; lose; head(12000); deg(0); periods(2);                      // 停一下（积分清零），目标航向 = 主人 = 车头
     head(12000 + 8 * 182); deg(-8); periods(200);                         // 车头往右偏 8°、主人还在原来的世界方向：误差正好 −8°，积分到负的限幅
+    // ---- 远处挡路：主人那个方向 T = min(AVOID_FAR_CM, 距离 − OWNER_GAP_CM) 以内有东西 → 提前绕 ----
+    lose; head(12000); deg(0); tgt_cm = 400; all_free; periods(3);          // T：默认 min(200, 340) = 200；另一组 min(180, 240) = 180
+    set_free(255, 255, 255, 255, 199, 255, 255, 255, 255); periods(4);       // 199：默认提前绕（左右一样 → 先看的左 5°），另一组 ≥ 180 不绕
+    set_free(255, 255, 255, 255, 200, 255, 255, 255, 255); periods(4);       // 正好 200：默认不绕
+    set_free(255, 255, 255, 255, 180, 255, 255, 255, 255); periods(3);       // 180：默认绕，另一组正好 180 不绕
+    set_free(255, 255, 255, 255, 179, 255, 255, 255, 255); periods(3);       // 179：两组都绕
+    deg(2); periods(4);                                                      // 主人偏右 2°：不换边（上次方向的代价）
+    head(12000 - 3 * 182); periods(3);                                       // 车头往左 3°：新的绕行方向在回差里，不改目标
+    head(12000 - 7 * 182); periods(3);                                       // 再往左（共 7°）：超出回差，改目标
+    head(12000); deg(0);
+    set_free(150, 150, 150, 150, 150, 150, 150, 150, 150); periods(4);       // 哪边都不到 T：照常 GO（近了再绕）
+    all_free; periods(3);
+    tgt_cm = 250; set_free(255, 255, 255, 255, 190, 255, 255, 255, 255); periods(3);   // 主人 250：默认 T = 250 − 60 = 190，正好 190 不绕（另一组 T = 90）
+    set_free(255, 255, 255, 255, 189, 255, 255, 255, 255); periods(3);       // 189：默认绕
+    tgt_cm = 155; set_free(255, 255, 255, 255, 130, 255, 255, 255, 255); periods(3);   // 另一组：主人 155 比间距 160 还近 → T = 0，不绕（默认 HERE）
+    lose; tgt_cm = 400; deg(22); set_free(255, 255, 255, 255, 255, 255, 255, 255, 150); periods(4);   // 主人 22°：离它最近的方向 19° 差 3° → 算（绕到 15°）
+    lose; deg(23); periods(4);                                               // 23°：差 4° → 不算
+    lose; deg(10); set_free(190, 190, 190, 190, 255, 190, 150, 190, 190); periods(30); // 主人 10°（那个方向 150）：另一组绕到 5°（190），前进按 min(正前方, 190) 限（等斜坡爬上去：限幅要真起作用）
+    all_free; deg(0); periods(6);
+    // ---- 绕完直走那段不原地转（车头扫过的地方相机看不到）；挡着路的时候照常原地转（上面"原地转优先于绕行"）----
+    lose; head(12000); deg(0); tgt_cm = 400; set_free(255, 255, 255, 255, 80, 255, 255, 255, 255); periods(5);
+    all_free; deg(99); periods(80);                                          // 不挡了、主人到侧面：先走完直走那段（按前进量累加），马上原地转
+    deg(0); periods(10);
+    // ---- 找出口（车头由测试台给）----
+    lose; head(12000); deg(30); tgt_cm = 400; all_free; periods(3);
+    set_free(30, 30, 30, 30, 30, 30, 30, 30, 30);                            // 哪边都不到 CLEAR：先停下看，再往主人那边（右）一步一步转
+    scan_mode = 1; for (t = 0; t < 600 && !stuck[0]; t = t + 1) scan_drive;   // 正好转满一圈 → 困住（另一组 100° 一步，转满一圈先到）
+    if (!stuck[0] || !stuck[1]) begin $display("FAIL scan: never got stuck (%0d %0d)", stuck[0], stuck[1]); errors = errors + 1; end
+    periods(5);                                                              // 困住了：一直停着（BLK），O_stuck = 1
+    yaw0 = w16(yaw0 - 1); periods(3);                                        // 困住以后车头往回滑 1 个单位（加起来又差 1 个单位一圈）：还是困住，不再转
+    deg(99); periods(20); deg(30); periods(2);                               // 困住的时候主人到侧面：不原地转
+    set_free(30, 30, 30, 30, 30, 30, 30, 30, 255); periods(4);               // 右 19° 能走了：照常原地转向它（SPIN），不再困住
+    set_free(30, 30, 30, 30, 30, 30, 30, 30, 30);                            // 又全挡：重新找（先停下看）
+    scan_mode = 0; for (t = 0; t < 600 && !stuck[0]; t = t + 1) scan_drive;   // 差 1 个单位一圈：再转一步才困住
+    if (!stuck[0]) begin $display("FAIL scan: never got stuck the second time"); errors = errors + 1; end
+    lose; deg(-30); periods(14);                                             // 停车（LOST）以后找出口作废；主人在左：往左转
+    set_free(255, 30, 30, 30, 30, 30, 30, 30, 30); periods(3);               // 转的时候左边出现能走的：照常绕
+    set_free(30, 30, 30, 30, 30, 30, 30, 30, 30); deg(10); periods(3);
+    deg(99); periods(30);                                                    // 找出口的时候主人到了侧面：不原地转
+    tgt_cm = 150; periods(2);                                                // HERE：找出口作废
+    deg(10); periods(2);                                                     // （主人还在侧面就先原地转向主人：全挡着也是）
+    tgt_cm = 400; periods(115);                                              // 重新找；另一组每步都转不动 → 转了 8 步（2 圈的步数）就困住
+    lose; periods(2);                                                        // LOST：困住作废
+    all_free; deg(0); periods(5);
 
     // ======== B. 闭环：车的模型 ========
     VPWM = 1.15e-4; TRACK = 0.130;
@@ -549,6 +716,25 @@ initial begin
     if (omax > 6.0 || omin < -6.0) begin $display("FAIL closed loop: not facing the owner after the pivot"); errors = errors + 1; end
     set_free(255, 255, 255, 255, 80, 255, 255, 255, 255); periods(15);   // 绕障
     all_free; periods(60);
+    // 找出口：四面都是墙，只有一个口子（在主人那边，车头右 70°）
+    lose; tgt_cm = 800;
+    world_gap = yr[0] + 70.0 * 182.04; owner[0] = world_gap; owner[1] = yr[1] + 70.0 * 182.04;
+    world_open = 1; world_on = 1;
+    sv = cnt[3]; sv2 = cnt[7];
+    track(100); track(50);
+    $display("closed loop scan to a gap: BLK %0d SPIN %0d periods, owner %0.2f ~ %0.2f deg (last second)", cnt[3] - sv, cnt[7] - sv2, omin, omax);
+    if (cnt[3] - sv < 10 || cnt[7] - sv2 < 2) begin $display("FAIL closed loop: did not scan for the gap"); errors = errors + 1; end
+    if (stuck[0] || omax > 6.0 || omin < -6.0) begin $display("FAIL closed loop: not heading through the gap"); errors = errors + 1; end
+    // 没有口子：转满一圈以后困住、停着
+    world_open = 0; turned = 0.0;
+    for (t = 0; t < 600 && !stuck[0]; t = t + 1) begin yp = yaw0; periods(1); turned = turned + hdeg(yaw0, yp); end
+    $display("closed loop no gap: stuck after %0d periods, turned %0.1f deg", t, turned);
+    if (!stuck[0] || turned < 360.0 && turned > -360.0 || turned > 450.0 || turned < -450.0) begin $display("FAIL closed loop: should give up after turning one full circle"); errors = errors + 1; end
+    periods(10); yp = yaw0; periods(10);
+    if (!stuck[0] || hdeg(yaw0, yp) > 0.5 || hdeg(yaw0, yp) < -0.5) begin $display("FAIL closed loop: should stay stopped while stuck"); errors = errors + 1; end
+    world_gap = yr[0]; world_open = 1; periods(10);                     // 车头前面出现口子：出来
+    if (stuck[0]) begin $display("FAIL closed loop: still stuck with a gap ahead"); errors = errors + 1; end
+    world_on = 0; all_free;
     plant = 0; rate_(0);
     repeat (5) one_tick;
 
@@ -571,6 +757,19 @@ initial begin
     if (c_dbkeep < 1 || c_dbeq < 1 || c_dbret < 1 || c_avkeep < 1 || c_avret < 1 || c_holdlock < 1 || c_wrap < 1 || c_dterm < 1 || c_iclp < 1 || c_iclpn < 1 ||
         c_tclp < 1 || c_tclpa < 1 || c_efloor < 1 || c_pclamp < 1 || c_prot < 1 || c_nimu < 2 || c_lostnimu < 2 || c_round < 1) begin
         $display("FAIL scene setup: some heading-loop case was not exercised"); errors = errors + 1;
+    end
+    $display("far: avd %0d edge %0d gap %0d ang3 %0d ang4 %0d none %0d t0 %0d limit %0d hyst %0d keep %0d retarget %0d; hold-part %0d nopiv hold %0d scan %0d pivot-after %0d",
+             c_far, c_far_eq, c_far_gap, c_far_ang3, c_far_ang4, c_far_none, c_far_t0, c_far_lim, c_far_hyst, c_far_keep, c_far_ret, c_hold_part, c_nopiv_hold, c_nopiv_scan, c_piv_after);
+    $display("scan: start %0d exit %0d stop %0d left %0d short-1 %0d backwards %0d exact %0d timeout %0d stuck %0d stuck-stay %0d",
+             c_sc_start, c_sc_exit, c_sc_stop, c_sc_left, c_sc_lt, c_sc_neg, c_sc_eq, c_sc_to, c_stuck, c_stuck_stay);
+    if (c_far < 1 || c_far_eq < 2 || c_far_gap < 1 || c_far_ang3 < 2 || c_far_ang4 < 2 || c_far_none < 1 || c_far_t0 < 1 || c_far_lim < 1 ||
+        c_far_hyst < 1 || c_far_keep < 1 || c_far_ret < 1 || c_hold_part < 1 || c_nopiv_hold < 1 || c_nopiv_scan < 1 || c_piv_after < 1) begin
+        $display("FAIL scene setup: some far-obstacle / hold case was not exercised"); errors = errors + 1;
+    end
+    $display("scan total: exact-circle %0d one-short %0d step-limit %0d", c_tot_eq, c_tot_lt, c_stuck_max);
+    if (c_sc_start < 3 || c_sc_exit < 2 || c_sc_stop < 2 || c_sc_left < 1 || c_sc_lt < 1 || c_sc_neg < 1 || c_sc_eq < 1 || c_sc_to < 1 || c_stuck < 2 || c_stuck_stay < 1 ||
+        c_tot_eq < 1 || c_tot_lt < 1 || c_stuck_max < 1) begin
+        $display("FAIL scene setup: some scan case was not exercised"); errors = errors + 1;
     end
     if (errors == 0) $display("PASS  tb_follow");
     else             $display("FAIL  tb_follow: %0d error(s)", errors);

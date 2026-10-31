@@ -50,7 +50,7 @@ flowchart LR
 
 正常模式下，跟随和视觉避障决策在 FPGA；STM32 接收三路 UWB 并选择目标，把左右轮命令落实到电机，另外控制尾巴。STM32 按键进入的独立跟随模式会接管电机：长按 KEY1 进入，长按 KEY2 退出。排查 FPGA 修改是否生效时，要确认车处于正常模式。
 
-FPGA `tail/mc_tail.v` 和 `mc_stepper_emm.v` 仍保留，但顶层实例和输出管脚已经注释。`mc_behavior` 的喂食音效有效，顶层 `I_near`、`I_bark` 接常量 0；不能把模块具备的摇尾/狗叫能力当作当前整机已经启用的功能。
+FPGA `tail/mc_tail.v` 和 `mc_stepper_emm.v` 仍保留，但顶层实例和输出管脚已经注释。`mc_behavior` 的喂食音效有效；10-30 起狗叫也接上了（UWB 丢了 / 10 m 外 / 跟随困住，见 `hmi_tail.md` §1）。顶层 `I_near` 仍接常量 0，摇尾巴没有启用。
 
 ## 4. 视频与显示
 

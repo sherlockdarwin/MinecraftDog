@@ -121,13 +121,13 @@ localparam [6:0]  OBS_REF_Y1     = 7'd89;
 localparam [11:0] OBS_TC         = 12'd12;     // 地面颜色门限：越大越容易把东西判成障碍
 localparam [11:0] OBS_TY         = 12'd12;
 localparam [2:0]  OBS_YSPREAD    = 3'd2;       // 地面亮度宽容度（每格 16 级）：反光 / 阴影的地面被判成障碍就加大（最大 7），和地面一样灰的东西判不出来就减小（10-30：回到最开始的 2，识别更灵敏；4 太宽、3 偏宽）
-localparam [6:0]  OBS_ROW_MIN    = 7'd60;      // 只判断画面最下面这些行（160×90 网格第 60~89 行 = 下 1/3 = 镜头前约 49 cm ~ 1.35 m；第 55 行约 2 m、第 70 行约 84 cm，见 mc_obs_lut.v）
+localparam [6:0]  OBS_ROW_MIN    = 7'd53;      // 判断画面第 53~89 行（160×90 网格）= 镜头前约 49 cm ~ 2.36 m（10-30 由 60 = 1.35 m 改远，给 AVOID_FAR_CM 提前绕用；1~1.35 m 的照样只是"看得见、不算挡路"）。第 52 行以上 > 2.5 m、第 44 行以上是地平线以上，没有距离。第 60 行 1.35 m、55 行约 2 m、70 行约 84 cm，见 mc_obs_lut.v
 localparam [7:0]  OBS_D_CAP      = 8'd150;     // 选方向最远算到多少厘米
 localparam [7:0]  OBS_D_STOP     = 8'd60;      // 最好的方向也不到这么远（厘米）→ 屏幕第 4 行 STOP、不画绿条（镜头竖直装最近只看得到约 49 cm，和 AVOID_SPIN_CM 一样取 60）
 // ---- 跟随 + 避障决策 + 角度环（mc_follow，每 20 ms 一次，PWM 满量程 8000；运行逻辑见 obstacle.md §6）----
 // 跟随（前进量、原地转的条件和 STM32 follow.h 一样；转向改成陀螺仪角度环）
-localparam       FOLLOW_STOP_CM     = 300;     // 离主人这么近就停
-localparam       FOLLOW_START_PWM   = 3000;    // 起步（600 推不动，2500 能走）
+localparam       FOLLOW_STOP_CM     = 200;     // 离主人这么近就停，再远就走过去（10-30：3 m 改成 2 m。别再小于约 1.5 m：主人的脚进了 1 m 会被当成挡路）
+localparam       FOLLOW_START_PWM   = 3300;    // 起步（600 推不动，2500 能走；10-30 由 3000 提高到 3300）
 localparam       FOLLOW_KP_D        = 10;      // 每远 1 cm 多加多少
 localparam       FOLLOW_MAX_FWD     = 5000;
 localparam       FOLLOW_ANGLE_FILTER= 3;       // 主人方向平滑：每次只跟上新方向的 1/3
@@ -140,6 +140,7 @@ localparam       FOLLOW_MAX_WHEEL   = 6500;
 localparam       FOLLOW_ACC         = 200;     // 前进斜坡：每 20 ms 最多加 / 减
 localparam       FOLLOW_DEC         = 400;
 localparam       FOLLOW_TURN_SLEW   = 600;     // 转向每 20 ms 最多变多少
+localparam       FOLLOW_CMS_FULL    = 92;      // 满量程 8000 时车每秒走多少厘米（没测过，估的；只用来把 AVOID_HOLD_CM 换成"前进量 × 时间"）
 // 角度环（陀螺仪；转向 = KP × 误差 + KI × 误差积分 − KD × 角速度，见 obstacle.md §6 ⑤，还没上车调）
 localparam       HEAD_KP            = 55;      // 每 1° 误差转多少 PWM：转得慢 / 拐不过去 → 加大；左右摆 → 减小
 localparam       HEAD_KI            = 20;      // 每 1° 误差每秒累加多少 PWM：走直线时一直偏一点 → 加大
@@ -149,14 +150,19 @@ localparam       HEAD_I_ZONE        = 10;      // 误差在 10° 以内才积分
 localparam       HEAD_TURN_MAX      = 800;     // 跟随（GO）时转向最多多少 PWM
 // 避障（FPGA 加的，还没上车调）
 localparam       AVOID_CM           = 100;     // 正前方或主人方向不到这么远 = 挡路；绕行方向先挑能走这么远的
-localparam       AVOID_CLEAR_CM     = 60;      // 实在没有，退一步挑能走这么远的；再没有就停（BLK）
+localparam       AVOID_CLEAR_CM     = 60;      // 实在没有，退一步挑能走这么远的；再没有就找出口（AVOID_SCAN_*）
 localparam       AVOID_SPIN_CM      = 60;      // 正前方不到这么远：原地转向能走的方向（SPIN）。镜头竖直装，最近只看得到约 49 cm（画面最下面 9 行 = 49~59 cm）
 localparam       AVOID_KP_OBS       = 20;      // 前进上限 = 起步 + (前面能走多远 − AVOID_CLEAR_CM) × 这个
 localparam       AVOID_SPIN_PWM     = 2200;
 localparam       AVOID_TURN_MAX     = 1200;    // 绕行（AVD）时转向最多多少 PWM
-localparam       AVOID_HOLD_MS      = 500;     // 绕过去以后先保持航向直走多久再朝主人转（障碍出了视场还在旁边）
+localparam       AVOID_HOLD_CM      = 50;      // 绕过去以后先保持航向直走多远（约一个车长）再朝主人转（障碍出了视场还在旁边；10-30 由 0.5 s 改成按距离）；这段里也不原地转
 localparam       AVOID_W_TGT        = 2;       // 挑方向的代价 = W_TGT × |方向 − 主人| + W_PREV × |方向 − 上次绕的方向|
 localparam       AVOID_W_PREV       = 1;
+localparam       AVOID_FAR_CM       = 200;     // 远处挡路：主人在前面（±17° 左右）、那个方向 2 m 以内有东西 → 提前挑别的方向绕（改成 ≤ AVOID_CM 就不提前绕）
+localparam       AVOID_OWNER_GAP_CM = 60;      //   只算比主人（UWB 距离）近 60 cm 以上的：再远的可能是主人自己的腿
+localparam       AVOID_SCAN_DEG     = 20;      // 哪边都走不了（都 < AVOID_CLEAR_CM）：原地一步转 20°（往主人那边）……
+localparam       AVOID_SCAN_PAUSE_MS= 200;     //   ……每步停 0.2 s 看清楚；转满一圈还没有出口 → 困住：停着、狗叫
+localparam       AVOID_SCAN_STEP_MS = 1000;    //   一步转了 1 s 还没转够 20°（电机推不动）也算一步
 // ---- 按键 ----
 localparam       KEY_LONG_MS     = 800;        // 长按判定时间
 localparam       RST_HOLD_MS     = 2000;       // SW1 按住多久整机复位；0 = 取消这个功能
@@ -176,6 +182,8 @@ localparam [5:0] AUD_SPK_VOL     = 6'd22;      // 喇叭音量：寄存器值 0~
 localparam [6:0] AUD_BGM_CLIP    = 7'd1;       // 背景音乐 = TF 卡根目录的 1.wav（上电自动循环播放）
 localparam [6:0] AUD_EAT_CLIP    = 7'd2;       // 进食音效 = 2.wav
 localparam [6:0] AUD_BARK_CLIP   = 7'd3;       // 狗叫音效 = 3.wav
+localparam       BARK_CM         = 999;        // 主人这么远（厘米）就叫：STM32 超过 999 cm 都发 999，所以现在 = 10 m 以上（要 20 m 得把协议改成 4 位距离）
+localparam       BARK_MS         = 1000;       // 太远 / 收不到 UWB 要连续这么久才叫（STM32 的线不通不叫）；困住（转一圈没出口）马上叫
 // 混音固定：背景音乐在左喇叭口 J12、音效在右喇叭口 J11（两个口各接一个喇叭）
 
 // =============================================================================
@@ -411,6 +419,7 @@ wire [9:0]         S_uwb_cm;
 wire               S_cmd_valid, S_cmd_stop;
 wire signed [13:0] S_cmd_l, S_cmd_r;
 wire [3:0]         S_cmd_state;
+wire               S_follow_stuck;                     // 转了一圈没有出口（狗叫）
 
 mc_m0_link u_m0 (
     .I_clk       (S_clk_100m),
@@ -454,11 +463,12 @@ mc_follow #(
     .STOP_CM (FOLLOW_STOP_CM), .START_PWM (FOLLOW_START_PWM), .KP_D (FOLLOW_KP_D), .MAX_FWD (FOLLOW_MAX_FWD),
     .ANGLE_FILTER (FOLLOW_ANGLE_FILTER), .DEADBAND (FOLLOW_DEADBAND),
     .PIVOT_ENTER (FOLLOW_PIVOT_ENTER), .PIVOT_CONFIRM_MS (FOLLOW_PIVOT_MS), .PIVOT_EXIT (FOLLOW_PIVOT_EXIT), .PIVOT_PWM (FOLLOW_PIVOT_PWM),
-    .MAX_WHEEL (FOLLOW_MAX_WHEEL), .ACC (FOLLOW_ACC), .DEC (FOLLOW_DEC), .TURN_SLEW (FOLLOW_TURN_SLEW),
+    .MAX_WHEEL (FOLLOW_MAX_WHEEL), .ACC (FOLLOW_ACC), .DEC (FOLLOW_DEC), .TURN_SLEW (FOLLOW_TURN_SLEW), .CMS_FULL (FOLLOW_CMS_FULL),
     .HEAD_KP (HEAD_KP), .HEAD_KI (HEAD_KI), .HEAD_KD (HEAD_KD), .HEAD_I_MAX (HEAD_I_MAX), .HEAD_I_ZONE (HEAD_I_ZONE), .TURN_MAX (HEAD_TURN_MAX),
     .AVOID_CM (AVOID_CM), .CLEAR_CM (AVOID_CLEAR_CM), .SPIN_CM (AVOID_SPIN_CM), .KP_OBS (AVOID_KP_OBS), .SPIN_PWM (AVOID_SPIN_PWM),
-    .AVOID_TURN_MAX (AVOID_TURN_MAX), .AVOID_HOLD_MS (AVOID_HOLD_MS),
-    .W_TGT (AVOID_W_TGT), .W_PREV (AVOID_W_PREV)
+    .AVOID_TURN_MAX (AVOID_TURN_MAX), .AVOID_HOLD_CM (AVOID_HOLD_CM),
+    .W_TGT (AVOID_W_TGT), .W_PREV (AVOID_W_PREV), .AVOID_FAR_CM (AVOID_FAR_CM), .OWNER_GAP_CM (AVOID_OWNER_GAP_CM),
+    .SCAN_DEG (AVOID_SCAN_DEG), .SCAN_PAUSE_MS (AVOID_SCAN_PAUSE_MS), .SCAN_STEP_MS (AVOID_SCAN_STEP_MS)
 ) u_follow (
     .I_clk       (S_clk_100m),
     .I_rst_n     (S_rst_n_100m),
@@ -476,7 +486,8 @@ mc_follow #(
     .O_cmd_l     (S_cmd_l),
     .O_cmd_r     (S_cmd_r),
     .O_state     (S_cmd_state),
-    .O_tgt_deg   (S_head_tgt_deg)
+    .O_tgt_deg   (S_head_tgt_deg),
+    .O_stuck     (S_follow_stuck)
 );
 
 wire        S_dsi_clk;
@@ -615,16 +626,22 @@ mc_hall #(
     .O_fed      (S_hall_fed)
 );
 
-// ---- 行为层：喂食时摇尾巴 + 播进食音效；UWB 的"距离 < 5 m 摇尾巴"、"丢了 / 太远就叫"以后接 I_near / I_bark（现在接 0）----
+// ---- 行为层：喂食时摇尾巴 + 播进食音效；主人太远（≥ BARK_CM）/ 收不到 UWB 连续 BARK_MS、或者困住了 → 狗叫；"距离 < 5 m 摇尾巴"以后接 I_near（现在接 0）----
 mc_behavior #(
     .EAT_CLIP    (AUD_EAT_CLIP),
-    .BARK_CLIP   (AUD_BARK_CLIP)
+    .BARK_CLIP   (AUD_BARK_CLIP),
+    .BARK_CM     (BARK_CM),
+    .BARK_MS     (BARK_MS)
 ) u_behavior (
     .I_clk         (S_clk_100m),
     .I_rst_n       (S_rst_n_100m),
+    .I_tick_1ms    (S_tick_1ms),
     .I_hall        (S_hall_fed),
     .I_near        (1'b0),
-    .I_bark        (1'b0),
+    .I_uwb_link    (S_uwb_link),
+    .I_uwb_ok      (S_uwb_ok),
+    .I_uwb_cm      (S_uwb_cm),
+    .I_stuck       (S_follow_stuck),
     .I_audio_ready (S_audio_ready),
     .I_sfx_busy    (S_sfx_busy),
     .I_sfx_state   (S_sfx_state),

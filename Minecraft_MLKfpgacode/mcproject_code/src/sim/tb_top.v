@@ -108,6 +108,11 @@ always @(posedge dut.S_clk_100m) if (wire_en) begin
     `WCHK(dut.u_audio.I_sfx_play, dut.u_behavior.O_sfx_play, "audio effect play is not the behaviour layer's")
     `WCHK(dut.u_audio.I_sfx_clip, dut.u_behavior.O_sfx_clip, "audio effect clip is not the behaviour layer's")
     `WCHK(dut.u_behavior.I_sfx_busy, dut.u_audio.O_sfx_busy, "behaviour layer sfx-busy is not the audio's")
+    `WCHK(dut.u_behavior.I_tick_1ms, dut.S_tick_1ms,     "behaviour layer 1 ms tick")
+    `WCHK(dut.u_behavior.I_uwb_link, dut.u_m0.O_rx_alive, "behaviour layer link-alive is not the MSPM0 link's")
+    `WCHK(dut.u_behavior.I_uwb_ok,   dut.u_m0.O_tgt_ok,   "behaviour layer UWB-ok is not the MSPM0 link's")
+    `WCHK(dut.u_behavior.I_uwb_cm,   dut.u_m0.O_tgt_cm,   "behaviour layer UWB distance is not the MSPM0 link's")
+    `WCHK(dut.u_behavior.I_stuck,    dut.u_follow.O_stuck, "behaviour layer stuck input is not the follow decision's")
 //  `WCHK(dut.u_dash.I_tail_seq,  dut.u_tail.O_seq,      "dashboard tail state is not the tail's O_seq")   （尾巴注释掉了）
     `WCHK(dut.u_dash.I_hall,      dut.u_hall.O_fed,      "dashboard hall input is not the debounced hall")
     `WCHK(dut.u_dash.I_key_pressed, dut.u_key.O_pressed, "dashboard key levels are not the key module's O_pressed")
@@ -361,7 +366,7 @@ initial begin
     if (dut.u_disp.SQ_V0 !== 452 || dut.u_disp.SQ_H !== 40)   fail("status square row / height parameters");
     if (dut.u_disp.TXT_V0 !== 496 || dut.u_disp.TXT_ROWS !== 6 || dut.u_disp.TXT_U0 !== 40 || dut.u_disp.TXT_COLS !== 45) fail("text box parameters");
     if (dut.u_dash.ROWS !== 6 || dut.u_dash.COLS !== 45) fail("dashboard rows / cols parameters");
-    if (dut.u_follow.STOP_CM !== 300 || dut.u_follow.START_PWM !== 3000 || dut.u_follow.KP_D !== 10 || dut.u_follow.MAX_FWD !== 5000 ||
+    if (dut.u_follow.STOP_CM !== 200 || dut.u_follow.START_PWM !== 3300 || dut.u_follow.KP_D !== 10 || dut.u_follow.MAX_FWD !== 5000 ||
         dut.u_follow.ANGLE_FILTER !== 3 || dut.u_follow.DEADBAND !== 4 ||
         dut.u_follow.PIVOT_ENTER !== 90 || dut.u_follow.PIVOT_CONFIRM_MS !== 300 || dut.u_follow.PIVOT_EXIT !== 40 ||
         dut.u_follow.PIVOT_PWM !== 2200 || dut.u_follow.MAX_WHEEL !== 6500 || dut.u_follow.ACC !== 200 || dut.u_follow.DEC !== 400 || dut.u_follow.TURN_SLEW !== 600) fail("follow parameters");
@@ -369,11 +374,14 @@ initial begin
         dut.u_follow.HEAD_I_ZONE !== 10 || dut.u_follow.TURN_MAX !== 800) fail("heading loop parameters");
     if (dut.u_follow.AVOID_CM !== 100 || dut.u_follow.CLEAR_CM !== 60 || dut.u_follow.SPIN_CM !== 60 || dut.u_follow.KP_OBS !== 20 ||
         dut.u_follow.SPIN_PWM !== 2200 || dut.u_follow.AVOID_TURN_MAX !== 1200 ||
-        dut.u_follow.AVOID_HOLD_MS !== 500 || dut.u_follow.W_TGT !== 2 || dut.u_follow.W_PREV !== 1) fail("avoidance parameters");
+        dut.u_follow.AVOID_HOLD_CM !== 50 || dut.u_follow.CMS_FULL !== 92 || dut.u_follow.W_TGT !== 2 || dut.u_follow.W_PREV !== 1) fail("avoidance parameters");
+    if (dut.u_follow.AVOID_FAR_CM !== 200 || dut.u_follow.OWNER_GAP_CM !== 60 ||
+        dut.u_follow.SCAN_DEG !== 20 || dut.u_follow.SCAN_PAUSE_MS !== 200 || dut.u_follow.SCAN_STEP_MS !== 1000) fail("far-obstacle / exit-scan parameters");
+    if (dut.u_behavior.BARK_CM !== 999 || dut.u_behavior.BARK_MS !== 1000 || dut.u_behavior.BARK_CLIP !== 3) fail("bark parameters");
 //  if (dut.u_tail.SWING_DEG !== 45 || dut.u_tail.RPM !== 10) fail("tail parameters");   （尾巴注释掉了）
     if (dut.u_disp.OBS_V0 !== 830 || dut.u_disp.REF_X0 !== 56 || dut.u_disp.REF_X1 !== 103 || dut.u_disp.REF_Y0 !== 82 || dut.u_disp.REF_Y1 !== 89) fail("obstacle view parameters of the display");
     if (dut.u_obs.u_core.u_class.YSPREAD !== dut.OBS_YSPREAD || dut.OBS_YSPREAD !== 2) fail("obstacle luma spread not passed down to the classifier");
-    if (dut.u_obs.u_core.u_scan.ROW_MIN !== 60 || dut.u_disp.ROW_MIN !== 60) fail("obstacle judged rows (ROW_MIN) not passed down to the scan / the display");
+    if (dut.u_obs.u_core.u_scan.ROW_MIN !== 53 || dut.u_disp.ROW_MIN !== 53) fail("obstacle judged rows (ROW_MIN) not passed down to the scan / the display");
     if (dut.u_obs.REF_X0 !== 56 || dut.u_obs.REF_X1 !== 103 || dut.u_obs.REF_Y0 !== 82 || dut.u_obs.REF_Y1 !== 89 || dut.u_obs.TC !== 12 || dut.u_obs.TY !== 12 ||
         dut.u_obs.D_CAP !== 150 || dut.u_obs.D_STOP !== 60) fail("obstacle parameters");
     if (dut.u_cam.CROP_X0_GRP !== 1 || dut.u_cam.CROP_Y0 !== 13 || dut.u_cam.OUT_H !== 448) fail("camera parameters (1920x1080 from group 1 / row 13, scaled to 448 rows)");
@@ -450,6 +458,10 @@ initial begin
     if (dut.u_dash.I_uwb_ok !== 1'b1 || dut.u_dash.I_uwb_deg !== 8'hE9 || dut.u_dash.I_uwb_cm !== 10'd456 || dut.u_dash.I_cmd_state !== 4'd12 ||
         dut.u_dash.I_cmd_l !== 14'd1234 || dut.u_dash.I_cmd_r !== 14'h3DC9) fail("dashboard follow inputs");
     if (dut.u_dash.I_uwb_link !== 1'b0) fail("dashboard link input is not the MSPM0 link's");
+    if (dut.u_behavior.I_uwb_link !== 1'b0 || dut.u_behavior.I_uwb_ok !== 1'b1 || dut.u_behavior.I_uwb_cm !== 10'd456) fail("behaviour layer UWB inputs are not the MSPM0 link's");
+    force dut.S_follow_stuck = 1'b1; #(100);
+    if (dut.u_behavior.I_stuck !== 1'b1) fail("behaviour layer stuck input is not the follow decision's");
+    release dut.S_follow_stuck; #(100);
     if (dut.u_follow.I_tgt_ok !== 1'b1 || dut.u_follow.I_tgt_deg !== -8'sd23 || dut.u_follow.I_tgt_cm !== 10'd456) fail("follow decision target inputs are not the MSPM0 link's");
     if (dut.u_follow.I_obs_free !== 72'h0123456789ABCDEF5A || dut.u_follow.I_obs_tog !== ~sv_rt) fail("follow decision obstacle inputs are not the obstacle subsystem's");
     if (dut.u_m0.I_cmd_stop !== 1'b0 || dut.u_m0.I_cmd_l !== 14'sd1234 || dut.u_m0.I_cmd_r !== -14'sd567) fail("MSPM0 link command inputs are not the follow decision's");
@@ -581,6 +593,21 @@ initial begin
     hall = 0;
     wait_sfx_idle(4000);
     #(3_000_000);
+
+    // ---------- 4b. 狗叫：STM32 的线通着、一直收不到 UWB（$S&）连续 BARK_MS（1000 "ms" = 10 ms）→ 循环播 3.wav；线断了（300 "ms" 没字节）就不叫 ----------
+    n1 = n_sfx_start;
+    for (i = 0; i < 3; i = i + 1) begin m0_send("$S&"); #(2_500_000); end   // 每 250 "ms" 一帧；约 760 "ms"，还没到 1 "s"（第一帧以后 10 ms）
+    if (n_sfx_start - n1 !== 0) begin $display("FAIL bark: %0d effects started before BARK_MS", n_sfx_start - n1); errors = errors + 1; end
+    for (i = 0; i < 5; i = i + 1) begin m0_send("$S&"); #(2_500_000); end   // 超过 1 "s"：叫
+    if (n_sfx_start - n1 < 1 || dut.u_audio.O_sfx_cur !== 7'd3) begin $display("FAIL bark: %0d effects started, current clip %0d (expected the bark sound 3)", n_sfx_start - n1, dut.u_audio.O_sfx_cur); errors = errors + 1; end
+    for (i = 0; i < 8; i = i + 1) begin m0_send("$S&"); #(2_500_000); end   // 一直丢着：循环叫
+    if (n_sfx_start - n1 < 2) begin $display("FAIL bark: only %0d barks while UWB stays lost", n_sfx_start - n1); errors = errors + 1; end
+    if (dut.u_audio.O_sfx_err !== 8'd0) begin $display("FAIL bark: sfx error code %0d", dut.u_audio.O_sfx_err); errors = errors + 1; end
+    #(4_000_000);                                                             // 不发了：300 "ms" 后线断，不再叫
+    wait_sfx_idle(4000);
+    n1 = n_sfx_start;
+    #(20_000_000);
+    if (n_sfx_start - n1 !== 0) begin $display("FAIL bark: %0d barks after the link went quiet", n_sfx_start - n1); errors = errors + 1; end
 
     // ---------- 5. 状态灯真值表（没有屏幕时靠 LED 判断初始化进度）----------
     // 视频块在这里是替身，所以用 force 把 DDR 校准 / 面板初始化 / 相机配置 / 图像帧 这四个状态拉到各种组合；

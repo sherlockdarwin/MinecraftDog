@@ -10,7 +10,11 @@
 //   音效：音频没准备好就等着；准备好以后只触发一次（磁铁没拿开就不重播）；播放中不重复触发；
 //         出错结束以后不重试，磁铁拿开再靠近才重新来；
 //         狗叫和进食音效冲突时排队（进食先、狗叫后；同一个时钟一起到来也一样），I_bark 一直为 1 就循环叫；
-//         狗叫变回 0 再来 → 再叫一次；狗叫出错结束后不重试，变回 0 再来才重试；进食音效出错后，狗叫正常播完也不会让它重试。
+//         狗叫变回 0 再来 → 再叫一次；狗叫出错结束后不重试，变回 0 再来才重试；进食音效出错后，狗叫正常播完也不会让它重试
+//         （上面这些"狗叫"用 I_stuck（困住了）驱动：马上叫）。
+//   狗叫的条件（UWB）：BARK_CM / BARK_MS 用和默认不一样的 500 / 7（毫秒节拍每 TK 个时钟一个）：
+//         距离正好 BARK_CM − 1 不叫、正好 BARK_CM 连续正好 BARK_MS 个节拍才叫（少一个节拍不叫）、一直远就循环叫、回来就不再叫；
+//         中途近了一个节拍 → 重新计时；丢了（I_uwb_ok = 0）也叫；线不通（I_uwb_link = 0）丢了 / 远都不叫。
 module tb_behavior_case (
     output reg        fin,
     output reg [31:0] err
@@ -23,6 +27,12 @@ reg clk = 0, rst_n = 0;
 always #5 clk = ~clk;
 
 reg hall = 0, near = 0, bark = 0, ready = 0;
+reg ulink = 0, uok = 0;
+reg [9:0] ucm = 0;
+localparam TK = 20;                       // 每 TK 个时钟一个"毫秒"节拍
+reg tick = 0;
+integer tcnt = 0;
+always @(posedge clk) begin tcnt <= (tcnt == TK - 1) ? 0 : tcnt + 1; tick <= (tcnt == TK - 1); end
 reg  fail_next = 0;
 
 wire        wag;
@@ -38,9 +48,9 @@ integer     n_play_eat = 0, n_play_bark = 0;
 integer     last_clip = 0;
 reg         pending_fail = 0;
 
-mc_behavior #(.EAT_CLIP(7'd2), .BARK_CLIP(7'd3)) dut (
-    .I_clk(clk), .I_rst_n(rst_n),
-    .I_hall(hall), .I_near(near), .I_bark(bark),
+mc_behavior #(.EAT_CLIP(7'd2), .BARK_CLIP(7'd3), .BARK_CM(500), .BARK_MS(7)) dut (
+    .I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick),
+    .I_hall(hall), .I_near(near), .I_uwb_link(ulink), .I_uwb_ok(uok), .I_uwb_cm(ucm), .I_stuck(bark),
     .I_audio_ready(ready), .I_sfx_busy(sfx_busy), .I_sfx_state(sfx_state), .I_tail_busy(tail_busy),
     .O_tail_wag(wag), .O_sfx_play(play), .O_sfx_clip(clip)
 );
@@ -85,6 +95,7 @@ task expect;
     end
 endtask
 task wait_clk; input integer n; begin repeat (n) @(posedge clk); end endtask
+task wait_ticks; input integer n; integer k; begin for (k = 0; k < n; k = k + 1) begin @(posedge clk); while (!tick) @(posedge clk); end end endtask   // 等 n 个节拍（停在第 n 个节拍那一拍）
 
 integer w0, p0, pe0, pb0;
 initial begin
@@ -213,6 +224,52 @@ initial begin
     expect("bark error, eat plays fine, bark does not retry", n_play_bark, pb0 + 1);
     hall = 0; bark = 0;
     wait_clk(SFX_T * 3);
+
+    // ---------- 狗叫的条件：太远 / 丢了（线通着）要连续 BARK_MS（7）个节拍 ----------
+    ulink = 1; uok = 1; ucm = 499;
+    pb0 = n_play_bark;
+    wait_clk(TK * 40);
+    expect("499 cm (BARK_CM - 1): no bark", n_play_bark, pb0);
+    wait_ticks(1); wait_clk(2);
+    ucm = 500;                                            // 两个节拍中间变远
+    wait_ticks(6); wait_clk(5);
+    expect("500 cm for 6 ticks: no bark yet", n_play_bark, pb0);
+    wait_ticks(1); wait_clk(5);
+    expect("500 cm for exactly 7 ticks: bark", n_play_bark, pb0 + 1);
+    expect("far bark clip number", last_clip, 3);
+    wait_clk(SFX_T * 4);
+    if (n_play_bark - pb0 < 4) begin $display("FAIL only %0d barks while the owner stays far (expected >= 4)", n_play_bark - pb0); err = err + 1; end
+    ucm = 499; wait_clk(SFX_T + 50);
+    pb0 = n_play_bark;
+    wait_clk(SFX_T * 3);
+    expect("owner back within BARK_CM: barking stops", n_play_bark, pb0);
+    // 中途近了一个节拍：重新计时
+    wait_ticks(1); wait_clk(2);
+    ucm = 600; wait_ticks(6); wait_clk(2);
+    ucm = 300; wait_ticks(1); wait_clk(2);
+    ucm = 600; wait_ticks(6); wait_clk(5);
+    expect("far 6 + near 1 + far 6 ticks: no bark (count restarted)", n_play_bark, pb0);
+    wait_ticks(1); wait_clk(5);
+    expect("far again for 7 ticks after the glitch: bark", n_play_bark, pb0 + 1);
+    ucm = 200; wait_clk(SFX_T * 3);
+    // 丢了（线通着）：也叫
+    pb0 = n_play_bark;
+    wait_ticks(1); wait_clk(2);
+    uok = 0; ucm = 0;
+    wait_ticks(6); wait_clk(5);
+    expect("lost for 6 ticks: no bark yet", n_play_bark, pb0);
+    wait_ticks(1); wait_clk(5);
+    expect("lost for 7 ticks (link up): bark", n_play_bark, pb0 + 1);
+    // 线不通：丢了 / 远都不叫
+    ulink = 0; wait_clk(SFX_T + 50);
+    pb0 = n_play_bark;
+    wait_clk(SFX_T * 3);
+    expect("no link, lost: no bark", n_play_bark, pb0);
+    uok = 1; ucm = 999;
+    wait_clk(SFX_T * 3);
+    expect("no link, far: no bark", n_play_bark, pb0);
+    ulink = 1; uok = 1; ucm = 100;
+    wait_clk(SFX_T * 2);
 
     // ---------- 复位 ----------
     rst_n = 0; wait_clk(3); rst_n = 1; wait_clk(5);
