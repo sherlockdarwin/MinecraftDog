@@ -11,6 +11,6 @@
 ../HARDWARE/UWB/uwb.c:240:6:UWB_GetMeasurement	24	static
 ../HARDWARE/UWB/uwb.c:251:31:UWB_FreshOrNull	24	static
 ../HARDWARE/UWB/uwb.c:279:6:UWB_GetTarget	56	static
-../HARDWARE/UWB/uwb.c:371:6:UWB_GetStats	24	static
-../HARDWARE/UWB/uwb.c:391:10:UWB_GetFrameCount	16	static
-../HARDWARE/UWB/uwb.c:405:6:UWB_IRQHandler	32	static
+../HARDWARE/UWB/uwb.c:393:6:UWB_GetStats	24	static
+../HARDWARE/UWB/uwb.c:413:10:UWB_GetFrameCount	16	static
+../HARDWARE/UWB/uwb.c:427:6:UWB_IRQHandler	32	static

@@ -335,6 +335,28 @@ bool UWB_GetTarget(uint32_t now_ms, UWB_Target *target)
                  (UWB_AbsAngle(left->azimuth_deg) < UWB_AbsAngle(right->azimuth_deg)))) ? -1 : 1;
     }
 
+    /* ── 曾经尝试(方案一：左右基站距离差判左右, 已撤回) ─────────────────────
+     * 左右基站横向间距约 10 cm, 距离差远小于 UWB 测距误差, 效果不佳。
+     * 代码留档于此, 不参与编译:
+#if 0
+    if ((left != NULL) && (right != NULL)) {
+        int32_t dist_diff = (int32_t)left->distance_cm - (int32_t)right->distance_cm;
+        if (dist_diff < -(int32_t)UWB_SIDE_DIST_MARGIN_CM)      { g_uwb_side = -1; }
+        else if (dist_diff > (int32_t)UWB_SIDE_DIST_MARGIN_CM)  { g_uwb_side =  1; }
+    } else if (left  != NULL) { g_uwb_side = -1; }
+    else if (right != NULL) { g_uwb_side =  1; }
+    else if ((forward != NULL) && (forward->azimuth_deg != 0) && (forward_error <= 60U)) {
+        g_uwb_side = (forward->azimuth_deg < 0) ? -1 : 1;
+    }
+    side = g_uwb_side;
+    if (side == 0) {
+        side = ((right == NULL) ||
+                ((left != NULL) &&
+                 (UWB_AbsAngle(left->azimuth_deg) < UWB_AbsAngle(right->azimuth_deg)))) ? -1 : 1;
+    }
+#endif
+     ──────────────────────────────────────────────────────────────────── */
+
     /* 2. 偏多少度 */
     if (side < 0) {
         side_anchor = (left != NULL) ? left : right;

@@ -48,6 +48,12 @@
 #define UWB_SIDE_TRUST_DEG            (60)
 #define UWB_SIDE_CONFIRM_FRAMES       (3)     /* 前基站每秒约 40 帧, 3 帧 = 75 ms */
 
+/* ── 曾经尝试(方案一：左右基站距离差判左右, 已撤回) ─────────────────────────
+ * 左右基站横向间距约 10 cm, 前基站偏左 ~4 cm / 偏右 ~6 cm,
+ * 距离差远小于 UWB 测距误差, 效果不佳, 已恢复前基站角度投票方案。
+ * #define UWB_SIDE_DIST_MARGIN_CM  (10)
+ * ─────────────────────────────────────────────────────────────────────── */
+
 typedef enum {
     UWB_ANCHOR_LEFT = 0,
     UWB_ANCHOR_FORWARD,
