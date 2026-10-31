@@ -2,7 +2,7 @@
 // 测试 mc_obs_core（分类 + 去噪 + 列扫描 / 扇区 / 合框 / 距离 / 选方向 + 送显示的写总线和双缓冲）。
 //   测试台自己按规格写一份模型（数组 + 循环，不照 RTL 的流水结构）：
 //     分类：Y=(R+2G+B)>>2，Cb=B−Y，Cr=R−Y，色度格 = 限幅(⌊(c+64)/8⌋, 0, 15)，亮度格 = Y>>4；
-//           地面 = Hc ≥ TC 且（第 NR 行以下 Hs，以上 Hy）≥ TY。只有判成地面的参考区点才计数（上电前 RF 帧、重学那一帧全部计数）。
+//           地面 = Hc ≥ TC 且（第 NR 行以下 Hs，以上 Hy）≥ TY。参考区点计数的条件：判成地面，或者同一列第 CHK = 82 − 6 行是地面（上电前 RF 帧、重学那一帧全部计数）。
 //           每帧结束：计数够参考区的 1/4（或全学）才更新：Hc ← Hc − ⌊Hc/4⌋ + Σ3×3 邻格的本帧参考区计数（≤ 4095），Hy 同理（±YS 格；本文件 YS = 2，tb_obs_core_ys4.v 用 4），Hs 同理（±YSN 格）；
 //           不够 = 模型不动，连续 RF 帧不够 → 下一帧全学。
 //     去噪：3×3 里 ≥ 5 个障碍（越界复制边上的点）。
@@ -27,7 +27,9 @@
 //   判断区上沿（第 22 帧，按 ROW_MIN 摆）：正好 ROW_MIN、ROW_MIN+1 两行（算）、跨过上沿（上沿截在 ROW_MIN）、只有 ROW_MIN 一行在里面（不算）、整块在上面（不管）。
 //   学习的门（第 7~9 帧、第 23~29 帧）：连续 RF 帧认不出参考区 → 下一帧全学（第 9、13 帧靠它教颜色；中间夹一帧能认出的就重新数）；
 //         墙进了参考区不学成地面（第 23 帧）；模型冻住时不衰减、正好 1/4 的点能认出就更新、差一个点就冻住（第 24~27 帧，靠颜色 M 的 16 → 12 → 9 衰减看出来）；
-//         近处 / 远处的亮度门限正好在 NR 行切换、近处判成障碍的颜色进参考区不学、地面慢慢变亮能跟上（第 28~29 帧）。
+//         近处 / 远处的亮度门限正好在 NR 行切换、近处判成障碍的颜色进参考区不学、地面慢慢变亮能跟上（第 28~29 帧）；
+//         花纹和墙（第 30~33 帧）：不认识的颜色从第 CHK 行一直连到参考区 = 墙，不学；只差一行（第 CHK 行是地面）= 花纹，学；参考区最左 / 最右一列也对；
+//         学过的花纹颜色衰减到门限以下以后，再进参考区还能学回来（不会一跌破就永远学不回来）。
 `ifndef TB_OBS_YS
 `define TB_OBS_YS 2
 `endif
@@ -56,9 +58,10 @@ localparam GEO_REAL = `TB_OBS_REAL;      // 0：测试专用的 15° 几何表�
 localparam DSTOP = `TB_OBS_DSTOP;        // 最好的方向也不到这么远就停（D_STOP）
 localparam YSN = `TB_OBS_YSN;            // 近处亮度放宽几格（YS_NEAR）：本文件 1（第 28~29 帧按它设计）；tb_obs_core_ys4.v 用 2
 localparam NR  = `TB_OBS_NR;             // 从第几行往下算近处（NEAR_ROW）：本文件 70（不是默认的 65，没传进去就对不上）；tb_obs_core_cur.v 用 mctop 现在的 65
-localparam TCV = `TB_OBS_TC;             // 地面门限（TC = TY）：本文件 12（第 9~14 帧的衰减边界按它设计）；tb_obs_core_cur.v 用 mctop 现在的 24，边界检查跳过，只比 RTL 和模型
+localparam TCV = `TB_OBS_TC;             // 地面门限（TC = TY）：本文件 12（第 9~14 帧的衰减边界按它设计）；tb_obs_core_cur.v 用 mctop 现在的 16，边界检查跳过，只比 RTL 和模型
 localparam RF  = 2;                      // RELEARN_FR：连续 2 帧认不出就重学（场景用得短一点）
 localparam REF_MIN = 96;                 // 参考区 48 × 8 = 384 点的 1/4
+localparam CHK = 76;                     // 第 82 − 6 行：这一行是地面，参考区里不认识的点算花纹
 integer F17_BOT;                        // 第 17 帧一整面墙的下沿：最靠下的、距离还 ≥ D_STOP 的一行（15° 表：67 = 35 cm 正好等于；车上的表按表算）
 integer F7_ROW;                         // 第 7 帧"全挡住"从这一行往下（15° 表：75；车上的表：F17_BOT 的下一行，已经 < D_STOP）
 
@@ -120,7 +123,7 @@ task init_geom;
             end
         end
         F17_BOT = RM; for (r = RM; r < 90; r = r + 1) if (LUT_D[r] >= DSTOP) F17_BOT = r;
-        F7_ROW = GEO_REAL ? F17_BOT + 1 : 75;
+        F7_ROW = 75;                                          // 要盖过第 CHK 行：立着的东西，不是花纹
         ct = $cos(tilt);                                      // 地面角度：列偏移 × cos(倾角) / F
         for (k = 0; k < 16; k = k + 1) SEC_DEG[k] = rnd($atan(((10.0 * k + 4.5) * 12.0 + 5.5 - 959.5) * ct / F) * 180.0 / PI);
         for (b = 0; b < 16; b = b + 1) HEAD_DEG[b] = rnd($atan((120.0 * b - 960.0) * ct / F) * 180.0 / PI);
@@ -182,7 +185,8 @@ localparam [23:0] C_X  = {8'd100, 8'd132, 8'd148},  // (10,4) / 8：色度只有
                   C_O  = {8'd20,  8'd20,  8'd20},   // 暗：障碍
                   C_M  = {8'd60,  8'd100, 8'd180},  // (15,1) / 6：色度谁都没教过，亮度在地面范围里（看衰减用）
                   C_T  = {8'd190, 8'd170, 8'd140},  // 地面色度 / 10：比地面（7~8）亮 2 格：远处算地面、近处算障碍
-                  C_N  = {8'd170, 8'd150, 8'd120};  // 地面色度 / 9：比地面亮 1 格，近处也算地面（参考区全换成它 = 地面慢慢变亮）
+                  C_N  = {8'd170, 8'd150, 8'd120},  // 地面色度 / 9：比地面亮 1 格，近处也算地面（参考区全换成它 = 地面慢慢变亮）
+                  C_Q  = {8'd30,  8'd110, 8'd70};   // (6,1) / 5：色度谁都没教过，亮度远处算地面、近处不算（花纹和墙用）
 function [24:0] special;                // {有, 颜色}
     input integer f, r, c;
     begin
@@ -254,8 +258,11 @@ function [24:0] special;                // {有, 颜色}
         if (f == 28 || f == 29) begin
             if (r >= NR - 3 && r <= NR + 2 && c >= 30 && c <= 49) special = {1'b1, C_T};    // T：NR 行以上算地面，往下算障碍
         end
-        if (f == 28 && r >= 84 && r <= 85 && c >= 60 && c <= 80) special = {1'b1, C_T};     // T 进参考区：近处算障碍，不学
+        if (f == 28 && r >= 72 && r <= 85 && c >= 60 && c <= 80) special = {1'b1, C_T};     // T 立在参考区里（一直连到第 CHK 行以上）：近处算障碍，不学
         if (f == 29 && r >= 82 && c >= 56 && c <= 103) special = {1'b1, C_N};              // 参考区全变亮 1 格：近处还认得（在 ±1 里）→ 学进去，T 这下也在 ±1 里了
+        if (f >= 30 && f <= 33 && r >= 40 && r <= 45 && c >= 24 && c <= 29) special = {1'b1, C_Q};   // 看 Q 认不认得
+        if (f == 30 && r >= CHK && r <= 84 && (c == 56 || c == 103 || (c >= 60 && c <= 69))) special = {1'b1, C_Q};     // 从第 CHK 行连到参考区：墙，不学
+        if (f == 31 && r >= CHK + 1 && r <= 84 && (c == 56 || c == 103 || (c >= 60 && c <= 69))) special = {1'b1, C_Q}; // 第 CHK 行是地面：花纹，学（36 个点：两头的列各 3 个、中间 30 个）
     end
 endfunction
 function [7:0] cl; input integer x; cl = (x < 0) ? 8'd0 : (x > 255) ? 8'd255 : x; endfunction
@@ -286,6 +293,7 @@ endfunction
 // ---------------- 模型 ----------------
 integer Hc [0:255], Hy [0:15], Hs [0:15], Ac [0:255], Ay [0:15];
 integer m_boot = 1, m_again = 0, m_frz = 0, m_nr = 0;   // 上电全学 / 重学这一帧 / 帧计数 / 这一帧学了几个点
+reg     ABOVE [0:159];                  // 第 CHK 行这一列是不是地面
 reg     RAW [0:14399], FLT [0:14399];
 reg [6:0] Y7 [0:14399];
 integer DPREV [0:15];
@@ -315,7 +323,8 @@ task model_frame;                       // 用当前模型给这一帧分类，�
                 bc = q16(cb) * 16 + q16(cr); by = y / 16;
                 RAW[r * 160 + c] = !(Hc[bc] >= TCV && ((r >= NR) ? Hs[by] : Hy[by]) >= TCV);
                 Y7[r * 160 + c] = y / 2;
-                if (c >= 56 && c <= 103 && r >= 82 && r <= 89 && (m_all || !RAW[r * 160 + c])) begin Ac[bc] = Ac[bc] + 1; Ay[by] = Ay[by] + 1; m_nr = m_nr + 1; end
+                if (r == CHK) ABOVE[c] = !RAW[r * 160 + c];
+                if (c >= 56 && c <= 103 && r >= 82 && r <= 89 && (m_all || !RAW[r * 160 + c] || ABOVE[c])) begin Ac[bc] = Ac[bc] + 1; Ay[by] = Ay[by] + 1; m_nr = m_nr + 1; end
             end
         // 模型更新：够 1/4 或者全学才更新
         upd = m_all || (m_nr >= REF_MIN);
@@ -615,6 +624,19 @@ initial begin
     check_frame(29, 1); disp_bank = pub_bank;                     // 参考区全部亮 1 格：还认得，学进去
     check_frame(29, 1); disp_bank = pub_bank;
     want(29, NR, 35, 0, 0, "T near (floor drifted brighter)");
+    // 花纹和墙：Q 从第 CHK 行连到参考区 = 墙，不学；第 CHK 行是地面 = 花纹，学
+    check_frame(27, 1); disp_bank = pub_bank; check_frame(27, 1); disp_bank = pub_bank;   // 地面回到正常
+    check_frame(30, 1); disp_bank = pub_bank; want(30, 42, 26, 0, 1, "Q (never seen)");
+    check_frame(30, 1); disp_bank = pub_bank; want(30, 42, 26, 0, 1, "Q (wall, not learned)");
+    if (Hc[6 * 16 + 1] != 0) begin $display("FAIL scene setup: Q should not be in the model, %0d", Hc[6 * 16 + 1]); errors = errors + 1; end
+    check_frame(31, 1); disp_bank = pub_bank; want(31, 42, 26, 0, 1, "Q (first frame in the reference)");
+    if (Hc[6 * 16 + 1] != 36) begin $display("FAIL scene setup: Q (flat pattern, both edge columns too) should be 36, is %0d", Hc[6 * 16 + 1]); errors = errors + 1; end
+    check_frame(32, 1); disp_bank = pub_bank; want(32, 42, 26, 0, 0, "Q (learned)");
+    // Q 不在参考区：一直衰减到门限以下，再进参考区也能学回来
+    for (i = 0; i < 16 && Hc[6 * 16 + 1] >= TCV; i = i + 1) begin check_frame(32, 1); disp_bank = pub_bank; end
+    check_frame(32, 1); disp_bank = pub_bank; want(32, 42, 26, 0, 1, "Q (decayed below the threshold)");
+    check_frame(31, 1); disp_bank = pub_bank;
+    check_frame(33, 1); disp_bank = pub_bank; want(33, 42, 26, 0, 0, "Q (learned back)");
     if (n_late_class != 0 || n_late_scan != 0) begin $display("FAIL testbench timing: %0d points during the model update, %0d while the scan was busy", n_late_class, n_late_scan); errors = errors + 1; end
     if (bad_bank != 0) begin $display("FAIL %0d writes went to the bank being displayed", bad_bank); errors = errors + 1; end
 

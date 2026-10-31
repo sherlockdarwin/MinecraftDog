@@ -118,8 +118,8 @@ localparam [7:0]  OBS_REF_X0     = 8'd56;      // 地面参考区（网格坐标
 localparam [7:0]  OBS_REF_X1     = 8'd103;
 localparam [6:0]  OBS_REF_Y0     = 7'd82;
 localparam [6:0]  OBS_REF_Y1     = 7'd89;
-localparam [11:0] OBS_TC         = 12'd24;     // 地面颜色门限：越大越容易把东西判成障碍（10-31 由 12 提到 24：地面样本里占 1.6% 以上的颜色才算地面）
-localparam [11:0] OBS_TY         = 12'd24;
+localparam [11:0] OBS_TC         = 12'd16;     // 地面颜色门限：越大越容易把东西判成障碍（24 时地板花纹都变紫，16 = 地面样本里占 1% 以上的颜色算地面）
+localparam [11:0] OBS_TY         = 12'd16;
 localparam [2:0]  OBS_YSPREAD    = 3'd2;       // 地面亮度宽容度（每格 16 级）：反光 / 阴影的地面被判成障碍就加大（最大 7），和地面一样灰的东西判不出来就减小（10-30：回到最开始的 2，识别更灵敏；4 太宽、3 偏宽）
 localparam [2:0]  OBS_YS_NEAR    = 3'd1;       // 近处（OBS_NEAR_ROW 行以下）亮度宽容度：和地面颜色接近的墙要靠它判出来；近处地板发紫 → 改成 2（= 10-30 以前）
 localparam [6:0]  OBS_NEAR_ROW   = 7'd65;      // 从这一行往下算近处（第 65 行 ≈ 1 m）

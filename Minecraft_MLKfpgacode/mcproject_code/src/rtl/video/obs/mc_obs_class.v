@@ -8,8 +8,9 @@
 //   2. 地面模型 = 三张直方图：Hc[Cb, Cr]（256 格）、Hy[Y]、Hs[Y]（16 格），12 位。Hy 放宽得多（远处用），Hs 放宽得少（近处用）。
 //      判断：Hc[这个点的格] ≥ TC 且 亮度表[这个点的格] ≥ TY → 地面（O_obs = 0），否则障碍（O_obs = 1）。
 //      亮度表：第 NEAR_ROW 行以下（近处，要不要撞墙看这里）用 Hs，再往上用 Hy（远处地面反光、亮度变化大，要放宽）。
-//   3. 学习：参考区（REF_X0~X1 列、REF_Y0~Y1 行）里**判成地面的点**在本帧计数 Ac / Ay、再数一共几个（Nr）。
-//      判成障碍的点不学：墙进了参考区不会被学成地面（以前全学，墙进来下一帧就变成地面，车直接撞上去）。一帧最后一个点处理完后：
+//   3. 学习：参考区（REF_X0~X1 列、REF_Y0~Y1 行）里这些点在本帧计数 Ac / Ay、再数一共几个（Nr）：判成地面的；判成障碍、但同一列再往前（第 REF_Y0 − REF_ABOVE 行）是地面的。
+//      立着的东西（墙）往画面上方一直连着，那一行也是障碍 → 不学：墙进了参考区不会被学成地面（以前全学，墙进来下一帧就变成地面，车直接撞上去）。
+//      贴在地上的花纹前面还是地面 → 照样学：不然某个花纹的颜色只要有一会儿跌破门限（参考区里暂时没有它），就再也学不回来了。一帧最后一个点处理完后：
 //        Nr ≥ 参考区点数的 1/4 → 更新模型：
 //          Hc[b] ← Hc[b] − Hc[b]/4 + Σ(b 和它周围 3×3 格的 Ac)     （色度相近的也算，避免落在格子边上的地面被当成障碍）
 //          Hy[y] ← Hy[y] − Hy[y]/4 + Σ(y−YSPREAD ~ y+YSPREAD 格的 Ay)（亮度放宽 ±YSPREAD 格，阴影 / 反光不至于全算成障碍）
@@ -33,6 +34,7 @@ module mc_obs_class #(
     parameter [2:0]  YS_NEAR = 3'd1,    // 近处（第 NEAR_ROW 行以下）亮度放宽几格，≤ YSPREAD
     parameter [6:0]  NEAR_ROW = 7'd65,  // 从这一行往下算近处（90 = 没有近处）
     parameter [9:0]  RELEARN_FR = 10'd300,  // 连续这么多帧认不出参考区 → 重学一帧；上电后也全学这么多帧（≥ 1）
+    parameter [6:0]  REF_ABOVE = 7'd6,  // 看参考区上面第几行来分花纹和墙（6 = 第 76 行，约 69 cm；比这矮的东西算花纹，参考区里约 3~5 cm 高）
     parameter [6:0]  LAST_ROW = 7'd89,
     parameter [7:0]  LAST_COL = 8'd159
 )(
@@ -58,7 +60,7 @@ module mc_obs_class #(
 wire [9:0] S_ysum = {2'd0, I_rgb[23:16]} + {1'd0, I_rgb[15:8], 1'b0} + {2'd0, I_rgb[7:0]};
 wire [7:0] S_y0   = S_ysum[9:2];
 
-reg        S1_v, S1_ref, S1_last, S1_near;
+reg        S1_v, S1_ref, S1_last, S1_near, S1_rcol, S1_chk;
 reg [6:0]  S1_row;
 reg [7:0]  S1_col;
 reg [7:0]  S1_y;
@@ -66,13 +68,15 @@ reg signed [9:0] S1_cb, S1_cr;
 
 always @(posedge I_clk or negedge I_rst_n) begin
     if (!I_rst_n) begin
-        S1_v <= 1'b0; S1_ref <= 1'b0; S1_last <= 1'b0; S1_near <= 1'b0; S1_row <= 7'd0; S1_col <= 8'd0; S1_y <= 8'd0;
+        S1_v <= 1'b0; S1_ref <= 1'b0; S1_last <= 1'b0; S1_near <= 1'b0; S1_rcol <= 1'b0; S1_chk <= 1'b0; S1_row <= 7'd0; S1_col <= 8'd0; S1_y <= 8'd0;
         S1_cb <= 10'sd0; S1_cr <= 10'sd0;
     end else begin
         S1_v    <= I_valid;
         S1_ref  <= I_valid && (I_col >= REF_X0) && (I_col <= REF_X1) && (I_row >= REF_Y0) && (I_row <= REF_Y1);
         S1_last <= I_valid && (I_row == LAST_ROW) && (I_col == LAST_COL);
         S1_near <= (I_row >= NEAR_ROW);
+        S1_rcol <= I_valid && (I_col >= REF_X0) && (I_col <= REF_X1);       // 参考区的列
+        S1_chk  <= (I_row == REF_Y0 - REF_ABOVE);                           // 看花纹和墙的那一行
         S1_row  <= I_row;
         S1_col  <= I_col;
         S1_y    <= S_y0;
@@ -113,6 +117,8 @@ assign O_busy = (S_est != E_IDLE);
 
 // 学习的门：参考区里判成地面的才学；全学的时候（上电、重学）不管
 localparam [9:0] REF_MIN = ((REF_X1 - REF_X0 + 1) * (REF_Y1 - REF_Y0 + 1)) / 4;   // 判成地面的点至少这么多才更新模型
+localparam       REF_W = REF_X1 - REF_X0 + 1;
+reg  [REF_W-1:0] S_above;               // 参考区的每一列：第 REF_Y0 − REF_ABOVE 行是不是地面（移位寄存器，[0] = 这一列；参考区每行转一圈）
 reg        S_boot, S_again;             // 上电后全学 / 重学一帧
 reg  [9:0] S_frz;                       // 上电后第几帧；之后是连续冻住了几帧
 reg  [9:0] S_nr;                        // 这一帧学了几个点
@@ -152,7 +158,7 @@ end
 // ---------------------------------------------------------------------------
 // 第 2 拍：查到直方图值 → 判断；参考区计数加 1（写在下一拍）
 // ---------------------------------------------------------------------------
-reg        S2_v, S2_ref, S2_last, S2_near;
+reg        S2_v, S2_ref, S2_last, S2_near, S2_rcol, S2_chk;
 reg [6:0]  S2_row;
 reg [7:0]  S2_col, S2_y, S2_bc;
 reg [3:0]  S2_by;
@@ -160,11 +166,11 @@ wire       S_gnd = (S_hc_rd >= TC) && ((S2_near ? S_hs_rd : S_hy_rd) >= TY);   /
 
 always @(posedge I_clk or negedge I_rst_n) begin
     if (!I_rst_n) begin
-        S2_v <= 1'b0; S2_ref <= 1'b0; S2_last <= 1'b0; S2_near <= 1'b0; S2_row <= 7'd0; S2_col <= 8'd0; S2_y <= 8'd0;
+        S2_v <= 1'b0; S2_ref <= 1'b0; S2_last <= 1'b0; S2_near <= 1'b0; S2_rcol <= 1'b0; S2_chk <= 1'b0; S2_row <= 7'd0; S2_col <= 8'd0; S2_y <= 8'd0;
         S2_bc <= 8'd0; S2_by <= 4'd0;
         O_valid <= 1'b0; O_row <= 7'd0; O_col <= 8'd0; O_y <= 8'd0; O_obs <= 1'b0;
     end else begin
-        S2_v <= S1_v; S2_ref <= S1_ref; S2_last <= S1_last; S2_near <= S1_near;
+        S2_v <= S1_v; S2_ref <= S1_ref; S2_last <= S1_last; S2_near <= S1_near; S2_rcol <= S1_rcol; S2_chk <= S1_chk;
         S2_row <= S1_row; S2_col <= S1_col; S2_y <= S1_y; S2_bc <= S_bin_c; S2_by <= S_bin_y;
         O_valid <= S2_v;
         O_row   <= S2_row;
@@ -200,14 +206,17 @@ reg         S_e_dv, S_e_dn;             // 上一拍发出的邻格读是否在�
 always @(posedge I_clk or negedge I_rst_n) begin
     if (!I_rst_n) begin
         S_est <= E_INIT; S_eb <= 9'd0; S_ej <= 4'd0; S_esum <= 12'd0; S_esn <= 12'd0; S_eh <= 12'd0; S_ehs <= 12'd0; S_pend_last <= 1'b0; S_e_dv <= 1'b0; S_e_dn <= 1'b0;
-        S_boot <= 1'b1; S_again <= 1'b0; S_frz <= 10'd0; S_nr <= 10'd0;
+        S_boot <= 1'b1; S_again <= 1'b0; S_frz <= 10'd0; S_nr <= 10'd0; S_above <= {REF_W{1'b0}};
         S_wc_ac <= 1'b0; S_wc_ay <= 1'b0; S_wc_hc <= 1'b0; S_wc_hy <= 1'b0; S_wc_hs <= 1'b0;
         S_wa_ac <= 8'd0; S_wa_hc <= 8'd0; S_wa_ay <= 4'd0; S_wa_hy <= 4'd0;
         S_wd_ac <= 9'd0; S_wd_ay <= 9'd0; S_wd_hc <= 12'd0; S_wd_hy <= 12'd0; S_wd_hs <= 12'd0;
     end else begin
         S_wc_ac <= 1'b0; S_wc_ay <= 1'b0; S_wc_hc <= 1'b0; S_wc_hy <= 1'b0; S_wc_hs <= 1'b0;
-        // 流：参考区计数 +1（第 2 拍读到的旧值），判成地面的才算
-        if (S2_v && S2_ref && (S_gnd || S_all)) begin                // 参考区在一帧最后，模型更新在两帧之间，不会撞上
+        // 看花纹和墙的那一行：把每一列是不是地面记下来；参考区每行转一圈，读完放回去
+        if (S2_rcol && S2_chk)       S_above <= {S_gnd, S_above[REF_W-1:1]};
+        else if (S2_ref)             S_above <= {S_above[0], S_above[REF_W-1:1]};
+        // 流：参考区计数 +1（第 2 拍读到的旧值）
+        if (S2_v && S2_ref && (S_gnd || S_all || S_above[0])) begin  // 参考区在一帧最后，模型更新在两帧之间，不会撞上
             S_wc_ac <= 1'b1; S_wa_ac <= S2_bc; S_wd_ac <= S_ac_rd + 9'd1;
             S_wc_ay <= 1'b1; S_wa_ay <= S2_by; S_wd_ay <= S_ay_rd + 9'd1;
             S_nr    <= S_nr + 10'd1;
