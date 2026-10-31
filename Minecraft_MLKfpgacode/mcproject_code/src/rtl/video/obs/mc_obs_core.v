@@ -21,6 +21,9 @@ module mc_obs_core #(
     parameter [11:0] TC     = 12'd12,
     parameter [11:0] TY     = 12'd12,
     parameter [2:0]  YSPREAD = 3'd2,
+    parameter [2:0]  YS_NEAR = 3'd1,
+    parameter [6:0]  NEAR_ROW = 7'd65,
+    parameter [9:0]  RELEARN_FR = 10'd300,
     parameter [6:0]  ROW_MIN = 7'd29,
     parameter [7:0]  D_CAP  = 8'd150,
     parameter [7:0]  D_STOP = 8'd35
@@ -56,7 +59,8 @@ wire       S_c_v, S_c_obs;
 wire [6:0] S_c_row;
 wire [7:0] S_c_col, S_c_y;
 mc_obs_class #(
-    .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1), .TC (TC), .TY (TY), .YSPREAD (YSPREAD)
+    .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1), .TC (TC), .TY (TY), .YSPREAD (YSPREAD),
+    .YS_NEAR (YS_NEAR), .NEAR_ROW (NEAR_ROW), .RELEARN_FR (RELEARN_FR)
 ) u_class (
     .I_clk (I_clk), .I_rst_n (I_rst_n),
     .I_valid (I_valid), .I_row (I_row), .I_col (I_col), .I_rgb (I_rgb),

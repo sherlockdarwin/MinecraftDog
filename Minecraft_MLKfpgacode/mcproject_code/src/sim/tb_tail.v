@@ -3,7 +3,7 @@
 //   1) 上电回零：INIT_DELAY_MS 到点后发且只发一遍"解除保护 → 使能 → 单圈就近回零 → 设坐标零点"（19 字节），
 //      回零帧和设零点帧之间隔 HOME_MS；O_seq = 1；之后再无字节。
 //   2) 回零做完之前（到点前 / 回零中）的摇摆请求一律不理（不排队）。
-//   3) 摇摆：使能 + 左 / 中 / 右 / 中 四个绝对位置帧（58 字节），段间隔 = 走完时间 MOVE_MS（按摆幅 / 转速向上取整）+ 停顿（两头 SIDE_PAUSE_MS、中间 CENTER_PAUSE_MS），最后一帧到空闲 = 走完时间 + 中间停顿；O_seq = 2；摇摆中再给摇摆命令不理。
+//   3) 摇摆：使能 + 左 / 右 / 中 三个绝对位置帧（45 字节，左直接摆到右，中间不停），段间隔 = 走完时间 MOVE_MS（按摆幅 / 转速向上取整；左 → 右两倍）+ 停顿（两头 SIDE_PAUSE_MS、一遍摇完回中 CENTER_PAUSE_MS），最后一帧到空闲 = 走完时间 + 中间停顿；O_seq = 2；摇摆中再给摇摆命令不理。
 //   4) 复位后重新回零一遍。
 //   5) 第二个实例换一组参数（地址 2、向左 = CW、减速比 3、摆幅 20°、900 RPM）核对摇摆帧，抓参数接错。
 //   发送线用测试台自己的解码器（不借用任何 RTL）：逐字节记录内容和时刻，并检查起始位 / 停止位 / 位宽。
@@ -216,13 +216,13 @@ initial begin
     expect_clear;
     ex(8'h01); ex(8'hF3); ex(8'hAB); ex(8'h01); ex(8'h00); ex(8'h6B);           // 使能
     pos_frame(8'h01, 1'b1, 16'd700, 8'd0, 32'd267);                              // 左 30°：CCW，267 脉冲
-    pos_frame(8'h01, 1'b0, 16'd700, 8'd0, 32'd0);                                // 中
-    pos_frame(8'h01, 1'b0, 16'd700, 8'd0, 32'd267);                              // 右 30°：CW
+    pos_frame(8'h01, 1'b0, 16'd700, 8'd0, 32'd267);                              // 右 30°：CW（直接过去，中间不发"回中"）
     pos_frame(8'h01, 1'b0, 16'd700, 8'd0, 32'd0);                                // 中
     compare_a("wag", s0);
-    // 帧间隔：使能 → 左 = GAP_MS(2)，左 → 中 = 8 + 2，中 → 右 = 8 + 4，右 → 中 = 8 + 2
-    gap_a(s0 + 5, 2); gap_a(s0 + 18, 10); gap_a(s0 + 31, 12); gap_a(s0 + 44, 10);
-    idle_gap("A", t_idle_a, mon_a.t[s0 + 57], 12);                           // 最后一帧（回中）→ 空闲 = 8 + 4
+    chk("wag is exactly 45 bytes (left, right, centre)", mon_a.n == s0 + 45);
+    // 帧间隔：使能 → 左 = GAP_MS(2)，左 → 右 = 8 + 2，右 → 中 = 2 × 8 + 2
+    gap_a(s0 + 5, 2); gap_a(s0 + 18, 10); gap_a(s0 + 31, 18);
+    idle_gap("A", t_idle_a, mon_a.t[s0 + 44], 12);                           // 最后一帧（回中）→ 空闲 = 8 + 4
     s0 = mon_a.n;
     repeat (15) @(posedge tick1ms);
     chk("only one wag", mon_a.n == s0);
@@ -247,7 +247,6 @@ initial begin
     expect_clear;
     ex(8'h02); ex(8'hF3); ex(8'hAB); ex(8'h01); ex(8'h00); ex(8'h6B);
     pos_frame(8'h02, 1'b0, 16'd900, 8'd7, 32'd533);                             // 左 = CW，3200×3×20/360 = 533
-    pos_frame(8'h02, 1'b0, 16'd900, 8'd7, 32'd0);
     pos_frame(8'h02, 1'b1, 16'd900, 8'd7, 32'd533);                             // 右 = CCW
     pos_frame(8'h02, 1'b0, 16'd900, 8'd7, 32'd0);
     compare_b("wag (instance B)", s0);
@@ -256,8 +255,8 @@ initial begin
     for (k = 0; k < 19; k = k + 1)
         if (mon_b.mem[k] !== exp[k]) begin $display("FAIL homing B byte %0d = %h, expected %h", k, mon_b.mem[k], exp[k]); errors = errors + 1; end
     gap_b(3, 1); gap_b(9, 1); gap_b(14, 3);                                    // GAP_MS = 1、HOME_MS = 3
-    gap_b(s0 + 5, 1); gap_b(s0 + 18, 13); gap_b(s0 + 31, 15); gap_b(s0 + 44, 13); // 走完 12（20°×3/(900×6) s = 11.1 ms）+ 停 1 / 3
-    idle_gap("B", t_idle_b, mon_b.t[s0 + 57], 15);                           // 12 + 3
+    gap_b(s0 + 5, 1); gap_b(s0 + 18, 13); gap_b(s0 + 31, 25);                  // 走完 12（20°×3/(900×6) s = 11.1 ms，左 → 右两倍）+ 停 1
+    idle_gap("B", t_idle_b, mon_b.t[s0 + 44], 15);                           // 12 + 3
 
     chk("tx waveform A (start/stop/bit width)", bad_a == 0);
     chk("tx waveform B (start/stop/bit width)", bad_b == 0);

@@ -14,6 +14,9 @@ module mc_obs #(
     parameter [11:0] TC     = 12'd12,   // 地面颜色门限（色度 / 亮度直方图）
     parameter [11:0] TY     = 12'd12,
     parameter [2:0]  YSPREAD = 3'd2,    // 学习地面时亮度往两边放宽几格（见 mc_obs_class.v）
+    parameter [2:0]  YS_NEAR = 3'd1,    // 近处放宽几格
+    parameter [6:0]  NEAR_ROW = 7'd65,  // 从这一行往下算近处
+    parameter [9:0]  RELEARN_FR = 10'd300,  // 连续这么多帧认不出参考区 → 重学一帧
     parameter [6:0]  ROW_MIN = 7'd29,   // 从这一行起往下才判断障碍（160×90 网格的行；再往上太远，先不管）
     parameter [7:0]  D_CAP  = 8'd150,   // 选方向最远算到 150 cm
     parameter [7:0]  D_STOP = 8'd35     // 最好的方向也不到 35 cm → 停
@@ -55,7 +58,7 @@ mc_obs_down u_down (
 
 mc_obs_core #(
     .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1),
-    .TC (TC), .TY (TY), .YSPREAD (YSPREAD), .ROW_MIN (ROW_MIN), .D_CAP (D_CAP), .D_STOP (D_STOP)
+    .TC (TC), .TY (TY), .YSPREAD (YSPREAD), .YS_NEAR (YS_NEAR), .NEAR_ROW (NEAR_ROW), .RELEARN_FR (RELEARN_FR), .ROW_MIN (ROW_MIN), .D_CAP (D_CAP), .D_STOP (D_STOP)
 ) u_core (
     .I_clk (I_clk), .I_rst_n (I_rst_n),
     .I_valid (S_d_v), .I_row (S_d_row), .I_col (S_d_col), .I_rgb (S_d_rgb),

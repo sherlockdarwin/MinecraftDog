@@ -2,7 +2,9 @@
 // 测试 mc_obs_core（分类 + 去噪 + 列扫描 / 扇区 / 合框 / 距离 / 选方向 + 送显示的写总线和双缓冲）。
 //   测试台自己按规格写一份模型（数组 + 循环，不照 RTL 的流水结构）：
 //     分类：Y=(R+2G+B)>>2，Cb=B−Y，Cr=R−Y，色度格 = 限幅(⌊(c+64)/8⌋, 0, 15)，亮度格 = Y>>4；
-//           每帧结束：Hc ← Hc − ⌊Hc/4⌋ + Σ3×3 邻格的本帧参考区计数（≤ 4095），Hy 同理（±YS 格；本文件 YS = 2，tb_obs_core_ys4.v 用 4）；地面 = Hc ≥ 12 且 Hy ≥ 12。
+//           地面 = Hc ≥ TC 且（第 NR 行以下 Hs，以上 Hy）≥ TY。只有判成地面的参考区点才计数（上电前 RF 帧、重学那一帧全部计数）。
+//           每帧结束：计数够参考区的 1/4（或全学）才更新：Hc ← Hc − ⌊Hc/4⌋ + Σ3×3 邻格的本帧参考区计数（≤ 4095），Hy 同理（±YS 格；本文件 YS = 2，tb_obs_core_ys4.v 用 4），Hs 同理（±YSN 格）；
+//           不够 = 模型不动，连续 RF 帧不够 → 下一帧全学。
 //     去噪：3×3 里 ≥ 5 个障碍（越界复制边上的点）。
 //     列扫描：只看第 ROW_MIN 行以下（宏 TB_OBS_RM，本文件 29；tb_obs_core_cur.v 用 mctop 现在的 53）；每列最靠下的一段连续 ≥ 2 行的障碍 → 上沿、下沿。
 //     扇区 / 合框 / 距离（实数公式：离地 174 mm；本文件和 _ys4 下倾 15°，配测试专用的固定几何表 models/mc_obs_lut_t15.v，下面的场景按它设计；
@@ -23,6 +25,9 @@
 //         只有最后一列碰到最后一行（一帧最后一个点）、只有 2 行高的障碍 + 扇区最后一列独有的最高 / 最低点、障碍距离正好等于车宽门限（算挡住）。
 //         （第 15~21 帧和第 2 帧的"场景检查"按 ROW_MIN = 29 设计，ROW_MIN 别的值时只比 RTL 和模型、不查场景。）
 //   判断区上沿（第 22 帧，按 ROW_MIN 摆）：正好 ROW_MIN、ROW_MIN+1 两行（算）、跨过上沿（上沿截在 ROW_MIN）、只有 ROW_MIN 一行在里面（不算）、整块在上面（不管）。
+//   学习的门（第 7~9 帧、第 23~29 帧）：连续 RF 帧认不出参考区 → 下一帧全学（第 9、13 帧靠它教颜色；中间夹一帧能认出的就重新数）；
+//         墙进了参考区不学成地面（第 23 帧）；模型冻住时不衰减、正好 1/4 的点能认出就更新、差一个点就冻住（第 24~27 帧，靠颜色 M 的 16 → 12 → 9 衰减看出来）；
+//         近处 / 远处的亮度门限正好在 NR 行切换、近处判成障碍的颜色进参考区不学、地面慢慢变亮能跟上（第 28~29 帧）。
 `ifndef TB_OBS_YS
 `define TB_OBS_YS 2
 `endif
@@ -35,11 +40,25 @@
 `ifndef TB_OBS_RM
 `define TB_OBS_RM 29
 `endif
+`ifndef TB_OBS_NR
+`define TB_OBS_NR 70
+`endif
+`ifndef TB_OBS_TC
+`define TB_OBS_TC 12
+`endif
+`ifndef TB_OBS_YSN
+`define TB_OBS_YSN 1
+`endif
 module tb_obs_core;
 localparam YS = `TB_OBS_YS;            // 亮度邻格放宽几格（YSPREAD）：本文件 2（下面的边界场景按 ±2 设计）；tb_obs_core_ys4.v 用 4、tb_obs_core_cur.v 用 mctop 现在的值（2）
 localparam RM = `TB_OBS_RM;            // 从第几行起判断障碍（ROW_MIN）：本文件 29（第 15~21 帧的场景按它设计）；tb_obs_core_cur.v 用 53（mctop 现在的值）
 localparam GEO_REAL = `TB_OBS_REAL;      // 0：测试专用的 15° 几何表；1：车上的几何表（mc_obs_lut.v）
 localparam DSTOP = `TB_OBS_DSTOP;        // 最好的方向也不到这么远就停（D_STOP）
+localparam YSN = `TB_OBS_YSN;            // 近处亮度放宽几格（YS_NEAR）：本文件 1（第 28~29 帧按它设计）；tb_obs_core_ys4.v 用 2
+localparam NR  = `TB_OBS_NR;             // 从第几行往下算近处（NEAR_ROW）：本文件 70（不是默认的 65，没传进去就对不上）；tb_obs_core_cur.v 用 mctop 现在的 65
+localparam TCV = `TB_OBS_TC;             // 地面门限（TC = TY）：本文件 12（第 9~14 帧的衰减边界按它设计）；tb_obs_core_cur.v 用 mctop 现在的 24，边界检查跳过，只比 RTL 和模型
+localparam RF  = 2;                      // RELEARN_FR：连续 2 帧认不出就重学（场景用得短一点）
+localparam REF_MIN = 96;                 // 参考区 48 × 8 = 384 点的 1/4
 integer F17_BOT;                        // 第 17 帧一整面墙的下沿：最靠下的、距离还 ≥ D_STOP 的一行（15° 表：67 = 35 cm 正好等于；车上的表按表算）
 integer F7_ROW;                         // 第 7 帧"全挡住"从这一行往下（15° 表：75；车上的表：F17_BOT 的下一行，已经 < D_STOP）
 
@@ -61,7 +80,7 @@ wire        res_tog;
 wire signed [6:0] go_deg, near_deg;
 wire [7:0]  go_free, near_cm;
 
-mc_obs_core #(.YSPREAD(YS), .ROW_MIN(RM), .D_STOP(DSTOP)) dut (
+mc_obs_core #(.TC(TCV), .TY(TCV), .YSPREAD(YS), .YS_NEAR(YSN), .NEAR_ROW(NR), .RELEARN_FR(RF), .ROW_MIN(RM), .D_STOP(DSTOP)) dut (
     .I_clk(clk), .I_rst_n(rst_n), .I_valid(v), .I_row(row), .I_col(col), .I_rgb(rgb),
     .O_wbus(wbus), .O_pub_bank(pub_bank), .O_pub_valid(pub_valid), .O_go(go), .I_disp_bank(disp_bank),
     .O_done(done), .O_sec_dist(sec_dist), .O_go_head(go_head), .O_go_deg(go_deg), .O_go_free(go_free),
@@ -160,7 +179,10 @@ localparam [23:0] C_X  = {8'd100, 8'd132, 8'd148},  // (10,4) / 8：色度只有
                   C_R5 = {8'd28,  8'd88,  8'd52},   // (6,3)
                   C_P5 = {8'd20,  8'd92,  8'd52},   // (6,2)：只靠 Cr+1 那个邻格（R5）
                   C_L  = {8'd20,  8'd14,  8'd0},     // (6,9) / 0：亮度只有 4 格外的 R1~R5（第 4 格）撑着 = YS 是 4 时的最后一个邻格；YS 小于 4 时够不着
-                  C_O  = {8'd20,  8'd20,  8'd20};   // 暗：障碍
+                  C_O  = {8'd20,  8'd20,  8'd20},   // 暗：障碍
+                  C_M  = {8'd60,  8'd100, 8'd180},  // (15,1) / 6：色度谁都没教过，亮度在地面范围里（看衰减用）
+                  C_T  = {8'd190, 8'd170, 8'd140},  // 地面色度 / 10：比地面（7~8）亮 2 格：远处算地面、近处算障碍
+                  C_N  = {8'd170, 8'd150, 8'd120};  // 地面色度 / 9：比地面亮 1 格，近处也算地面（参考区全换成它 = 地面慢慢变亮）
 function [24:0] special;                // {有, 颜色}
     input integer f, r, c;
     begin
@@ -224,6 +246,16 @@ function [24:0] special;                // {有, 颜色}
             if (r >= RM - 8 && r <= RM     && c >= 100 && c <= 109) special = {1'b1, C_O};
             if (r >= RM - 9 && r <= RM - 2 && c >= 130 && c <= 139) special = {1'b1, C_O};
         end
+        if (f == 23 && r >= 70 && r <= 84) special = {1'b1, C_O};            // 墙：下沿进了参考区 3 行（144 点），还有 240 点是地面
+        if (f >= 24 && f <= 27 && r >= 40 && r <= 45 && c >= 14 && c <= 19) special = {1'b1, C_M};   // 看 M 的衰减
+        if (f == 24 && r >= 70 && r <= 87) special = {1'b1, C_O};            // 参考区只剩 2 行地面 = 正好 96 点：照常更新
+        if (f == 25 && ((r >= 70 && r <= 87) || (r == 88 && c == 56))) special = {1'b1, C_O};   // 差一个点：95 点 → 冻住
+        if (f == 26 && r == 85 && c >= 70 && c <= 85) special = {1'b1, C_M};  // 教 M：16 个
+        if (f == 28 || f == 29) begin
+            if (r >= NR - 3 && r <= NR + 2 && c >= 30 && c <= 49) special = {1'b1, C_T};    // T：NR 行以上算地面，往下算障碍
+        end
+        if (f == 28 && r >= 84 && r <= 85 && c >= 60 && c <= 80) special = {1'b1, C_T};     // T 进参考区：近处算障碍，不学
+        if (f == 29 && r >= 82 && c >= 56 && c <= 103) special = {1'b1, C_N};              // 参考区全变亮 1 格：近处还认得（在 ±1 里）→ 学进去，T 这下也在 ±1 里了
     end
 endfunction
 function [7:0] cl; input integer x; cl = (x < 0) ? 8'd0 : (x > 255) ? 8'd255 : x; endfunction
@@ -252,7 +284,8 @@ function [23:0] scene;
 endfunction
 
 // ---------------- 模型 ----------------
-integer Hc [0:255], Hy [0:15], Ac [0:255], Ay [0:15];
+integer Hc [0:255], Hy [0:15], Hs [0:15], Ac [0:255], Ay [0:15];
+integer m_boot = 1, m_again = 0, m_frz = 0, m_nr = 0;   // 上电全学 / 重学这一帧 / 帧计数 / 这一帧学了几个点
 reg     RAW [0:14399], FLT [0:14399];
 reg [6:0] Y7 [0:14399];
 integer DPREV [0:15];
@@ -269,8 +302,9 @@ task model_frame;                       // 用当前模型给这一帧分类，�
     input integer f;
     integer r, c, y, cb, cr, bc, by, i, j, k, s, cnt, rr, cc, a, b, best, run_len, run_start, ltop, lbot, lhas;
     reg [23:0] p;
-    integer act, mt, mb, mx0, mx1, id, wv, wcap, order;
+    integer act, mt, mb, mx0, mx1, id, wv, wcap, order, m_all, upd;
     begin
+        m_all = m_boot | m_again; m_nr = 0;
         for (i = 0; i < 256; i = i + 1) Ac[i] = 0;
         for (i = 0; i < 16; i = i + 1) Ay[i] = 0;
         for (r = 0; r < 90; r = r + 1)
@@ -279,12 +313,16 @@ task model_frame;                       // 用当前模型给这一帧分类，�
                 y = (p[23:16] + 2 * p[15:8] + p[7:0]) / 4;
                 cb = p[7:0] - y; cr = p[23:16] - y;
                 bc = q16(cb) * 16 + q16(cr); by = y / 16;
-                RAW[r * 160 + c] = !(Hc[bc] >= 12 && Hy[by] >= 12);
+                RAW[r * 160 + c] = !(Hc[bc] >= TCV && ((r >= NR) ? Hs[by] : Hy[by]) >= TCV);
                 Y7[r * 160 + c] = y / 2;
-                if (c >= 56 && c <= 103 && r >= 82 && r <= 89) begin Ac[bc] = Ac[bc] + 1; Ay[by] = Ay[by] + 1; end
+                if (c >= 56 && c <= 103 && r >= 82 && r <= 89 && (m_all || !RAW[r * 160 + c])) begin Ac[bc] = Ac[bc] + 1; Ay[by] = Ay[by] + 1; m_nr = m_nr + 1; end
             end
-        // 模型更新
-        for (i = 0; i < 256; i = i + 1) begin
+        // 模型更新：够 1/4 或者全学才更新
+        upd = m_all || (m_nr >= REF_MIN);
+        if (m_boot) begin m_frz = m_frz + 1; if (m_frz == RF) begin m_boot = 0; m_frz = 0; end end
+        else if (upd) begin m_again = 0; m_frz = 0; end
+        else begin m_frz = m_frz + 1; if (m_frz == RF) begin m_again = 1; m_frz = 0; end end
+        if (upd) for (i = 0; i < 256; i = i + 1) begin
             s = 0;
             for (a = -1; a <= 1; a = a + 1)
                 for (b = -1; b <= 1; b = b + 1)
@@ -292,11 +330,15 @@ task model_frame;                       // 用当前模型给这一帧分类，�
             Hc[i] = Hc[i] - Hc[i] / 4 + s;
             if (Hc[i] > 4095) Hc[i] = 4095;
         end
-        for (i = 0; i < 16; i = i + 1) begin
+        if (upd) for (i = 0; i < 16; i = i + 1) begin
             s = 0;
             for (a = -YS; a <= YS; a = a + 1) if (i + a >= 0 && i + a <= 15) s = s + Ay[i + a];
             Hy[i] = Hy[i] - Hy[i] / 4 + s;
             if (Hy[i] > 4095) Hy[i] = 4095;
+            s = 0;
+            for (a = -YSN; a <= YSN; a = a + 1) if (i + a >= 0 && i + a <= 15) s = s + Ay[i + a];
+            Hs[i] = Hs[i] - Hs[i] / 4 + s;
+            if (Hs[i] > 4095) Hs[i] = 4095;
         end
         // 去噪
         for (r = 0; r < 90; r = r + 1)
@@ -482,7 +524,7 @@ initial begin
     init_geom;
     check_lut;
     for (i = 0; i < 256; i = i + 1) Hc[i] = 0;
-    for (i = 0; i < 16; i = i + 1) begin Hy[i] = 0; DPREV[i] = 255; end
+    for (i = 0; i < 16; i = i + 1) begin Hy[i] = 0; Hs[i] = 0; DPREV[i] = 255; end
     repeat (5) @(posedge clk);
     rst_n = 1;
     repeat (400) @(posedge clk);                                   // 上电清表
@@ -500,12 +542,19 @@ initial begin
     check_frame(6, 1); disp_bank = pub_bank;
     check_frame(6, 1); disp_bank = pub_bank;                     // 两帧都没有障碍（两帧取小以后才算没有）
     if (e_stop || e_go_head != 8 || e_near != 255) begin $display("FAIL scene setup: frame 6 should be clear straight ahead"); errors = errors + 1; end
-    check_frame(7, 1); disp_bank = pub_bank;
+    check_frame(7, 1); disp_bank = pub_bank;                     // 参考区全挡：冻住 1 帧（第 7 帧的颜色不学）
     if (!e_stop) begin $display("FAIL scene setup: frame 7 should stop"); errors = errors + 1; end
-    check_frame(8, 1); disp_bank = pub_bank;
-    // 边界场景：第 9 帧教，之后 16 → 12 → 9
+    if (m_again || m_frz != 1) begin $display("FAIL scene setup: frame 7 should freeze the model"); errors = errors + 1; end
+    check_frame(8, 1); disp_bank = pub_bank;                     // 能认出：重新数
+    if (m_frz != 0) begin $display("FAIL scene setup: frame 8 should restart the freeze count"); errors = errors + 1; end
+    check_frame(7, 1); disp_bank = pub_bank;
+    if (m_again) begin $display("FAIL scene setup: one frozen frame after frame 8 should not relearn"); errors = errors + 1; end
+    check_frame(7, 1); disp_bank = pub_bank;                     // 连续 2 帧：下一帧全学
+    if (!m_again) begin $display("FAIL scene setup: two frozen frames should relearn"); errors = errors + 1; end
+    // 边界场景：第 9 帧教（全学），之后 16 → 12 → 9
     check_frame(9, 1);  disp_bank = pub_bank; want_frame(9);
-    want(9, 42, 6, 0, 1, "X (model empty)");
+    want(9, 42, 6, 0, 1, "X (not in the model)");
+    if (TCV == 12) begin
     check_frame(10, 1); disp_bank = pub_bank; want_frame(10);
     want(10, 42, 6, 0, 0, "X (16)"); want(10, 42, 16, 0, 0, "Z (16)"); want(10, 42, 76, 0, 0, "P5 (16)"); want(10, 42, 86, 0, 0, "V"); want(10, 42, 106, 0, 0, "K (16)");
     want(10, 42, 116, 0, (YS >= 4) ? 0 : 1, "L (luma bin 0, only 4 bins up)");
@@ -513,10 +562,14 @@ initial begin
     want(11, 42, 6, 0, 0, "X (exactly 12)"); want(11, 42, 16, 0, 0, "Z (exactly 12)"); want(11, 42, 96, 0, 0, "U (exactly 12)");
     check_frame(12, 1); disp_bank = pub_bank; want_frame(12);
     want(12, 42, 6, 0, 1, "X (9)"); if (YS == 2) want(12, 42, 16, 0, 1, "Z (9)");   /* 这两条是按亮度 ±2 设计的边界，±4 时 Z / V 本来就算地面 */ want(12, 42, 76, 0, 1, "P5 (9)");
+    end else begin
+        check_frame(10, 1); disp_bank = pub_bank; check_frame(11, 1); disp_bank = pub_bank; check_frame(12, 1); disp_bank = pub_bank;
+    end
+    check_frame(7, 1); disp_bank = pub_bank; check_frame(7, 1); disp_bank = pub_bank;   // 第 13 帧要教 K：先冻住 2 帧（模型不动，衰减接着算）
     check_frame(13, 1); disp_bank = pub_bank; want_frame(13);
-    want(13, 42, 96, 0, 1, "U (7)"); want(13, 42, 106, 0, 1, "K (7)");
+    if (TCV == 12) begin want(13, 42, 96, 0, 1, "U (7)"); want(13, 42, 106, 0, 1, "K (7)"); end
     check_frame(14, 1); disp_bank = pub_bank; want_frame(14);
-    want(14, 42, 96, 0, 0, "U (bin 15 neighbour)"); want(14, 42, 106, 0, 0, "K (22)"); if (YS == 2) want(14, 42, 86, 0, 1, "V");
+    if (TCV == 12) begin want(14, 42, 96, 0, 0, "U (bin 15 neighbour)"); want(14, 42, 106, 0, 0, "K (22)"); if (YS == 2) want(14, 42, 86, 0, 1, "V"); end
     // 扫描 / 选方向的边界：每个场景放两帧
     check_frame(15, 1); disp_bank = pub_bank; check_frame(15, 1); disp_bank = pub_bank;
     if (RM == 29 && (e_go_head != 12 || HF[11] == 255)) begin $display("FAIL scene setup: frame 15 only heading 12 should be free"); errors = errors + 1; end
@@ -535,6 +588,33 @@ initial begin
     check_frame(22, 1); disp_bank = pub_bank; check_frame(22, 1); disp_bank = pub_bank;
     if (!m_has[2] || m_top[2] != RM || m_bot[2] != RM + 1 || !m_has[6] || m_top[6] != RM || m_bot[6] != RM + 3 || m_has[10] || m_has[13])
         begin $display("FAIL scene setup: frame 22 (rows around ROW_MIN = %0d)", RM); errors = errors + 1; end
+    // 学习的门：墙进了参考区
+    check_frame(23, 1); disp_bank = pub_bank; want(23, 75, 30, 1, 1, "wall");
+    check_frame(23, 1); disp_bank = pub_bank; want(23, 75, 30, 1, 1, "wall (not learned)"); want(23, 83, 80, 1, 1, "wall in the reference (not learned)");
+    check_frame(23, 1); disp_bank = pub_bank; want(23, 83, 80, 1, 1, "wall in the reference (3rd frame)");
+    // 正好 1/4 能认出：照常更新（M 16 → 12 → 9）；差一个点：冻住（M 不衰减）
+    check_frame(7, 1); disp_bank = pub_bank; check_frame(7, 1); disp_bank = pub_bank;   // 下一帧全学
+    check_frame(26, 1); disp_bank = pub_bank;                     // 教 M：16
+    if (Hc[15 * 16 + 1] != 16) begin $display("FAIL scene setup: M should be 16, is %0d", Hc[15 * 16 + 1]); errors = errors + 1; end
+    check_frame(24, 1); disp_bank = pub_bank;
+    if (Hc[15 * 16 + 1] != 12 || m_nr != REF_MIN) begin $display("FAIL scene setup: frame 24: M %0d, %0d reference points", Hc[15 * 16 + 1], m_nr); errors = errors + 1; end
+    check_frame(25, 1); disp_bank = pub_bank;
+    if (Hc[15 * 16 + 1] != 12 || m_nr != REF_MIN - 1) begin $display("FAIL scene setup: frame 25: M %0d, %0d reference points", Hc[15 * 16 + 1], m_nr); errors = errors + 1; end
+    if (TCV == 12) want(25, 42, 16, 0, 0, "M (12, frozen)");
+    check_frame(27, 1); disp_bank = pub_bank;
+    if (TCV == 12) want(27, 42, 16, 0, 0, "M (exactly 12)");
+    if (Hc[15 * 16 + 1] != 9) begin $display("FAIL scene setup: frame 27: M %0d", Hc[15 * 16 + 1]); errors = errors + 1; end
+    check_frame(27, 1); disp_bank = pub_bank;
+    want(27, 42, 16, 0, 1, "M (9)");
+    // 近处 / 远处的亮度门限；近处算障碍的颜色不学；地面慢慢变亮跟得上
+    check_frame(27, 1); disp_bank = pub_bank;                     // 第 26~27 帧的衰减走完，地面回到正常
+    check_frame(28, 1); disp_bank = pub_bank;
+    want(28, NR - 1, 35, 0, 0, "T far (ground)"); want(28, NR, 35, 0, (YSN == 1) ? 1 : 0, "T near (obstacle)");
+    check_frame(28, 1); disp_bank = pub_bank;
+    want(28, NR, 35, 0, (YSN == 1) ? 1 : 0, "T near (not learned)");
+    check_frame(29, 1); disp_bank = pub_bank;                     // 参考区全部亮 1 格：还认得，学进去
+    check_frame(29, 1); disp_bank = pub_bank;
+    want(29, NR, 35, 0, 0, "T near (floor drifted brighter)");
     if (n_late_class != 0 || n_late_scan != 0) begin $display("FAIL testbench timing: %0d points during the model update, %0d while the scan was busy", n_late_class, n_late_scan); errors = errors + 1; end
     if (bad_bank != 0) begin $display("FAIL %0d writes went to the bank being displayed", bad_bank); errors = errors + 1; end
 

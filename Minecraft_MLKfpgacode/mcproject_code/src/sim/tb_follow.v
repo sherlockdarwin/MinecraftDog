@@ -38,7 +38,7 @@ mc_follow d0 (.I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick), .I_tgt_ok(tgt_ok)
 mc_follow #(
     .STOP_CM(150), .START_PWM(2500), .KP_D(20), .MAX_FWD(6400), .ANGLE_FILTER(1), .DEADBAND(2),
     .PIVOT_ENTER(60), .PIVOT_CONFIRM_MS(200), .PIVOT_EXIT(30), .PIVOT_PWM(3000), .MAX_WHEEL(6000), .ACC(300), .DEC(500), .TURN_SLEW(700),
-    .HEAD_KP(25), .HEAD_KI(50), .HEAD_KD(10), .HEAD_I_MAX(250), .HEAD_I_ZONE(6), .TURN_MAX(1500),
+    .HEAD_KP(25), .HEAD_KI(50), .HEAD_KD(12), .HEAD_I_MAX(250), .HEAD_I_ZONE(6), .TURN_MAX(1400),
     .AVOID_CM(120), .CLEAR_CM(70), .SPIN_CM(50), .KP_OBS(30), .SPIN_PWM(6500), .AVOID_TURN_MAX(2500), .AVOID_HOLD_CM(30), .CMS_FULL(120), .W_TGT(3), .W_PREV(2),
     .AVOID_FAR_CM(180), .OWNER_GAP_CM(160), .SCAN_DEG(90), .SCAN_PAUSE_MS(60), .SCAN_STEP_MS(200)
 ) d1 (.I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick), .I_tgt_ok(tgt_ok), .I_tgt_deg(tdeg1), .I_tgt_cm(tgt_cm),
@@ -60,12 +60,12 @@ task set_params;
     begin
         P_STOP[0] = 200; P_START[0] = 3300; P_KPD[0] = 10; P_MAXF[0] = 5000; P_AF[0] = 3; P_DB[0] = 4;
         P_PIN[0] = 90; P_PCONF[0] = 300; P_POUT[0] = 40; P_PPWM[0] = 2200; P_MAXW[0] = 6500; P_ACC[0] = 200; P_DEC[0] = 400;
-        P_KP[0] = 55; P_KI[0] = 20; P_KD[0] = 8; P_IMAX[0] = 400; P_TMAX[0] = 800; P_SLEW[0] = 600; P_IZ[0] = 10;
-        P_AVOID[0] = 100; P_CLEAR[0] = 60; P_SPIN[0] = 60; P_KPO[0] = 20; P_SPWM[0] = 2200; P_AMAX[0] = 1200; P_HOLDCM[0] = 50; P_CMS[0] = 92; P_WT[0] = 2; P_WP[0] = 1;
+        P_KP[0] = 70; P_KI[0] = 20; P_KD[0] = 10; P_IMAX[0] = 400; P_TMAX[0] = 1500; P_SLEW[0] = 800; P_IZ[0] = 10;
+        P_AVOID[0] = 100; P_CLEAR[0] = 60; P_SPIN[0] = 60; P_KPO[0] = 20; P_SPWM[0] = 2200; P_AMAX[0] = 1500; P_HOLDCM[0] = 50; P_CMS[0] = 92; P_WT[0] = 2; P_WP[0] = 1;
         P_FAR[0] = 200; P_GAP[0] = 60; P_SDEG[0] = 20; P_SPAUSE[0] = 200; P_SSTEP[0] = 1000;
         P_STOP[1] = 150; P_START[1] = 2500; P_KPD[1] = 20; P_MAXF[1] = 6400; P_AF[1] = 1; P_DB[1] = 2;
         P_PIN[1] = 60; P_PCONF[1] = 200; P_POUT[1] = 30; P_PPWM[1] = 3000; P_MAXW[1] = 6000; P_ACC[1] = 300; P_DEC[1] = 500;
-        P_KP[1] = 25; P_KI[1] = 50; P_KD[1] = 10; P_IMAX[1] = 250; P_TMAX[1] = 1500; P_SLEW[1] = 700; P_IZ[1] = 6;
+        P_KP[1] = 25; P_KI[1] = 50; P_KD[1] = 12; P_IMAX[1] = 250; P_TMAX[1] = 1400; P_SLEW[1] = 700; P_IZ[1] = 6;
         P_AVOID[1] = 120; P_CLEAR[1] = 70; P_SPIN[1] = 50; P_KPO[1] = 30; P_SPWM[1] = 6500; P_AMAX[1] = 2500; P_HOLDCM[1] = 30; P_CMS[1] = 120; P_WT[1] = 3; P_WP[1] = 2;
         P_FAR[1] = 180; P_GAP[1] = 160; P_SDEG[1] = 90; P_SPAUSE[1] = 60; P_SSTEP[1] = 200;   // 间距 160 > 停车 150：好造"主人比间距还近"
         for (i = 0; i < 2; i = i + 1) KIC[i] = $rtoi(P_KI[i] * 20.0 * 256.0 / 1000.0 + 0.5);    // 规格：KI × 周期 × 256 / 1000 四舍五入
@@ -709,7 +709,7 @@ initial begin
     $display("closed loop 30 deg step: loop error %0.2f ~ %0.2f, owner %0.2f ~ %0.2f deg (3rd second)", emin, emax, omin, omax);
     if (emax > 1.5 || emin < -1.5 || omax > 6.0 || omin < -6.0) begin $display("FAIL closed loop: not settled within 3 s"); errors = errors + 1; end
     sv = cnt[4];
-    owner[0] = owner[0] + 150.0 * 182.04; owner[1] = owner[1] + 150.0 * 182.04; // 主人在右后方
+    owner[0] = owner[0] + 175.0 * 182.04; owner[1] = owner[1] + 175.0 * 182.04; // 主人在右后方（10-31 转向调快后，150° 在 0.3 秒确认完之前就转回 90° 以内了，边走边转，不原地转）
     track(100); track(50);
     $display("closed loop owner behind: TURN periods %0d, loop error %0.2f ~ %0.2f, owner %0.2f ~ %0.2f deg (last second)", cnt[4] - sv, emin, emax, omin, omax);
     if (cnt[4] - sv < 5) begin $display("FAIL closed loop: did not pivot"); errors = errors + 1; end

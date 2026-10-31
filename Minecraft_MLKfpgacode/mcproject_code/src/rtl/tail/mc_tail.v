@@ -9,7 +9,7 @@
 //     零点要先在驱动器上设一次（尾巴摆正中 → 驱动器菜单 O_Set → Set 0），掉电不丢；见 hmi_tail.md。
 //     为什么不是"绝对位置 0"：驱动器的坐标零点 = 它上电那一刻的位置，发"回到绝对 0"等于原地不动（以前的写法，上板没回中）。
 // 命令口：
-//     I_cmd_wag  单周期脉冲：摇摆一个来回：中 → 左 SWING_DEG° → 中 → 右 SWING_DEG° → 中（先发一次使能，防止松轴）。
+//     I_cmd_wag  单周期脉冲：摇一遍：中 → 左 SWING_DEG° → 右 SWING_DEG°（直接摆过去，中间不停）→ 中（先发一次使能，防止松轴）。
 //                只在空闲、并且上电回零已经做完时接受（行为层会一直重发，回零做完就开始摇）。
 // 状态口：
 //     O_busy  正在执行（回零或摇摆）；O_seq  当前动作：0 空闲 1 回零 2 摇摆
@@ -20,8 +20,8 @@
 //     默认 1.8° 电机 × 16 细分 = 3200 脉冲/圈，尾巴直接装在电机轴上（GEAR_X100 = 100，即 1.00）：45° → 400 脉冲。
 //     如果尾巴经过减速（电机转 3 圈尾巴转 1 圈）：GEAR_X100 = 300。
 // 每段的等待 = 走完时间 + 停顿（和 STM32 的 tail.c 一样）：
-//     走完时间 MOVE_MS = 电机转的角度 / (RPM × 6 度每秒)，向上取整（45°、10 RPM = 750 ms）；
-//     停顿：摆到左 / 右两头 SIDE_PAUSE_MS（很短，到了就往回摆），回到中间 CENTER_PAUSE_MS。停顿太短、电机还没走到时
+//     走完时间 MOVE_MS = 电机转的角度 / (RPM × 6 度每秒)，向上取整（45°、10 RPM = 750 ms）；左 → 右摆幅是两倍，等 2 × MOVE_MS；
+//     停顿：摆到左 / 右两头 SIDE_PAUSE_MS（很短，到了就往回摆），一遍摇完回到中间 CENTER_PAUSE_MS。停顿太短、电机还没走到时
 //     下一条命令就来了，会提前掉头（摆幅变小一点），那就把停顿加大。
 // HOME_MS 必须比回零走完的时间长：单圈就近回零最多转半圈，驱动器默认回零转速 30 RPM → 最多 1 s，取 2 s。
 // =============================================================================
@@ -36,7 +36,7 @@ module mc_tail #(
     parameter RPM            = 10,          // 摇摆转速
     parameter ACC            = 0,           // 加速度档（0 = 不用曲线加减速，响应最快）
     parameter SIDE_PAUSE_MS  = 50,          // 摆到左 / 右两头后停多久
-    parameter CENTER_PAUSE_MS = 500,        // 回到中间停多久
+    parameter CENTER_PAUSE_MS = 500,        // 一遍摇完回到中间停多久
     parameter MOVE_MS        = (SWING_DEG * GEAR_X100 * 10 + RPM * 6 - 1) / (RPM * 6),   // 走完一段（中 ↔ 一边）的时间，按摆幅和转速算
     parameter HOME_MS        = 2000,        // 发出"回零"后等多久再设坐标零点
     parameter GAP_MS         = 20,          // 连续两帧命令之间的间隔
@@ -110,18 +110,16 @@ always @* begin
             endcase
         end
 
-        SEQ_WAG: begin                  // 使能 → 左 → 中 → 右 → 中
+        SEQ_WAG: begin                  // 使能 → 左 → 右（中间不停）→ 中
             case (S_pc)
                 4'd0: begin T_kind = K_SEND; T_cmd = CMD_ENABLE; end
                 4'd1: begin T_kind = K_WAIT; T_wait = GAP_MS; end
                 4'd2: begin T_kind = K_SEND; T_cmd = CMD_POS; T_dir = DIR_LEFT;  T_pul = SWING_PULSES; end
                 4'd3: begin T_kind = K_WAIT; T_wait = MOVE_MS + SIDE_PAUSE_MS; end
-                4'd4: begin T_kind = K_SEND; T_cmd = CMD_POS; T_dir = 1'b0;      T_pul = 32'd0; end
-                4'd5: begin T_kind = K_WAIT; T_wait = MOVE_MS + CENTER_PAUSE_MS; end
-                4'd6: begin T_kind = K_SEND; T_cmd = CMD_POS; T_dir = DIR_RIGHT; T_pul = SWING_PULSES; end
-                4'd7: begin T_kind = K_WAIT; T_wait = MOVE_MS + SIDE_PAUSE_MS; end
-                4'd8: begin T_kind = K_SEND; T_cmd = CMD_POS; T_dir = 1'b0;      T_pul = 32'd0; end
-                4'd9: begin T_kind = K_WAIT; T_wait = MOVE_MS + CENTER_PAUSE_MS; end
+                4'd4: begin T_kind = K_SEND; T_cmd = CMD_POS; T_dir = DIR_RIGHT; T_pul = SWING_PULSES; end
+                4'd5: begin T_kind = K_WAIT; T_wait = 2 * MOVE_MS + SIDE_PAUSE_MS; end
+                4'd6: begin T_kind = K_SEND; T_cmd = CMD_POS; T_dir = 1'b0;      T_pul = 32'd0; end
+                4'd7: begin T_kind = K_WAIT; T_wait = MOVE_MS + CENTER_PAUSE_MS; end
                 default: T_kind = K_END;
             endcase
         end

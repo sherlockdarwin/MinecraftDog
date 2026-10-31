@@ -62,21 +62,21 @@ module mc_follow #(
     parameter MAX_WHEEL        = 6500,
     parameter ACC              = 200,
     parameter DEC              = 400,
-    parameter TURN_SLEW        = 600,     // 转向每次最多变多少
+    parameter TURN_SLEW        = 800,     // 转向每次最多变多少
     // ---- 角度环 ----
-    parameter HEAD_KP          = 55,      // PWM / 度
+    parameter HEAD_KP          = 70,      // PWM / 度
     parameter HEAD_KI          = 20,      // PWM / (度 · 秒)
-    parameter HEAD_KD          = 8,       // PWM / (度/秒)
+    parameter HEAD_KD          = 10,      // PWM / (度/秒)
     parameter HEAD_I_MAX       = 400,     // PWM
     parameter HEAD_I_ZONE      = 10,      // 度：误差在这以内才积分
-    parameter TURN_MAX         = 800,     // PWM：GO 时转向最多多少
+    parameter TURN_MAX         = 1500,    // PWM：GO 时转向最多多少
     // ---- 避障 ----
     parameter AVOID_CM         = 100,
     parameter CLEAR_CM         = 60,
     parameter SPIN_CM          = 60,
     parameter KP_OBS           = 20,      // PWM / 厘米
     parameter SPIN_PWM         = 2200,
-    parameter AVOID_TURN_MAX   = 1200,    // PWM：AVD 时转向最多多少
+    parameter AVOID_TURN_MAX   = 1500,    // PWM：AVD 时转向最多多少
     parameter AVOID_HOLD_CM    = 50,      // 绕完以后直走多远
     parameter CMS_FULL         = 92,      // 满量程 8000 时每秒走多少厘米（估的，只用来换算 AVOID_HOLD_CM）
     parameter W_TGT            = 2,

@@ -12,7 +12,7 @@
 // 人机交互 / 执行器（M3）：
 //   SW1~SW3 ─► mc_key(短按/长按) ─► mc_bench(SW2/SW3 短按 → 相机亮度键)
 //   TF 卡 ─ WAV ─► mc_audio ─► ES8388 ─► 喇叭（背景音乐上电自动循环 + 进食音效，同时播）
-//   霍尔传感器 ─► mc_hall ─► mc_behavior（喂食：进食音效；以后 UWB 的"丢了就叫"也接这里）─► mc_audio（尾巴 mc_tail 2026-10-25 不用了，注释掉）
+//   霍尔传感器 ─► mc_hall ─► mc_behavior（喂食 / 主人 3 m 内：摇尾巴；喂食音效；主人丢了 / 太远 / 困住：狗叫）─► mc_audio、mc_tail ─UART─► 尾巴
 //   各模块的状态 ─► mc_osd_dash ─文字写入总线─► mc_disp_if 里的文字层 ─► 画面中间状态带的 5 行文字
 //   STM32（UWB：主人在哪）─UART─► mc_m0_link ─► mc_follow（+ 避障结果 + 陀螺仪角度环）─► 两个轮子的 PWM ─UART─► STM32（电机）
 //   JY61P 陀螺仪 ─UART─► mc_imu_jy61p（上电自动配置、车停稳后航向角归零）─► 车头航向 / 角速度 ─► mc_follow、屏幕第 6 行
@@ -42,8 +42,8 @@ module mctop (
     output wire         O_dsi_pwm,          // R11 背光
     output wire         O_dsi_rst_n,        // T10 面板复位
 
-    // ---- 尾巴：步进电机（ZDT X42S，UART 115200 8N1，只发不收）——2026-10-25 不用了，注释掉（恢复见第 4 节）----
-//  output wire         O_step_tx,          // CEP 15 / E17   → 驱动器 R/A/H 脚（驱动器 GND 接 CEP 脚 2）
+    // ---- 尾巴：步进电机（ZDT X42S，UART 115200 8N1，只发不收）----
+    output wire         O_step_tx,          // CEP 15 / E17   → 驱动器 R/A/H 脚（驱动器 GND 接 CEP 脚 2）
 
     // ---- 喂食检测：霍尔传感器模块（CEP 排针，3.3V 供电；磁铁靠近输出低电平、离开输出高电平）----
     input  wire         I_hall_n,           // CEP 17 / B17   传感器输出（低 = 磁铁靠近；脚上开了上拉，没接模块 = 没喂食）
@@ -118,9 +118,12 @@ localparam [7:0]  OBS_REF_X0     = 8'd56;      // 地面参考区（网格坐标
 localparam [7:0]  OBS_REF_X1     = 8'd103;
 localparam [6:0]  OBS_REF_Y0     = 7'd82;
 localparam [6:0]  OBS_REF_Y1     = 7'd89;
-localparam [11:0] OBS_TC         = 12'd12;     // 地面颜色门限：越大越容易把东西判成障碍
-localparam [11:0] OBS_TY         = 12'd12;
+localparam [11:0] OBS_TC         = 12'd24;     // 地面颜色门限：越大越容易把东西判成障碍（10-31 由 12 提到 24：地面样本里占 1.6% 以上的颜色才算地面）
+localparam [11:0] OBS_TY         = 12'd24;
 localparam [2:0]  OBS_YSPREAD    = 3'd2;       // 地面亮度宽容度（每格 16 级）：反光 / 阴影的地面被判成障碍就加大（最大 7），和地面一样灰的东西判不出来就减小（10-30：回到最开始的 2，识别更灵敏；4 太宽、3 偏宽）
+localparam [2:0]  OBS_YS_NEAR    = 3'd1;       // 近处（OBS_NEAR_ROW 行以下）亮度宽容度：和地面颜色接近的墙要靠它判出来；近处地板发紫 → 改成 2（= 10-30 以前）
+localparam [6:0]  OBS_NEAR_ROW   = 7'd65;      // 从这一行往下算近处（第 65 行 ≈ 1 m）
+localparam [9:0]  OBS_RELEARN_FR = 10'd300;    // 车前参考区连续这么多帧（300 ≈ 5 秒）几乎全认不出来 → 当作换了地面，重学一帧；上电后也先全学这么多帧
 localparam [6:0]  OBS_ROW_MIN    = 7'd53;      // 判断画面第 53~89 行（160×90 网格）= 镜头前约 49 cm ~ 2.36 m（10-30 由 60 = 1.35 m 改远，给 AVOID_FAR_CM 提前绕用；1~1.35 m 的照样只是"看得见、不算挡路"）。第 52 行以上 > 2.5 m、第 44 行以上是地平线以上，没有距离。第 60 行 1.35 m、55 行约 2 m、70 行约 84 cm，见 mc_obs_lut.v
 localparam [7:0]  OBS_D_CAP      = 8'd150;     // 选方向最远算到多少厘米
 localparam [7:0]  OBS_D_STOP     = 8'd60;      // 最好的方向也不到这么远（厘米）→ 屏幕第 4 行 STOP、不画绿条（镜头竖直装最近只看得到约 49 cm，和 AVOID_SPIN_CM 一样取 60）
@@ -139,22 +142,22 @@ localparam       FOLLOW_PIVOT_PWM   = 2200;    // 原地转时两轮一正一反
 localparam       FOLLOW_MAX_WHEEL   = 6500;
 localparam       FOLLOW_ACC         = 200;     // 前进斜坡：每 20 ms 最多加 / 减
 localparam       FOLLOW_DEC         = 400;
-localparam       FOLLOW_TURN_SLEW   = 600;     // 转向每 20 ms 最多变多少
+localparam       FOLLOW_TURN_SLEW   = 800;     // 转向每 20 ms 最多变多少
 localparam       FOLLOW_CMS_FULL    = 92;      // 满量程 8000 时车每秒走多少厘米（没测过，估的；只用来把 AVOID_HOLD_CM 换成"前进量 × 时间"）
 // 角度环（陀螺仪；转向 = KP × 误差 + KI × 误差积分 − KD × 角速度，见 obstacle.md §6 ⑤，还没上车调）
-localparam       HEAD_KP            = 55;      // 每 1° 误差转多少 PWM：转得慢 / 拐不过去 → 加大；左右摆 → 减小
+localparam       HEAD_KP            = 70;      // 每 1° 误差转多少 PWM：转得慢 / 拐不过去 → 加大；左右摆 → 减小
 localparam       HEAD_KI            = 20;      // 每 1° 误差每秒累加多少 PWM：走直线时一直偏一点 → 加大
-localparam       HEAD_KD            = 8;       // 每 1°/s 角速度减多少 PWM：冲过头、来回摆 → 加大
+localparam       HEAD_KD            = 10;      // 每 1°/s 角速度减多少 PWM：冲过头、来回摆 → 加大
 localparam       HEAD_I_MAX         = 400;     // 积分最多补多少 PWM（两个电机快慢不一样的差）
 localparam       HEAD_I_ZONE        = 10;      // 误差在 10° 以内才积分（积分分离）
-localparam       HEAD_TURN_MAX      = 800;     // 跟随（GO）时转向最多多少 PWM
+localparam       HEAD_TURN_MAX      = 1500;    // 跟随（GO）时转向最多多少 PWM：大角度转弯快不快主要看它（10-31 由 800 提高）
 // 避障（FPGA 加的，还没上车调）
 localparam       AVOID_CM           = 100;     // 正前方或主人方向不到这么远 = 挡路；绕行方向先挑能走这么远的
 localparam       AVOID_CLEAR_CM     = 60;      // 实在没有，退一步挑能走这么远的；再没有就找出口（AVOID_SCAN_*）
 localparam       AVOID_SPIN_CM      = 60;      // 正前方不到这么远：原地转向能走的方向（SPIN）。镜头竖直装，最近只看得到约 49 cm（画面最下面 9 行 = 49~59 cm）
 localparam       AVOID_KP_OBS       = 20;      // 前进上限 = 起步 + (前面能走多远 − AVOID_CLEAR_CM) × 这个
 localparam       AVOID_SPIN_PWM     = 2200;
-localparam       AVOID_TURN_MAX     = 1200;    // 绕行（AVD）时转向最多多少 PWM
+localparam       AVOID_TURN_MAX     = 1500;    // 绕行（AVD）时转向最多多少 PWM
 localparam       AVOID_HOLD_CM      = 50;      // 绕过去以后先保持航向直走多远（约一个车长）再朝主人转（障碍出了视场还在旁边；10-30 由 0.5 s 改成按距离）；这段里也不原地转
 localparam       AVOID_W_TGT        = 2;       // 挑方向的代价 = W_TGT × |方向 − 主人| + W_PREV × |方向 − 上次绕的方向|
 localparam       AVOID_W_PREV       = 1;
@@ -166,15 +169,15 @@ localparam       AVOID_SCAN_STEP_MS = 1000;    //   一步转了 1 s 还没转�
 // ---- 按键 ----
 localparam       KEY_LONG_MS     = 800;        // 长按判定时间
 localparam       RST_HOLD_MS     = 2000;       // SW1 按住多久整机复位；0 = 取消这个功能
-// // ---- 尾巴（步进电机，见 mc_tail.v）----
-// localparam       TAIL_SWING_DEG  = 45;         // 摆幅（度）（和 STM32 tail.h 一样：45°、10 RPM、两头停 50 ms、中间停 500 ms）
-// localparam       TAIL_GEAR_X100  = 100;        // 减速比×100：尾巴直接装在电机轴上 = 100；电机转 3 圈尾巴转 1 圈 = 300
-// localparam       TAIL_LEFT_CCW   = 1;          // 向左摆 = 电机逆时针；摆反了就改成 0
-// localparam       TAIL_RPM        = 10;         // 摇摆转速（走完一段的时间按摆幅和转速自动算：45°、10 RPM = 750 ms）
-// localparam       TAIL_SIDE_MS    = 50;         // 摆到左 / 右两头后停多久
-// localparam       TAIL_CENTER_MS  = 500;        // 回到中间停多久
-// localparam       TAIL_INIT_MS    = 1000;       // 上电（或整机复位）后等多久开始回零（等驱动器上电）
-// localparam       TAIL_HOME_MS    = 2000;       // 发出"单圈就近回零"后等多久再把那里设为坐标零点（要大于回零走完的时间）
+// ---- 尾巴（步进电机，见 mc_tail.v）----
+localparam       TAIL_SWING_DEG  = 45;         // 摆幅（度）（和 STM32 tail.h 一样：45°、10 RPM、两头停 50 ms、中间停 500 ms）
+localparam       TAIL_GEAR_X100  = 100;        // 减速比×100：尾巴直接装在电机轴上 = 100；电机转 3 圈尾巴转 1 圈 = 300
+localparam       TAIL_LEFT_CCW   = 1;          // 向左摆 = 电机逆时针；摆反了就改成 0
+localparam       TAIL_RPM        = 10;         // 摇摆转速（走完中 ↔ 一边的时间按摆幅和转速自动算：45°、10 RPM = 750 ms；左 → 右 90° 是它的两倍）
+localparam       TAIL_SIDE_MS    = 50;         // 摆到左 / 右两头后停多久
+localparam       TAIL_CENTER_MS  = 500;        // 一遍摇完回到中间停多久（中途经过中间不停）
+localparam       TAIL_INIT_MS    = 1000;       // 上电（或整机复位）后等多久开始回零（等驱动器上电）
+localparam       TAIL_HOME_MS    = 2000;       // 发出"单圈就近回零"后等多久再把那里设为坐标零点（要大于回零走完的时间）
 // ---- 喂食检测（霍尔传感器，见 mc_hall.v / mc_behavior.v）----
 localparam       HALL_DEBOUNCE_MS = 20;        // 去抖时间
 // ---- 音频（见 mc_audio.v）----
@@ -184,6 +187,9 @@ localparam [6:0] AUD_EAT_CLIP    = 7'd2;       // 进食音效 = 2.wav
 localparam [6:0] AUD_BARK_CLIP   = 7'd3;       // 狗叫音效 = 3.wav
 localparam       BARK_CM         = 999;        // 主人这么远（厘米）就叫：STM32 超过 999 cm 都发 999，所以现在 = 10 m 以上（要 20 m 得把协议改成 4 位距离）
 localparam       BARK_MS         = 1000;       // 太远 / 收不到 UWB 要连续这么久才叫（STM32 的线不通不叫）；困住（转一圈没出口）马上叫
+localparam       TAIL_NEAR_CM    = 300;        // 主人比这近、保持 TAIL_NEAR_MS → 摇尾巴（和 STM32 task.h 一样）
+localparam       TAIL_FAR_CM     = 320;        // 比这远或者收不到 UWB → 摇完当前这一遍就停
+localparam       TAIL_NEAR_MS    = 300;
 // 混音固定：背景音乐在左喇叭口 J12、音效在右喇叭口 J11（两个口各接一个喇叭）
 
 // =============================================================================
@@ -273,7 +279,7 @@ mc_key #(
 wire [1:0]  S_cam_key_n;                       // 相机亮度键（低有效脉冲，SW2/SW3 短按）
 wire        S_sfx_busy;
 wire        S_hall_fed;                                 // 霍尔：1 = 正在喂食（磁铁靠近）
-// wire        S_beh_wag;                               // 行为层：喂食时让尾巴摇一个来回（尾巴注释掉了）
+wire        S_beh_wag;                                  // 行为层：摇尾巴（喂食 / 主人 3 m 内）
 wire        S_beh_sfx_play;                             // 行为层：触发音效
 wire [6:0]  S_beh_sfx_clip;
 wire        S_audio_ready;
@@ -289,32 +295,30 @@ mc_bench u_bench (
 
 // =============================================================================
 // 4. 尾巴：上电回零 / 摇摆（步进电机，UART 只发）
-//    2026-10-25 不用了，整段注释掉（mc_tail.v / mc_stepper_emm.v 文件还在）。恢复：去掉这一段和配置区 TAIL_* 的注释、
-//    端口 O_step_tx 的注释、mc_pin.adc 里 O_step_tx 那一行的注释，再把行为层的 I_tail_busy / O_tail_wag、文字面板的 I_tail_seq 接回来。
+//    10-25 注释掉、10-31 接回来：驱动器 R/A/H 接 CEP 脚 15（STM32 的 PA9 不再接驱动器）。只用 100 MHz 域的时钟、复位、1 ms 节拍，和视频没有别的连线。
 // =============================================================================
-// wire        S_tail_busy;
-// wire [1:0]  S_tail_seq;                                 // 0 空闲 1 回零 2 摇摆（屏幕文字显示）
-// 
-// mc_tail #(
-//     .CLK_HZ       (100_000_000),
-//     .BAUD         (115200),
-//     .SWING_DEG    (TAIL_SWING_DEG),
-//     .GEAR_X100    (TAIL_GEAR_X100),
-//     .LEFT_IS_CCW  (TAIL_LEFT_CCW),
-//     .RPM          (TAIL_RPM),
-//     .SIDE_PAUSE_MS(TAIL_SIDE_MS),
-//     .CENTER_PAUSE_MS(TAIL_CENTER_MS),
-//     .HOME_MS      (TAIL_HOME_MS),
-//     .INIT_DELAY_MS(TAIL_INIT_MS)
-// ) u_tail (
-//     .I_clk       (S_clk_100m),
-//     .I_rst_n     (S_rst_n_100m),
-//     .I_tick_1ms  (S_tick_1ms),
-//     .I_cmd_wag   (S_beh_wag),                       // 喂食时行为层给的
-//     .O_busy      (S_tail_busy),
-//     .O_seq       (S_tail_seq),
-//     .O_tx        (O_step_tx)
-// );
+wire        S_tail_busy;
+
+mc_tail #(
+    .CLK_HZ       (100_000_000),
+    .BAUD         (115200),
+    .SWING_DEG    (TAIL_SWING_DEG),
+    .GEAR_X100    (TAIL_GEAR_X100),
+    .LEFT_IS_CCW  (TAIL_LEFT_CCW),
+    .RPM          (TAIL_RPM),
+    .SIDE_PAUSE_MS(TAIL_SIDE_MS),
+    .CENTER_PAUSE_MS(TAIL_CENTER_MS),
+    .HOME_MS      (TAIL_HOME_MS),
+    .INIT_DELAY_MS(TAIL_INIT_MS)
+) u_tail (
+    .I_clk       (S_clk_100m),
+    .I_rst_n     (S_rst_n_100m),
+    .I_tick_1ms  (S_tick_1ms),
+    .I_cmd_wag   (S_beh_wag),                       // 喂食 / 主人 3 m 内，行为层给的
+    .O_busy      (S_tail_busy),
+    .O_seq       (),                                // 屏幕上那一格没恢复（不动视频）
+    .O_tx        (O_step_tx)
+);
 
 // =============================================================================
 // 5. 图像通路：相机 → 帧缓存 → 屏幕
@@ -387,7 +391,8 @@ wire         S_obs_stop;
 
 mc_obs #(
     .REF_X0 (OBS_REF_X0), .REF_X1 (OBS_REF_X1), .REF_Y0 (OBS_REF_Y0), .REF_Y1 (OBS_REF_Y1),
-    .TC (OBS_TC), .TY (OBS_TY), .YSPREAD (OBS_YSPREAD), .ROW_MIN (OBS_ROW_MIN), .D_CAP (OBS_D_CAP), .D_STOP (OBS_D_STOP)
+    .TC (OBS_TC), .TY (OBS_TY), .YSPREAD (OBS_YSPREAD), .YS_NEAR (OBS_YS_NEAR), .NEAR_ROW (OBS_NEAR_ROW), .RELEARN_FR (OBS_RELEARN_FR),
+    .ROW_MIN (OBS_ROW_MIN), .D_CAP (OBS_D_CAP), .D_STOP (OBS_D_STOP)
 ) u_obs (
     .I_clk       (S_cam_pix_clk),
     .I_rst_n     (S_pll_lock),
@@ -626,18 +631,20 @@ mc_hall #(
     .O_fed      (S_hall_fed)
 );
 
-// ---- 行为层：喂食时摇尾巴 + 播进食音效；主人太远（≥ BARK_CM）/ 收不到 UWB 连续 BARK_MS、或者困住了 → 狗叫；"距离 < 5 m 摇尾巴"以后接 I_near（现在接 0）----
+// ---- 行为层：喂食或主人 3 m 内摇尾巴；喂食播进食音效；主人太远（≥ BARK_CM）/ 收不到 UWB 连续 BARK_MS、或者困住了 → 狗叫 ----
 mc_behavior #(
     .EAT_CLIP    (AUD_EAT_CLIP),
     .BARK_CLIP   (AUD_BARK_CLIP),
     .BARK_CM     (BARK_CM),
-    .BARK_MS     (BARK_MS)
+    .BARK_MS     (BARK_MS),
+    .TAIL_NEAR_CM (TAIL_NEAR_CM),
+    .TAIL_FAR_CM (TAIL_FAR_CM),
+    .TAIL_NEAR_MS (TAIL_NEAR_MS)
 ) u_behavior (
     .I_clk         (S_clk_100m),
     .I_rst_n       (S_rst_n_100m),
     .I_tick_1ms    (S_tick_1ms),
     .I_hall        (S_hall_fed),
-    .I_near        (1'b0),
     .I_uwb_link    (S_uwb_link),
     .I_uwb_ok      (S_uwb_ok),
     .I_uwb_cm      (S_uwb_cm),
@@ -645,8 +652,8 @@ mc_behavior #(
     .I_audio_ready (S_audio_ready),
     .I_sfx_busy    (S_sfx_busy),
     .I_sfx_state   (S_sfx_state),
-    .I_tail_busy   (1'b0),                          // 尾巴注释掉了：当成一直空闲
-    .O_tail_wag    (),                              // 尾巴注释掉了：摇尾巴命令不接
+    .I_tail_busy   (S_tail_busy),
+    .O_tail_wag    (S_beh_wag),
     .O_sfx_play    (S_beh_sfx_play),
     .O_sfx_clip    (S_beh_sfx_clip)
 );
@@ -676,7 +683,7 @@ mc_osd_dash #(
     .I_obs_free    (S_obs_go_free),
     .I_obs_stop    (S_obs_stop),
     .I_hall        (S_hall_fed),
-    .I_tail_seq    (2'd0),                          // 尾巴注释掉了（版面里那一格也注释掉了）
+    .I_tail_seq    (2'd0),                          // 版面里那一格 10-25 注释掉了，没恢复（不动视频）
     .I_uwb_ok      (S_uwb_ok),
     .I_uwb_link    (S_uwb_link),
     .I_uwb_deg     (S_uwb_deg),

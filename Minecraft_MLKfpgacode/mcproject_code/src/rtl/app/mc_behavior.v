@@ -11,7 +11,8 @@
 //       该叫 = 困住了（I_stuck，mc_follow 转了一圈没找到出口，马上叫）
 //            或者 连续 BARK_MS 毫秒：STM32 线是通的（I_uwb_link）并且 收不到 UWB（主人丢了）或者 距离 ≥ BARK_CM（STM32 超过 999 cm 都发 999）。
 //            线不通（STM32 没接 / 没开）不叫；UWB 偶尔跳一帧不叫。
-//     · 尾巴还会在 I_near = 1（以后接 UWB：距离 < 5 m）时摇，和喂食一样按"一个来回"为周期。I_near 现在在顶层接 0。
+//     · 主人在身边也摇尾巴，和喂食一样按"摇一遍"为周期（和 STM32 task.c 的 Task_Tail_OwnerNear 一样）：
+//       收得到 UWB、距离 < TAIL_NEAR_CM 一直保持 TAIL_NEAR_MS → 在身边；距离 ≥ TAIL_FAR_CM 或收不到 UWB → 马上不在；中间保持原状（等确认的重新数）。
 //
 //   触发规则（防止重复触发）：每种音效有一个"这次已经触发过"的标志，触发时置 1，信号变回 0 时清零；
 //   狗叫音效正常播完时标志清掉（信号还在就接着叫）；音效播放出错（没有这个文件等）时标志不会因为播完而清掉，
@@ -22,14 +23,17 @@ module mc_behavior #(
     parameter [6:0] EAT_CLIP    = 7'd2,         // 进食音效：2.wav
     parameter [6:0] BARK_CLIP   = 7'd3,         // 狗叫音效：3.wav
     parameter       BARK_CM     = 999,          // 主人这么远（厘米）就叫
-    parameter       BARK_MS     = 1000          // 太远 / 丢了要连续这么久才叫
+    parameter       BARK_MS     = 1000,         // 太远 / 丢了要连续这么久才叫
+    parameter       TAIL_NEAR_CM = 300,         // 主人比这近（厘米）……
+    parameter       TAIL_FAR_CM = 320,          // 比这远就不算在身边
+    parameter       TAIL_NEAR_MS = 300          // ……保持这么久才算在身边
 )(
     input  wire        I_clk,
     input  wire        I_rst_n,
     input  wire        I_tick_1ms,
 
     input  wire        I_hall,                  // 1 = 正在喂食（mc_hall 的 O_fed）
-    input  wire        I_near,                  // 1 = 主人在 5 m 以内（以后接 UWB）
+
     input  wire        I_uwb_link,              // mc_m0_link：STM32 的线是通的
     input  wire        I_uwb_ok,                //   收到了主人位置
     input  wire [9:0]  I_uwb_cm,                //   主人多远
@@ -45,8 +49,23 @@ module mc_behavior #(
     output reg  [6:0]  O_sfx_clip               // → mc_audio 的 I_sfx_clip
 );
 
+// ---- 主人在不在身边 ----
+reg         S_near;
+reg  [15:0] S_near_ms;              // 已经比 TAIL_NEAR_CM 近多少毫秒
+wire        S_gone   = ~I_uwb_ok | (I_uwb_cm >= TAIL_FAR_CM);
+wire        S_closer = ~S_gone & (I_uwb_cm < TAIL_NEAR_CM);
+always @(posedge I_clk or negedge I_rst_n) begin
+    if (!I_rst_n)        begin S_near <= 1'b0; S_near_ms <= 16'd0; end
+    else if (S_gone)     begin S_near <= 1'b0; S_near_ms <= 16'd0; end
+    else if (!S_closer)  S_near_ms <= 16'd0;
+    else if (I_tick_1ms && !S_near) begin
+        if (S_near_ms == TAIL_NEAR_MS - 1) S_near <= 1'b1;
+        else S_near_ms <= S_near_ms + 16'd1;
+    end
+end
+
 // ---- 尾巴：要摇 且 尾巴空闲 → 给一个脉冲（尾巴收到后下一拍就忙，不会连发）----
-wire S_want_wag = I_hall | I_near;
+wire S_want_wag = I_hall | S_near;
 
 always @(posedge I_clk or negedge I_rst_n) begin
     if (!I_rst_n) O_tail_wag <= 1'b0;

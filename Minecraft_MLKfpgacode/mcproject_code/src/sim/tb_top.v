@@ -2,8 +2,8 @@
 // 顶层集成测试：仿真真正的 mctop.v（视频相关的 mcsys_pll / mc_cam_if / mc_framebuf / mc_disp_if 用 stubs/ 里的替身，
 // 但文字层、音频子系统用真的；外面接一个行为级 TF 卡和一个什么都应答的 ES8388 I2C 从机），检查顶层接线：
 //   版面 / 音量参数 → 按键（亮度键）/ 屏幕文字 → 背景音乐上电自动播
-//   → 喂食（霍尔：进食音效）→ 状态灯真值表 → SW1 按住复位（背景音乐重新开始）；
-//   尾巴（步进电机）2026-10-25 在 mctop.v 里注释掉了，这里和它有关的检查也都注释掉了（mc_tail 本身还由 tb_tail 测）。
+//   → 喂食（霍尔：进食音效 + 摇尾巴）→ 狗叫 → 主人 3 m 内摇尾巴 → 状态灯真值表 → SW1 按住复位（背景音乐重新开始、尾巴重新回零）；
+//   尾巴（步进电机）10-25 注释掉、10-31 接回来：上电回零 19 字节、每一遍 45 字节（使能 + 左 + 右 + 中）逐字节核对。
 //   MSPM0 串口：每 20 "ms" 发一帧（替身相机没图 → 一直是 #S*）、收主人位置帧 → 文字第 5 行、超时后又是 LOST。
 //   陀螺仪：测试台里一个只会发帧的 JY61P（已经是 115200、只发 52 / 53 帧）→ 上电探测到 → 发 4 条配置命令 → 归零 → 文字第 6 行、跟随决策。
 //
@@ -24,7 +24,7 @@ wire rx_clk_n, rx_clk_p; wire [3:0] rx_d_n, rx_d_p;
 wire tx_clk_n, tx_clk_p; wire [3:0] tx_d_n, tx_d_p;
 wire dsi_pwm, dsi_rst_n;
 reg  hall = 0;                                  // 霍尔传感器：1 = 磁铁靠近
-// wire step_tx;                                 // 尾巴注释掉了
+wire step_tx;                                    // 尾巴串口
 reg  m0_rx = 1'b1;                              // MSPM0 → FPGA
 wire m0_tx;
 reg  imu_rx = 1'b1;                             // JY61P → FPGA
@@ -42,7 +42,7 @@ mctop dut (
     .IO_rx_clk_pad_n(rx_clk_n), .IO_rx_clk_pad_p(rx_clk_p), .IO_rx_data_pad_n(rx_d_n), .IO_rx_data_pad_p(rx_d_p),
     .IO_tx_clk_pad_n(tx_clk_n), .IO_tx_clk_pad_p(tx_clk_p), .IO_tx_data_pad_n(tx_d_n), .IO_tx_data_pad_p(tx_d_p),
     .O_dsi_pwm(dsi_pwm), .O_dsi_rst_n(dsi_rst_n),
-    /* .O_step_tx(step_tx), */ .I_hall_n(~hall),              // 模块低有效：测试台里 hall = 1 表示磁铁靠近
+    .O_step_tx(step_tx), .I_hall_n(~hall),              // 模块低有效：测试台里 hall = 1 表示磁铁靠近
     .O_m0_tx(m0_tx), .I_m0_rx(m0_rx),
     .O_imu_tx(imu_tx), .I_imu_rx(imu_rx),
     .O_aud_mclk(aud_mclk), .O_aud_sclk(aud_sclk), .O_aud_lrck(aud_lrck), .O_aud_dsdin(aud_dsdin),
@@ -63,13 +63,13 @@ defparam dut.u_mc_tick.CLK_HZ        = 1_000_000;    // "1 ms" = 1000 个时钟
 defparam dut.u_key.DEBOUNCE_MS       = 10;           // 去抖 1 个节拍
 defparam dut.u_key.LONG_MS           = 50;           // 长按 5 个节拍（0.5 ms 仿真时间）
 defparam dut.u_hold_rst.HOLD_MS      = 3;            // SW1 按住 3 ms 复位（长按判定 0.5 ms，远小于它）
-// defparam dut.u_tail.BAUD             = 1_000_000;    // 尾巴串口 1 Mbps（真实 115200 的行为由 tb_tail/tb_uart 覆盖）
-// defparam dut.u_tail.MOVE_MS          = 5;            // 走完一段 5 "ms"（真实是按摆幅 / 转速算的 750 ms，由 tb_tail 覆盖）
-// defparam dut.u_tail.SIDE_PAUSE_MS    = 3;
-// defparam dut.u_tail.CENTER_PAUSE_MS  = 5;
-// defparam dut.u_tail.HOME_MS          = 10;
-// defparam dut.u_tail.GAP_MS           = 2;
-// defparam dut.u_tail.INIT_DELAY_MS    = 20;           // 上电 20 "ms" 后自动回零（真实是 1000 ms，由 tb_tail 覆盖）
+defparam dut.u_tail.BAUD             = 1_000_000;    // 尾巴串口 1 Mbps（真实 115200 的行为由 tb_tail/tb_uart 覆盖）
+defparam dut.u_tail.MOVE_MS          = 5;            // 走完一段 5 "ms"（真实是按摆幅 / 转速算的 750 ms，由 tb_tail 覆盖）
+defparam dut.u_tail.SIDE_PAUSE_MS    = 3;
+defparam dut.u_tail.CENTER_PAUSE_MS  = 5;
+defparam dut.u_tail.HOME_MS          = 10;
+defparam dut.u_tail.GAP_MS           = 2;
+defparam dut.u_tail.INIT_DELAY_MS    = 20;           // 上电 20 "ms" 后自动回零（真实是 1000 ms，由 tb_tail 覆盖）
 defparam dut.u_hall.DEBOUNCE_MS      = 3;            // 霍尔去抖 3 个"毫秒"
 defparam dut.u_m0.BAUD               = 1_000_000;    // MSPM0 串口 1 Mbps（真实 115200 由 tb_m0_link 覆盖）
 defparam dut.u_imu.CLK_HZ            = 10_000_000;   // 陀螺仪串口快 10 倍（"115200" = 每位 86 个时钟 = 860 ns；真实波特率由 tb_imu 覆盖）
@@ -101,9 +101,8 @@ always @(posedge dut.S_clk_100m) if (wire_en) begin
     `WCHK(dut.u_disp.I_status[7], 1'b1,                  "status square 7 must be always green")
     `WCHK(dut.u_disp.I_win_en,    dut.S_isp_alive,       "the camera window enable is not the ISP-frames-alive flag")
     `WCHK(dut.u_disp.I_txt_bus,   dut.u_dash.O_bus,      "the text bus of the display interface is not the dashboard bus")
-//  `WCHK(dut.u_tail.I_cmd_wag,   dut.u_behavior.O_tail_wag, "tail wag command is not the behaviour layer's")   （尾巴注释掉了）
-//  `WCHK(dut.u_behavior.I_tail_busy, dut.u_tail.O_busy, "behaviour layer tail-busy is not the tail's busy")
-    `WCHK(dut.u_behavior.I_tail_busy, 1'b0,             "behaviour layer tail-busy must be tied to 0 (tail removed)")
+    `WCHK(dut.u_tail.I_cmd_wag,   dut.u_behavior.O_tail_wag, "tail wag command is not the behaviour layer's")
+    `WCHK(dut.u_behavior.I_tail_busy, dut.u_tail.O_busy, "behaviour layer tail-busy is not the tail's busy")
     `WCHK(dut.u_behavior.I_hall,  dut.u_hall.O_fed,      "behaviour layer hall input is not the debounced hall")
     `WCHK(dut.u_audio.I_sfx_play, dut.u_behavior.O_sfx_play, "audio effect play is not the behaviour layer's")
     `WCHK(dut.u_audio.I_sfx_clip, dut.u_behavior.O_sfx_clip, "audio effect clip is not the behaviour layer's")
@@ -203,20 +202,20 @@ task expect_text;
 endtask
 
 localparam BIT_NS = 1000;                        // 串口 1 Mbps 的位宽（下面 STM32 串口用）
-// // ---- 步进 UART 解码（1 Mbps）----（尾巴注释掉了）
-// reg [7:0] txb [0:16383];
-// integer   txn = 0;
-// reg [7:0] tb_b;
-// integer   tbi;
-// initial begin
-//     forever begin
-//         @(negedge step_tx);
-//         #(BIT_NS / 2);
-//         for (tbi = 0; tbi < 8; tbi = tbi + 1) begin #(BIT_NS); tb_b[tbi] = step_tx; end
-//         #(BIT_NS);
-//         txb[txn] = tb_b; txn = txn + 1;
-//     end
-// end
+// ---- 步进 UART 解码（1 Mbps）----
+reg [7:0] txb [0:16383];
+integer   txn = 0;
+reg [7:0] tb_b;
+integer   tbi;
+initial begin
+    forever begin
+        @(negedge step_tx);
+        #(BIT_NS / 2);
+        for (tbi = 0; tbi < 8; tbi = tbi + 1) begin #(BIT_NS); tb_b[tbi] = step_tx; end
+        #(BIT_NS);
+        txb[txn] = tb_b; txn = txn + 1;
+    end
+end
 
 // ---- MSPM0 串口（1 Mbps）：解码 FPGA 发的字符（记下每个字符的开始时间），给 FPGA 发字符 ----
 reg [7:0] m0b [0:4095];
@@ -246,33 +245,33 @@ task m0_send;
     end
 endtask
 
-// // 期望字节流
-// reg [7:0] exb [0:127];
-// integer   exn;
-// task ex; input [7:0] v; begin exb[exn] = v; exn = exn + 1; end endtask
-// task home_bytes; begin
-//     ex(8'h01); ex(8'h0E); ex(8'h52); ex(8'h6B);
-//     ex(8'h01); ex(8'hF3); ex(8'hAB); ex(8'h01); ex(8'h00); ex(8'h6B);
-//     ex(8'h01); ex(8'h9A); ex(8'h00); ex(8'h00); ex(8'h6B);
-//     ex(8'h01); ex(8'h0A); ex(8'h6D); ex(8'h6B);
-// end endtask
-// task pos_frame; input dir; input [31:0] pul; begin
-//     ex(8'h01); ex(8'hFD); ex({7'd0, dir}); ex(8'h00); ex(8'd10); ex(8'h00);           // 10 RPM、加速度 0
-//     ex(pul[31:24]); ex(pul[23:16]); ex(pul[15:8]); ex(pul[7:0]); ex(8'h01); ex(8'h00); ex(8'h6B);
-// end endtask
-// task wag_bytes; begin
-//     ex(8'h01); ex(8'hF3); ex(8'hAB); ex(8'h01); ex(8'h00); ex(8'h6B);
-//     pos_frame(1'b1, 32'd400); pos_frame(1'b0, 32'd0); pos_frame(1'b0, 32'd400); pos_frame(1'b0, 32'd0);   // 左 = CCW，45° = 400 脉冲
-// end endtask
-// task compare_tx;
-//     input [255:0] name;
-//     input integer start;
-//     integer j;
-//     begin
-//         for (j = 0; j < exn; j = j + 1)
-//             if (txb[start + j] !== exb[j]) begin $display("FAIL %0s: byte %0d = %h, expected %h", name, j, txb[start + j], exb[j]); errors = errors + 1; end
-//     end
-// endtask
+// 期望字节流
+reg [7:0] exb [0:127];
+integer   exn;
+task ex; input [7:0] v; begin exb[exn] = v; exn = exn + 1; end endtask
+task home_bytes; begin
+    ex(8'h01); ex(8'h0E); ex(8'h52); ex(8'h6B);
+    ex(8'h01); ex(8'hF3); ex(8'hAB); ex(8'h01); ex(8'h00); ex(8'h6B);
+    ex(8'h01); ex(8'h9A); ex(8'h00); ex(8'h00); ex(8'h6B);
+    ex(8'h01); ex(8'h0A); ex(8'h6D); ex(8'h6B);
+end endtask
+task pos_frame; input dir; input [31:0] pul; begin
+    ex(8'h01); ex(8'hFD); ex({7'd0, dir}); ex(8'h00); ex(8'd10); ex(8'h00);           // 10 RPM、加速度 0
+    ex(pul[31:24]); ex(pul[23:16]); ex(pul[15:8]); ex(pul[7:0]); ex(8'h01); ex(8'h00); ex(8'h6B);
+end endtask
+task wag_bytes; begin
+    ex(8'h01); ex(8'hF3); ex(8'hAB); ex(8'h01); ex(8'h00); ex(8'h6B);
+    pos_frame(1'b1, 32'd400); pos_frame(1'b0, 32'd400); pos_frame(1'b0, 32'd0);   // 左 = CCW，45° = 400 脉冲；左直接到右（中间不停），再回中
+end endtask
+task compare_tx;
+    input [255:0] name;
+    input integer start;
+    integer j;
+    begin
+        for (j = 0; j < exn; j = j + 1)
+            if (txb[start + j] !== exb[j]) begin $display("FAIL %0s: byte %0d = %h, expected %h", name, j, txb[start + j], exb[j]); errors = errors + 1; end
+    end
+endtask
 
 // ---- 音频：I2S 接收器，左（背景音乐）、右（音效）两个声道各数"非零帧"有多少 ----
 reg        lrck_q = 1;
@@ -369,20 +368,23 @@ initial begin
     if (dut.u_follow.STOP_CM !== 200 || dut.u_follow.START_PWM !== 3300 || dut.u_follow.KP_D !== 10 || dut.u_follow.MAX_FWD !== 5000 ||
         dut.u_follow.ANGLE_FILTER !== 3 || dut.u_follow.DEADBAND !== 4 ||
         dut.u_follow.PIVOT_ENTER !== 90 || dut.u_follow.PIVOT_CONFIRM_MS !== 300 || dut.u_follow.PIVOT_EXIT !== 40 ||
-        dut.u_follow.PIVOT_PWM !== 2200 || dut.u_follow.MAX_WHEEL !== 6500 || dut.u_follow.ACC !== 200 || dut.u_follow.DEC !== 400 || dut.u_follow.TURN_SLEW !== 600) fail("follow parameters");
-    if (dut.u_follow.HEAD_KP !== 55 || dut.u_follow.HEAD_KI !== 20 || dut.u_follow.HEAD_KD !== 8 || dut.u_follow.HEAD_I_MAX !== 400 ||
-        dut.u_follow.HEAD_I_ZONE !== 10 || dut.u_follow.TURN_MAX !== 800) fail("heading loop parameters");
+        dut.u_follow.PIVOT_PWM !== 2200 || dut.u_follow.MAX_WHEEL !== 6500 || dut.u_follow.ACC !== 200 || dut.u_follow.DEC !== 400 || dut.u_follow.TURN_SLEW !== 800) fail("follow parameters");
+    if (dut.u_follow.HEAD_KP !== 70 || dut.u_follow.HEAD_KI !== 20 || dut.u_follow.HEAD_KD !== 10 || dut.u_follow.HEAD_I_MAX !== 400 ||
+        dut.u_follow.HEAD_I_ZONE !== 10 || dut.u_follow.TURN_MAX !== 1500) fail("heading loop parameters");
     if (dut.u_follow.AVOID_CM !== 100 || dut.u_follow.CLEAR_CM !== 60 || dut.u_follow.SPIN_CM !== 60 || dut.u_follow.KP_OBS !== 20 ||
-        dut.u_follow.SPIN_PWM !== 2200 || dut.u_follow.AVOID_TURN_MAX !== 1200 ||
+        dut.u_follow.SPIN_PWM !== 2200 || dut.u_follow.AVOID_TURN_MAX !== 1500 ||
         dut.u_follow.AVOID_HOLD_CM !== 50 || dut.u_follow.CMS_FULL !== 92 || dut.u_follow.W_TGT !== 2 || dut.u_follow.W_PREV !== 1) fail("avoidance parameters");
     if (dut.u_follow.AVOID_FAR_CM !== 200 || dut.u_follow.OWNER_GAP_CM !== 60 ||
         dut.u_follow.SCAN_DEG !== 20 || dut.u_follow.SCAN_PAUSE_MS !== 200 || dut.u_follow.SCAN_STEP_MS !== 1000) fail("far-obstacle / exit-scan parameters");
     if (dut.u_behavior.BARK_CM !== 999 || dut.u_behavior.BARK_MS !== 1000 || dut.u_behavior.BARK_CLIP !== 3) fail("bark parameters");
-//  if (dut.u_tail.SWING_DEG !== 45 || dut.u_tail.RPM !== 10) fail("tail parameters");   （尾巴注释掉了）
+    if (dut.u_tail.SWING_DEG !== 45 || dut.u_tail.RPM !== 10 || dut.u_tail.GEAR_X100 !== 100 || dut.u_tail.LEFT_IS_CCW !== 1) fail("tail parameters");
+    if (dut.u_behavior.TAIL_NEAR_CM !== 300 || dut.u_behavior.TAIL_FAR_CM !== 320 || dut.u_behavior.TAIL_NEAR_MS !== 300) fail("tail owner-near parameters");
+    if (dut.u_obs.TC !== 24 || dut.u_obs.TY !== 24 || dut.u_obs.u_core.u_class.TC !== 24 || dut.u_obs.u_core.u_class.TY !== 24) fail("floor thresholds not passed down to the classifier");
+    if (dut.u_obs.u_core.u_class.YS_NEAR !== 1 || dut.u_obs.u_core.u_class.NEAR_ROW !== 65 || dut.u_obs.u_core.u_class.RELEARN_FR !== 300) fail("near-row / relearn parameters not passed down to the classifier");
     if (dut.u_disp.OBS_V0 !== 830 || dut.u_disp.REF_X0 !== 56 || dut.u_disp.REF_X1 !== 103 || dut.u_disp.REF_Y0 !== 82 || dut.u_disp.REF_Y1 !== 89) fail("obstacle view parameters of the display");
     if (dut.u_obs.u_core.u_class.YSPREAD !== dut.OBS_YSPREAD || dut.OBS_YSPREAD !== 2) fail("obstacle luma spread not passed down to the classifier");
     if (dut.u_obs.u_core.u_scan.ROW_MIN !== 53 || dut.u_disp.ROW_MIN !== 53) fail("obstacle judged rows (ROW_MIN) not passed down to the scan / the display");
-    if (dut.u_obs.REF_X0 !== 56 || dut.u_obs.REF_X1 !== 103 || dut.u_obs.REF_Y0 !== 82 || dut.u_obs.REF_Y1 !== 89 || dut.u_obs.TC !== 12 || dut.u_obs.TY !== 12 ||
+    if (dut.u_obs.REF_X0 !== 56 || dut.u_obs.REF_X1 !== 103 || dut.u_obs.REF_Y0 !== 82 || dut.u_obs.REF_Y1 !== 89 || 
         dut.u_obs.D_CAP !== 150 || dut.u_obs.D_STOP !== 60) fail("obstacle parameters");
     if (dut.u_cam.CROP_X0_GRP !== 1 || dut.u_cam.CROP_Y0 !== 13 || dut.u_cam.OUT_H !== 448) fail("camera parameters (1920x1080 from group 1 / row 13, scaled to 448 rows)");
     if (dut.u_audio.u_cfg.SPK_VOL !== dut.AUD_SPK_VOL) fail("speaker volume parameter not passed down");   // 值在 mctop.v 配置区调
@@ -474,10 +476,10 @@ initial begin
     release dut.S_cmd_stop; release dut.S_cmd_valid; release dut.S_obs_head_free; release dut.S_obs_res_tog;
     #(1_000);
 
-    // ---------- 1. 上电后等 2 "ms"（以前在这里核对尾巴自动回零的 19 字节；尾巴注释掉了）----------
+    // ---------- 1. 上电后尾巴自动回零：19 字节 ----------
     #(2_000_000);
-//  if (txn !== 19) begin $display("FAIL tail auto-homing after power-up sent %0d bytes, expected 19", txn); errors = errors + 1; end
-//  exn = 0; home_bytes; compare_tx("tail auto-homing", 0);
+    if (txn !== 19) begin $display("FAIL tail auto-homing after power-up sent %0d bytes, expected 19", txn); errors = errors + 1; end
+    exn = 0; home_bytes; compare_tx("tail auto-homing", 0);
 
     // ---------- 2. 按键：SW2 / SW3 短按 = 亮度档 ±1（自动曝光的目标亮度）；长按、SW1 短按什么也不做 ----------
     spress(1);                                                      // SW2 短按：亮一档（40 ms 低电平脉冲 → 相机的亮度键）
@@ -557,18 +559,23 @@ initial begin
     #(3_000_000);
     expect_text(4, 0,  "UWB NOLK -12deg 350cm  CMD LOST L+0000 R+0000", 45);   // 300 "ms" 没有字节
 
-    // ---------- 4. 喂食（霍尔 = 1）：进食音效（2.wav）播一遍，磁铁没拿开不重播（尾巴注释掉了）----------
-//  if (dut.S_tail_busy !== 1'b0) fail("tail should be idle before the feeding test");
+    // ---------- 4. 喂食（霍尔 = 1）：进食音效（2.wav）播一遍，磁铁没拿开不重播；尾巴一遍接一遍地摇，拿开后摇完这一遍就停 ----------
+    if (dut.S_tail_busy !== 1'b0) fail("tail should be idle before the feeding test");
+    s0 = txn;
     e0 = r_nz; n1 = n_sfx_start;
     r_arm = 1; r_first_set = 0;
     hall = 1;
     #(300_000);
     if (dut.S_hall_fed !== 1'b1) fail("hall input should be debounced to 1");
     if (dut.u_audio.O_sfx_cur !== 7'd2) begin $display("FAIL feeding played clip %0d, expected the eat sound 2", dut.u_audio.O_sfx_cur); errors = errors + 1; end
-    #(2_000_000);                                                   // 磁铁停留 2 "ms"（以前是等尾巴摇完第一个来回、开始第二个）
+    #(1_200_000);                                                   // 磁铁停留到尾巴摇完第一遍、开始第二遍
+    if (txn - s0 < 46) begin $display("FAIL feeding: tail only sent %0d bytes while fed, expected a second wag to have started", txn - s0); errors = errors + 1; end
     hall = 0;
     #(3_000_000);
     if (n_sfx_start - n1 !== 1) begin $display("FAIL feeding: %0d sound effects started, expected exactly 1", n_sfx_start - n1); errors = errors + 1; end
+    if (txn - s0 !== 90) begin $display("FAIL feeding: tail sent %0d bytes, expected 2 wags = 90 (the second one finishes after the magnet left)", txn - s0); errors = errors + 1; end
+    exn = 0; wag_bytes; wag_bytes; compare_tx("feeding wag", s0);
+    if (dut.S_tail_busy !== 1'b0) fail("tail should stop after the magnet left");
     wait_sfx_idle(4000);
     #(500_000);
     if (r_nz - e0 < 600) begin $display("FAIL feeding: only %0d non-zero right-channel frames (eat sound = 2.wav)", r_nz - e0); errors = errors + 1; end
@@ -593,6 +600,8 @@ initial begin
     hall = 0;
     wait_sfx_idle(4000);
     #(3_000_000);
+    while (dut.S_tail_busy !== 1'b0) #(10_000);
+    #(10_000);
 
     // ---------- 4b. 狗叫：STM32 的线通着、一直收不到 UWB（$S&）连续 BARK_MS（1000 "ms" = 10 ms）→ 循环播 3.wav；线断了（300 "ms" 没字节）就不叫 ----------
     n1 = n_sfx_start;
@@ -608,6 +617,21 @@ initial begin
     n1 = n_sfx_start;
     #(20_000_000);
     if (n_sfx_start - n1 !== 0) begin $display("FAIL bark: %0d barks after the link went quiet", n_sfx_start - n1); errors = errors + 1; end
+
+    // ---------- 4c. 主人在身边摇尾巴：< 300 cm 保持 300 "ms"（= 3 ms）开始摇，≥ 320 cm 摇完这一遍就停 ----------
+    s0 = txn;
+    m0_send("$l00250&"); #(1_500_000);
+    m0_send("$l00250&");                                                     // 约 150 "ms"：还没到 300 "ms"
+    if (txn !== s0) begin $display("FAIL owner near: tail started after 150 ms (%0d bytes)", txn - s0); errors = errors + 1; end
+    for (i = 0; i < 3; i = i + 1) begin #(2_000_000); m0_send("$l00250&"); end   // 超过 300 "ms"：摇
+    if (txn - s0 < 46) begin $display("FAIL owner near: tail only sent %0d bytes, expected a second wag to have started", txn - s0); errors = errors + 1; end
+    m0_send("$l00350&");                                                     // 走远了：摇完这一遍就停
+    #(3_000_000);
+    if ((txn - s0) % 45 !== 0 || dut.S_tail_busy !== 1'b0) begin $display("FAIL owner far: tail still moving / sent %0d bytes, expected whole wags of 45", txn - s0); errors = errors + 1; end
+    exn = 0; wag_bytes; compare_tx("owner-near wag", s0);
+    n1 = txn;
+    #(2_000_000);
+    if (txn !== n1) begin $display("FAIL owner far: tail kept moving (%0d bytes)", txn - n1); errors = errors + 1; end
 
     // ---------- 5. 状态灯真值表（没有屏幕时靠 LED 判断初始化进度）----------
     // 视频块在这里是替身，所以用 force 把 DDR 校准 / 面板初始化 / 相机配置 / 图像帧 这四个状态拉到各种组合；
@@ -636,7 +660,8 @@ initial begin
     release dut.S_ddr_ready_s; release dut.S_panel_ready_s; release dut.S_isp_alive; release dut.S_cam_cfg_done_s;
     #(500_000);
 
-    // ---------- 6. SW1 按住 > 3 ms：整机复位（背景音乐重新开始；尾巴注释掉了）----------
+    // ---------- 6. SW1 按住 > 3 ms：整机复位（背景音乐重新开始、尾巴重新回零）----------
+    s0 = txn;
     lock_low_seen = 0;
     key[0] = 1'b0;
     for (t = 0; t < 600; t = t + 1) begin #10_000; if (dut.S_pll_lock === 1'b0) lock_low_seen = 1; end   // 6 ms
@@ -644,8 +669,8 @@ initial begin
     #(2_000_000);
     if (!lock_low_seen) fail("hold SW1 did not reset the PLL");
     if (dut.S_pll_lock !== 1'b1) fail("PLL did not re-lock");
-//  if (txn - s0 !== 19) begin $display("FAIL tail did not re-home after the system reset (%0d bytes)", txn - s0); errors = errors + 1; end
-//  exn = 0; home_bytes; compare_tx("tail re-homing after reset", s0);
+    if (txn - s0 !== 19) begin $display("FAIL tail did not re-home after the system reset (%0d bytes)", txn - s0); errors = errors + 1; end
+    exn = 0; home_bytes; compare_tx("tail re-homing after reset", s0);
     t = 0; while (dut.S_bgm_state !== 2'd2 && t < 6000) begin #10_000; t = t + 1; end
     if (dut.S_bgm_state !== 2'd2) fail("background music did not restart by itself after the system reset");
 

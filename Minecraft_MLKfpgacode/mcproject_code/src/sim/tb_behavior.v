@@ -6,7 +6,7 @@
 //             结束时状态回 0；FAIL_NEXT = 1 时这一次以"出错"（状态 3）结束。
 // 覆盖：
 //   尾巴：喂食（hall = 1）时每个来回结束再检查一次，还是 1 就再来一个来回；变 0 后把当前来回摇完就停；忙的时候不发脉冲；
-//         脉冲只有一个时钟宽；I_near = 1 时同样摇；
+//         脉冲只有一个时钟宽；主人在身边（UWB）时同样摇：< 300 保持正好 5 个节拍才算、中途 ≥ 300 一个节拍重新数、300~319 保持原状、320 或收不到 UWB 马上不算；
 //   音效：音频没准备好就等着；准备好以后只触发一次（磁铁没拿开就不重播）；播放中不重复触发；
 //         出错结束以后不重试，磁铁拿开再靠近才重新来；
 //         狗叫和进食音效冲突时排队（进食先、狗叫后；同一个时钟一起到来也一样），I_bark 一直为 1 就循环叫；
@@ -26,7 +26,7 @@ localparam SFX_T  = 700;
 reg clk = 0, rst_n = 0;
 always #5 clk = ~clk;
 
-reg hall = 0, near = 0, bark = 0, ready = 0;
+reg hall = 0, bark = 0, ready = 0;
 reg ulink = 0, uok = 0;
 reg [9:0] ucm = 0;
 localparam TK = 20;                       // 每 TK 个时钟一个"毫秒"节拍
@@ -48,9 +48,9 @@ integer     n_play_eat = 0, n_play_bark = 0;
 integer     last_clip = 0;
 reg         pending_fail = 0;
 
-mc_behavior #(.EAT_CLIP(7'd2), .BARK_CLIP(7'd3), .BARK_CM(500), .BARK_MS(7)) dut (
+mc_behavior #(.EAT_CLIP(7'd2), .BARK_CLIP(7'd3), .BARK_CM(500), .BARK_MS(7), .TAIL_NEAR_CM(300), .TAIL_FAR_CM(320), .TAIL_NEAR_MS(5)) dut (
     .I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick),
-    .I_hall(hall), .I_near(near), .I_uwb_link(ulink), .I_uwb_ok(uok), .I_uwb_cm(ucm), .I_stuck(bark),
+    .I_hall(hall), .I_uwb_link(ulink), .I_uwb_ok(uok), .I_uwb_cm(ucm), .I_stuck(bark),
     .I_audio_ready(ready), .I_sfx_busy(sfx_busy), .I_sfx_state(sfx_state), .I_tail_busy(tail_busy),
     .O_tail_wag(wag), .O_sfx_play(play), .O_sfx_clip(clip)
 );
@@ -153,13 +153,45 @@ initial begin
     wait_clk(SFX_T + 50);
     hall = 0; wait_clk(SFX_T + 50);
 
-    // ---------- 尾巴：I_near 也让它摇 ----------
-    w0 = n_wag;
-    near = 1;
-    wait_clk(TAIL_T * 4);
-    if (n_wag - w0 < 3) begin $display("FAIL tail: near=1 gave only %0d cycles (expected >= 3)", n_wag - w0); err = err + 1; end
-    near = 0;
+    // ---------- 尾巴：主人在身边（UWB）也摇（测试台的尾巴摇一遍 TAIL_T = 400 拍，比 5 个节拍 = 100 拍长）----------
     wait_clk(TAIL_T * 2);
+    w0 = n_wag;
+    uok = 1; ucm = 300;                                  // 正好 300：不算近
+    wait_clk(TK * 20);
+    expect("300 cm: no wag", n_wag, w0);
+    wait_ticks(1); wait_clk(2);
+    ucm = 299;
+    wait_ticks(4); wait_clk(5);
+    expect("299 cm for 4 ticks: no wag yet", n_wag, w0);
+    wait_ticks(1); wait_clk(5);
+    expect("299 cm for exactly 5 ticks: wag", n_wag, w0 + 1);
+    wait_clk(TAIL_T * 4);
+    if (n_wag - w0 < 4) begin $display("FAIL tail: near gave only %0d cycles (expected >= 4)", n_wag - w0); err = err + 1; end
+    ucm = 319;                                           // 3 m ~ 3.2 m：保持原状
+    w0 = n_wag;
+    wait_clk(TAIL_T * 3);
+    if (n_wag - w0 < 2) begin $display("FAIL tail: 319 cm should keep wagging (%0d cycles)", n_wag - w0); err = err + 1; end
+    ucm = 320;                                           // 3.2 m：马上不算，摇完当前这一遍就停
+    wait_clk(TAIL_T + 30);
+    w0 = n_wag;
+    wait_clk(TAIL_T * 3);
+    expect("320 cm: wagging stops", n_wag, w0);
+    ucm = 319;                                           // 回到 319：没确认过，还是不算
+    wait_clk(TK * 20);
+    expect("319 cm after leaving: no wag", n_wag, w0);
+    wait_ticks(1); wait_clk(2);                           // 中途 ≥ 300 一个节拍：重新数
+    ucm = 299; wait_ticks(4); wait_clk(2);
+    ucm = 300; wait_ticks(1); wait_clk(2);
+    ucm = 299; wait_ticks(4); wait_clk(5);
+    expect("299 for 4 + 300 for 1 + 299 for 4 ticks: no wag", n_wag, w0);
+    wait_ticks(1); wait_clk(5);
+    expect("then 299 for the 5th tick: wag", n_wag, w0 + 1);
+    uok = 0;                                             // 收不到 UWB：马上不算（距离还留着）
+    wait_clk(TAIL_T + 30);
+    w0 = n_wag;
+    wait_clk(TAIL_T * 3);
+    expect("UWB lost: wagging stops", n_wag, w0);
+    ucm = 0;
 
     // ---------- 狗叫：和进食音效冲突时排队 ----------
     p0 = n_play; pe0 = n_play_eat; pb0 = n_play_bark;
