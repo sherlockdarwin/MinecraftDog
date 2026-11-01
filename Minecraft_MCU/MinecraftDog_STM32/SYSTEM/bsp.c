@@ -23,6 +23,4 @@ void bsp_init(void)
     KEY_Init();
     /* Follow_Init();  本地跟随已停用, 电机由 FPGA 命令驱动 */
     FPGAMLK_Init();
-    Stepper_Init();
-    Tail_Init();            /* 1 秒后自动回零, 见 tail.h */
 }

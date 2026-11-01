@@ -29,7 +29,6 @@ ALGORITHM/follow_mode.o: ../ALGORITHM/follow_mode.c \
  ../SYSTEM/delay.h ../SYSTEM/task.h ../HARDWARE/MOTOR/motor.h \
  ../HARDWARE/MOTOR/encoder.h ../HARDWARE/UWB/uwb.h ../HARDWARE/KEY/key.h \
  ../ALGORITHM/follow.h ../ALGORITHM/follow_mode.h ../HARDWARE/LCD/lcd.h \
- ../HARDWARE/STEPPER/stepper.h ../HARDWARE/STEPPER/tail.h \
  ../HARDWARE/MLK/fpgamlk.h
 ../ALGORITHM/follow_mode.h:
 ../SYSTEM/AllHeader.h:
@@ -72,6 +71,4 @@ ALGORITHM/follow_mode.o: ../ALGORITHM/follow_mode.c \
 ../ALGORITHM/follow.h:
 ../ALGORITHM/follow_mode.h:
 ../HARDWARE/LCD/lcd.h:
-../HARDWARE/STEPPER/stepper.h:
-../HARDWARE/STEPPER/tail.h:
 ../HARDWARE/MLK/fpgamlk.h:

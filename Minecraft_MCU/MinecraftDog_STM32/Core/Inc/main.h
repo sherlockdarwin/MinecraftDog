@@ -83,10 +83,10 @@ void Error_Handler(void);
 #define KEY1_GPIO_Port GPIOC
 #define LED_Pin GPIO_PIN_8
 #define LED_GPIO_Port GPIOA
-#define STEPPER_U1TX_Pin GPIO_PIN_9
-#define STEPPER_U1TX_GPIO_Port GPIOA
-#define STEPPER_U1RX_Pin GPIO_PIN_10
-#define STEPPER_U1RX_GPIO_Port GPIOA
+#define UWB_B_U1TX_Pin GPIO_PIN_9
+#define UWB_B_U1TX_GPIO_Port GPIOA
+#define UWB_B_U1RX_Pin GPIO_PIN_10
+#define UWB_B_U1RX_GPIO_Port GPIOA
 #define E2A_Pin GPIO_PIN_15
 #define E2A_GPIO_Port GPIOA
 #define UWB_F_U4TX_Pin GPIO_PIN_10

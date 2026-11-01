@@ -35,8 +35,7 @@ void FollowMode_Process(uint32_t now_ms)
         return;
     }
 
-    /* 模式里短按 KEY1 不起作用, 吃掉事件, 免得退出后突然触发试电机
-     * (短按 KEY2 照样让步进电机摇摆, 不影响轮子) */
+    /* 模式里短按 KEY1 不起作用, 吃掉事件, 免得退出后突然触发试电机 */
     (void) Key1_Short_Press();
 
     Follow_Process(now_ms);

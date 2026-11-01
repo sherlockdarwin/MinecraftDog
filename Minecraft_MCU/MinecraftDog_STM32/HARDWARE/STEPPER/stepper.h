@@ -1,3 +1,5 @@
+/* 不再使用: 尾巴 2026-10-31 起归 FPGA, 2026-11-01 起 USART1 (PA9/PA10) 改接第四个 UWB (后基站)。
+ * 没有人调这里和 tail.c 了, 留着只为对照协议; 别再调, 否则命令会发给 UWB 基站。 */
 #ifndef __STEPPER_H_
 #define __STEPPER_H_
 

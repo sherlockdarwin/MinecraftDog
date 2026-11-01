@@ -20,16 +20,30 @@ static bool s_follow_angle_valid = false;
 static int32_t s_follow_turn = 0;        /* 现在的转向量 (慢慢变到目标值) */
 static int32_t s_follow_angle_x16 = 0;   /* 平滑后的角度 × 16 (多留 4 位小数) */
 
-/* 角度平滑: 每次只跟上新角度的 1 / FOLLOW_ANGLE_FILTER; 刚收到 / 刚找回目标时直接用新值。 */
+/* 角度平滑: 每次只跟上新角度的 1 / FOLLOW_ANGLE_FILTER; 刚收到 / 刚找回目标时直接用新值。
+ * 信标绕过正后方时读数从 +179 跳到 -179, 差值要走近路, 否则平滑值会经过 0 (正前方)。 */
 static int32_t Follow_FilterAngle(int16_t raw_deg)
 {
     int32_t raw_x16 = (int32_t) raw_deg * 16;
+    int32_t difference;
 
     if (!s_follow_angle_valid) {
         s_follow_angle_x16   = raw_x16;
         s_follow_angle_valid = true;
     } else {
-        s_follow_angle_x16 += (raw_x16 - s_follow_angle_x16) / FOLLOW_ANGLE_FILTER;
+        difference = raw_x16 - s_follow_angle_x16;
+        if (difference > 180 * 16) {
+            difference -= 360 * 16;
+        } else if (difference < -180 * 16) {
+            difference += 360 * 16;
+        }
+
+        s_follow_angle_x16 += difference / FOLLOW_ANGLE_FILTER;
+        if (s_follow_angle_x16 > 180 * 16) {
+            s_follow_angle_x16 -= 360 * 16;
+        } else if (s_follow_angle_x16 < -180 * 16) {
+            s_follow_angle_x16 += 360 * 16;
+        }
     }
 
     return s_follow_angle_x16 / 16;

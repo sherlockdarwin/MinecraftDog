@@ -23,7 +23,6 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "uwb.h"
-#include "STEPPER/stepper.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -240,8 +239,8 @@ void DMA1_Channel3_IRQHandler(void)
 void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
-  /* 步进电机的应答不走 HAL: 字节直接进 stepper.c (发送用阻塞的 HAL_UART_Transmit, 不用中断) */
-  Stepper_IRQHandler();
+  /* 第四个 UWB (后基站), 和另外三个一样不走 HAL */
+  UWB_IRQHandler(UWB_ANCHOR_BACK);
   return;
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);

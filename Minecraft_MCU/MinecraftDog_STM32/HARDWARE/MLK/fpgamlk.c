@@ -270,7 +270,7 @@ bool FPGAMLK_SendLost(void)
     return true;
 }
 
-/* HAL 的串口错误回调(全工程只有这一个)。UWB 的三个串口不走 HAL 中断(见 uwb.c),
+/* HAL 的串口错误回调(全工程只有这一个)。UWB 的四个串口不走 HAL 中断(见 uwb.c),
  * 所以进到这里的只会是 USART3。HAL 已经把接收 DMA 停了, 这里只置标志,
  * 真正重启放在主循环的 FPGAMLK_Poll() 里, 免得和它抢读指针。 */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)

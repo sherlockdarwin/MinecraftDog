@@ -30,7 +30,6 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../HARDWARE/MOTOR/motor.h ../HARDWARE/MOTOR/encoder.h \
  ../HARDWARE/UWB/uwb.h ../HARDWARE/KEY/key.h ../ALGORITHM/follow.h \
  ../ALGORITHM/follow_mode.h ../HARDWARE/LCD/lcd.h \
- ../HARDWARE/STEPPER/stepper.h ../HARDWARE/STEPPER/tail.h \
  ../HARDWARE/MLK/fpgamlk.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
@@ -74,6 +73,4 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../ALGORITHM/follow.h:
 ../ALGORITHM/follow_mode.h:
 ../HARDWARE/LCD/lcd.h:
-../HARDWARE/STEPPER/stepper.h:
-../HARDWARE/STEPPER/tail.h:
 ../HARDWARE/MLK/fpgamlk.h:
