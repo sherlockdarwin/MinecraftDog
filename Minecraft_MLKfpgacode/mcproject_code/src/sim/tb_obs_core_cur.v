@@ -5,7 +5,4 @@
 `define TB_OBS_RM 53
 `define TB_OBS_REAL 1
 `define TB_OBS_DSTOP 60
-`define TB_OBS_NR 65
-`define TB_OBS_TC 16
-`define TB_OBS_SH 5
 `include "tb_obs_core.v"
