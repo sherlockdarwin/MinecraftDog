@@ -55,7 +55,7 @@ rtl_for() {
     tb_ae)         echo "video/cam/mc_ae.v video/cam/uicfgimx415.v video/cam/uii2c.v video/cam/uiimx415reg.v system/mc_sync_bits.v ../sim/models/i2c_rec_slave.v";;
     tb_obs_down)   echo "video/obs/mc_obs_down.v";;
     tb_obs_core|tb_obs_core_ys4) echo "video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v ../sim/models/mc_obs_lut_t15.v system/mc_sync_bits.v";;   # 测试专用的固定几何表（场景按它设计）
-    tb_obs_core_cur) echo "video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v video/obs/mc_obs_lut.v system/mc_sync_bits.v";;            # 车上的几何表
+    tb_obs_core_cur|tb_obs_core_sh8) echo "video/obs/mc_obs_core.v video/obs/mc_obs_class.v video/obs/mc_obs_morph.v video/obs/mc_obs_scan.v video/obs/mc_obs_lut.v system/mc_sync_bits.v";;            # 车上的几何表
     tb_obs_view)   echo "video/obs/mc_obs_view.v system/mc_sync_bits.v";;
     tb_isp)        echo "video/isp/mc_crop.v video/isp/isp_top.v video/isp/demosaic/demosaic.v video/isp/demosaic/raw_matrix_3x3_buffer.v video/isp/demosaic/mipi_to_raw_converter.v video/isp/demosaic/line_buffer_demosaic.v video/isp/demosaic/zhenghe.v video/isp/demosaic/bilinear_interpolation.v video/isp/data128_96/data128_96.v video/isp/awb.v video/isp/signal_delay.v ../sim/stubs/stub_awb_delay_ram.v ../sim/stubs/stub_demosaic_rams.v";;
     tb_follow)     echo "app/mc_follow.v ../sim/models/mc_obs_lut_t15.v system/mc_sync_bits.v";;   # 方向角用测试专用的固定几何表（场景按它设计）

@@ -1,6 +1,8 @@
 `timescale 1ns / 1ps
 // 测试 mc_obs_core（分类 + 去噪 + 列扫描 / 扇区 / 合框 / 距离 / 选方向 + 送显示的写总线和双缓冲）。
 //   测试台自己按规格写一份模型（数组 + 循环，不照 RTL 的流水结构）：
+//     暗角补偿（宏 TB_OBS_SH，本文件 0；tb_obs_core_cur.v 用 mctop 现在的 5，tb_obs_core_sh8.v 用 8，n 到上限）：R、G、B 各 + ⌊× n / 16⌋（≤ 255），n = round(SH × 列距² / 6400) + round(SH × 行距² / 6400)，最多 7。
+//       SH 不是 0 时场景先按同样的 n 压暗（模拟镜头暗角），补回来以后地面还是平的；每一格的亮度都逐格核对，所以 n 换档的每一列 / 每一行都查到了。
 //     分类：Y=(R+2G+B)>>2，Cb=B−Y，Cr=R−Y，色度格 = 限幅(⌊(c+64)/8⌋, 0, 15)，亮度格 = Y>>4；
 //           地面 = Hc ≥ TC 且（第 NR 行以下 Hs，以上 Hy）≥ TY。参考区点计数的条件：判成地面，或者同一列第 CHK = 82 − 6 行是地面（上电前 RF 帧、重学那一帧全部计数）。
 //           每帧结束：计数够参考区的 1/4（或全学）才更新：Hc ← Hc − ⌊Hc/4⌋ + Σ3×3 邻格的本帧参考区计数（≤ 4095），Hy 同理（±YS 格；本文件 YS = 2，tb_obs_core_ys4.v 用 4），Hs 同理（±YSN 格）；
@@ -51,6 +53,9 @@
 `ifndef TB_OBS_YSN
 `define TB_OBS_YSN 1
 `endif
+`ifndef TB_OBS_SH
+`define TB_OBS_SH 0
+`endif
 module tb_obs_core;
 localparam YS = `TB_OBS_YS;            // 亮度邻格放宽几格（YSPREAD）：本文件 2（下面的边界场景按 ±2 设计）；tb_obs_core_ys4.v 用 4、tb_obs_core_cur.v 用 mctop 现在的值（2）
 localparam RM = `TB_OBS_RM;            // 从第几行起判断障碍（ROW_MIN）：本文件 29（第 15~21 帧的场景按它设计）；tb_obs_core_cur.v 用 53（mctop 现在的值）
@@ -62,6 +67,7 @@ localparam TCV = `TB_OBS_TC;             // 地面门限（TC = TY）：本文�
 localparam RF  = 2;                      // RELEARN_FR：连续 2 帧认不出就重学（场景用得短一点）
 localparam REF_MIN = 96;                 // 参考区 48 × 8 = 384 点的 1/4
 localparam CHK = 76;                     // 第 82 − 6 行：这一行是地面，参考区里不认识的点算花纹
+localparam SH  = `TB_OBS_SH;             // 暗角补偿（SHADE）
 integer F17_BOT;                        // 第 17 帧一整面墙的下沿：最靠下的、距离还 ≥ D_STOP 的一行（15° 表：67 = 35 cm 正好等于；车上的表按表算）
 integer F7_ROW;                         // 第 7 帧"全挡住"从这一行往下（15° 表：75；车上的表：F17_BOT 的下一行，已经 < D_STOP）
 
@@ -83,7 +89,7 @@ wire        res_tog;
 wire signed [6:0] go_deg, near_deg;
 wire [7:0]  go_free, near_cm;
 
-mc_obs_core #(.TC(TCV), .TY(TCV), .YSPREAD(YS), .YS_NEAR(YSN), .NEAR_ROW(NR), .RELEARN_FR(RF), .ROW_MIN(RM), .D_STOP(DSTOP)) dut (
+mc_obs_core #(.TC(TCV), .TY(TCV), .YSPREAD(YS), .YS_NEAR(YSN), .NEAR_ROW(NR), .RELEARN_FR(RF), .SHADE(SH), .ROW_MIN(RM), .D_STOP(DSTOP)) dut (
     .I_clk(clk), .I_rst_n(rst_n), .I_valid(v), .I_row(row), .I_col(col), .I_rgb(rgb),
     .O_wbus(wbus), .O_pub_bank(pub_bank), .O_pub_valid(pub_valid), .O_go(go), .I_disp_bank(disp_bank),
     .O_done(done), .O_sec_dist(sec_dist), .O_go_head(go_head), .O_go_deg(go_deg), .O_go_free(go_free),
@@ -266,6 +272,27 @@ function [24:0] special;                // {有, 颜色}
     end
 endfunction
 function [7:0] cl; input integer x; cl = (x < 0) ? 8'd0 : (x > 255) ? 8'd255 : x; endfunction
+function integer sh_n;                  // 暗角补偿：这一格的 n
+    input integer r, c;
+    integer dc, dr, nc, nr;
+    begin
+        dc = (c < 80) ? 79 - c : c - 80;
+        dr = (r < 45) ? 44 - r : r - 45;
+        nc = $rtoi(SH * dc * dc / 6400.0 + 0.5);
+        nr = $rtoi(SH * dr * dr / 6400.0 + 0.5);
+        sh_n = (nc + nr > 7) ? 7 : nc + nr;
+    end
+endfunction
+function [23:0] sh_dark;                // 模拟镜头暗角：场景压暗（补回来差不超过 1）
+    input [23:0] p;
+    input integer n;
+    sh_dark = {cl((p[23:16] * 16 + 15 + n) / (16 + n)), cl((p[15:8] * 16 + 15 + n) / (16 + n)), cl((p[7:0] * 16 + 15 + n) / (16 + n))};
+endfunction
+function [23:0] sh_gain;                // 暗角补偿（规格）
+    input [23:0] p;
+    input integer n;
+    sh_gain = {cl(p[23:16] + p[23:16] * n / 16), cl(p[15:8] + p[15:8] * n / 16), cl(p[7:0] + p[7:0] * n / 16)};
+endfunction
 function [23:0] scene;
     input integer f, r, c;
     integer n0, n1, n2, br, bg, bb;
@@ -287,6 +314,7 @@ function [23:0] scene;
         if (f == 5 && r >= 84 && r <= 86 && c >= 70 && c <= 75) begin br = 200; bg = 200; bb = 40; end                       // 参考区里有东西
         scene = {cl(br + n0), cl(bg + n1), cl(bb + n2)};
         if (special(f, r, c) >> 24) scene = special(f, r, c);
+        if (SH != 0) scene = sh_dark(scene, sh_n(r, c));
     end
 endfunction
 
@@ -317,7 +345,7 @@ task model_frame;                       // 用当前模型给这一帧分类，�
         for (i = 0; i < 16; i = i + 1) Ay[i] = 0;
         for (r = 0; r < 90; r = r + 1)
             for (c = 0; c < 160; c = c + 1) begin
-                p = scene(f, r, c);
+                p = sh_gain(scene(f, r, c), sh_n(r, c));
                 y = (p[23:16] + 2 * p[15:8] + p[7:0]) / 4;
                 cb = p[7:0] - y; cr = p[23:16] - y;
                 bc = q16(cb) * 16 + q16(cr); by = y / 16;

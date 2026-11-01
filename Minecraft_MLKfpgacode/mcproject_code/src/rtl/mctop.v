@@ -123,6 +123,7 @@ localparam [11:0] OBS_TY         = 12'd16;
 localparam [2:0]  OBS_YSPREAD    = 3'd2;       // 地面亮度宽容度（每格 16 级）：反光 / 阴影的地面被判成障碍就加大（最大 7），和地面一样灰的东西判不出来就减小（10-30：回到最开始的 2，识别更灵敏；4 太宽、3 偏宽）
 localparam [2:0]  OBS_YS_NEAR    = 3'd1;       // 近处（OBS_NEAR_ROW 行以下）亮度宽容度：和地面颜色接近的墙要靠它判出来；近处地板发紫 → 改成 2（= 10-30 以前）
 localparam [6:0]  OBS_NEAR_ROW   = 7'd65;      // 从这一行往下算近处（第 65 行 ≈ 1 m）
+localparam       OBS_SHADE      = 5;          // 暗角补偿 0~8：镜头画面越靠边越暗，边上的地面会被判成障碍（10-31 屏幕照片量到边上只剩中间的 60~80%）。边上还发紫 → 加大；边上的地面比中间亮 / 障碍判不出来 → 减小；0 = 不补
 localparam [9:0]  OBS_RELEARN_FR = 10'd300;    // 车前参考区连续这么多帧（300 ≈ 5 秒）几乎全认不出来 → 当作换了地面，重学一帧；上电后也先全学这么多帧
 localparam [6:0]  OBS_ROW_MIN    = 7'd53;      // 判断画面第 53~89 行（160×90 网格）= 镜头前约 49 cm ~ 2.36 m（10-30 由 60 = 1.35 m 改远，给 AVOID_FAR_CM 提前绕用；1~1.35 m 的照样只是"看得见、不算挡路"）。第 52 行以上 > 2.5 m、第 44 行以上是地平线以上，没有距离。第 60 行 1.35 m、55 行约 2 m、70 行约 84 cm，见 mc_obs_lut.v
 localparam [7:0]  OBS_D_CAP      = 8'd150;     // 选方向最远算到多少厘米
@@ -391,7 +392,7 @@ wire         S_obs_stop;
 
 mc_obs #(
     .REF_X0 (OBS_REF_X0), .REF_X1 (OBS_REF_X1), .REF_Y0 (OBS_REF_Y0), .REF_Y1 (OBS_REF_Y1),
-    .TC (OBS_TC), .TY (OBS_TY), .YSPREAD (OBS_YSPREAD), .YS_NEAR (OBS_YS_NEAR), .NEAR_ROW (OBS_NEAR_ROW), .RELEARN_FR (OBS_RELEARN_FR),
+    .TC (OBS_TC), .TY (OBS_TY), .YSPREAD (OBS_YSPREAD), .YS_NEAR (OBS_YS_NEAR), .NEAR_ROW (OBS_NEAR_ROW), .RELEARN_FR (OBS_RELEARN_FR), .SHADE (OBS_SHADE),
     .ROW_MIN (OBS_ROW_MIN), .D_CAP (OBS_D_CAP), .D_STOP (OBS_D_STOP)
 ) u_obs (
     .I_clk       (S_cam_pix_clk),

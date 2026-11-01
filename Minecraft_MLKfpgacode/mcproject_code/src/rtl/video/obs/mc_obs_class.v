@@ -3,6 +3,10 @@
 // mc_obs_class.v  地面 / 障碍分类（每个 160×90 网格点一个判断），思路来自 Ulrich & Nourbakhsh 2000"按外观找障碍"：
 //   车正前方脚下那一块（参考区）当作"地面样本"，统计它的颜色分布；画面里颜色在这个分布里常见的格子 = 地面，不常见的 = 障碍。
 //
+//   0. 暗角补偿：镜头画面越靠边越暗（10-31 从屏幕照片量：同一片地面到画面左右边只剩中间的 60~80%），不补的话边上的地面亮度落在地面模型外面，判成障碍，
+//      手动转一下、这片地面到了画面中间又判对了。每个点的 R、G、B 都乘 1 + n/16（向下取整，不超过 255）：
+//      n = nc + nr（最多 7），nc = round(SHADE × 列距² / 6400)、nr = round(SHADE × 行距² / 6400)；列距 = |列 − 79.5| 向下取整、行距 = |行 − 44.5| 向下取整
+//      （6400 = 80²：列距到画面边上正好约 SHADE/16）。SHADE = 0 不补。显示用的亮度也是补过的。
 //   1. 颜色：亮度 Y = (R + 2G + B) / 4，色度 Cb = B − Y、Cr = R − Y（都是移位加减，不用乘法）。
 //      色度量化成 16 × 16 格（−64 ~ +63，每格 8），亮度量化成 16 格（每格 16）。
 //   2. 地面模型 = 三张直方图：Hc[Cb, Cr]（256 格）、Hy[Y]、Hs[Y]（16 格），12 位。Hy 放宽得多（远处用），Hs 放宽得少（近处用）。
@@ -20,7 +24,7 @@
 //        上电后的前 RELEARN_FR 帧也全部学（模型是空的、自动曝光还在调）。
 //      参考区最多 511 个点（Ac / Ay 9 位）→ H 最大 4 × 511 < 4096，12 位不会溢出；然后把 Ac / Ay 清零。旧模型每帧只留 3/4，地面慢慢变亮变暗跟得上
 //      （新颜色只要落在放宽范围里就判成地面、学进去）。上电先把五张表清零（第一帧全判成障碍，第二帧开始正常）。
-//   时序：输入一拍一个点，两个点之间至少隔 3 拍（mc_obs_down 保证）；输出比输入晚 3 拍（附带行列号、亮度）。
+//   时序：输入一拍一个点，两个点之间至少隔 3 拍（mc_obs_down 保证）；输出比输入晚 5 拍（附带行列号、亮度）。
 //         模型更新约 3300 拍，在一帧最后一个点之后、下一帧第一个点之前做完（中间至少隔 12 行 ≈ 1 万拍）。
 // =============================================================================
 module mc_obs_class #(
@@ -35,6 +39,7 @@ module mc_obs_class #(
     parameter [6:0]  NEAR_ROW = 7'd65,  // 从这一行往下算近处（90 = 没有近处）
     parameter [9:0]  RELEARN_FR = 10'd300,  // 连续这么多帧认不出参考区 → 重学一帧；上电后也全学这么多帧（≥ 1）
     parameter [6:0]  REF_ABOVE = 7'd6,  // 看参考区上面第几行来分花纹和墙（6 = 第 76 行，约 69 cm；比这矮的东西算花纹，参考区里约 3~5 cm 高）
+    parameter integer SHADE = 5,        // 暗角补偿 0~8：画面左右边的点乘 1 + SHADE/16；0 = 不补
     parameter [6:0]  LAST_ROW = 7'd89,
     parameter [7:0]  LAST_COL = 8'd159
 )(
@@ -55,9 +60,57 @@ module mc_obs_class #(
 );
 
 // ---------------------------------------------------------------------------
+// 暗角补偿（两拍）：先按行列查 n，再乘
+// ---------------------------------------------------------------------------
+function integer shade_t;               // 第 k 档的距离门限：round(SHADE × d² / 6400) ≥ k 的最小 d（到不了 = 127）
+    input integer k;
+    integer d;
+    begin
+        shade_t = 127;
+        for (d = 126; d >= 0; d = d - 1) if (2 * SHADE * d * d >= (2 * k - 1) * 6400) shade_t = d;
+    end
+endfunction
+localparam [6:0] ST1 = shade_t(1), ST2 = shade_t(2), ST3 = shade_t(3), ST4 = shade_t(4), ST5 = shade_t(5), ST6 = shade_t(6), ST7 = shade_t(7);
+wire [6:0] S_dc = (I_col < 8'd80) ? 7'd79 - I_col[6:0] : I_col[6:0] - 7'd80;     // 列距
+wire [6:0] S_dr = (I_row < 7'd45) ? 7'd44 - I_row : I_row - 7'd45;               // 行距
+wire [2:0] S_nsc = (S_dc >= ST7) ? 3'd7 : (S_dc >= ST6) ? 3'd6 : (S_dc >= ST5) ? 3'd5 : (S_dc >= ST4) ? 3'd4 :
+                  (S_dc >= ST3) ? 3'd3 : (S_dc >= ST2) ? 3'd2 : (S_dc >= ST1) ? 3'd1 : 3'd0;
+wire [1:0] S_nsr = (S_dr >= ST2) ? 2'd2 : (S_dr >= ST1) ? 2'd1 : 2'd0;             // 行距最大 44，SHADE ≤ 8 时 nr ≤ 2
+wire [3:0] S_ns = {1'b0, S_nsc} + {2'd0, S_nsr};
+
+function [7:0] shade;                   // c × (1 + n/16)，向下取整，不超过 255
+    input [7:0] c;
+    input [2:0] n;
+    reg [10:0] t;
+    reg [8:0]  s;
+    begin
+        t = (n[0] ? {3'd0, c} : 11'd0) + (n[1] ? {2'd0, c, 1'b0} : 11'd0) + (n[2] ? {1'd0, c, 2'b0} : 11'd0);
+        s = {1'b0, c} + {2'd0, t[10:4]};
+        shade = s[8] ? 8'd255 : s[7:0];
+    end
+endfunction
+
+reg        S0_v, S00_v;
+reg [6:0]  S0_row, S00_row;
+reg [7:0]  S0_col, S00_col;
+reg [23:0] S0_rgb, S00_rgb;
+reg [2:0]  S0_n;
+always @(posedge I_clk or negedge I_rst_n) begin
+    if (!I_rst_n) begin
+        S0_v <= 1'b0; S0_row <= 7'd0; S0_col <= 8'd0; S0_rgb <= 24'd0; S0_n <= 3'd0;
+        S00_v <= 1'b0; S00_row <= 7'd0; S00_col <= 8'd0; S00_rgb <= 24'd0;
+    end else begin
+        S0_v <= I_valid; S0_row <= I_row; S0_col <= I_col; S0_rgb <= I_rgb;
+        S0_n <= S_ns[3] ? 3'd7 : S_ns[2:0];
+        S00_v <= S0_v; S00_row <= S0_row; S00_col <= S0_col;
+        S00_rgb <= {shade(S0_rgb[23:16], S0_n), shade(S0_rgb[15:8], S0_n), shade(S0_rgb[7:0], S0_n)};
+    end
+end
+
+// ---------------------------------------------------------------------------
 // 第 1 拍：Y / Cb / Cr，参考区判断
 // ---------------------------------------------------------------------------
-wire [9:0] S_ysum = {2'd0, I_rgb[23:16]} + {1'd0, I_rgb[15:8], 1'b0} + {2'd0, I_rgb[7:0]};
+wire [9:0] S_ysum = {2'd0, S00_rgb[23:16]} + {1'd0, S00_rgb[15:8], 1'b0} + {2'd0, S00_rgb[7:0]};
 wire [7:0] S_y0   = S_ysum[9:2];
 
 reg        S1_v, S1_ref, S1_last, S1_near, S1_rcol, S1_chk;
@@ -71,17 +124,17 @@ always @(posedge I_clk or negedge I_rst_n) begin
         S1_v <= 1'b0; S1_ref <= 1'b0; S1_last <= 1'b0; S1_near <= 1'b0; S1_rcol <= 1'b0; S1_chk <= 1'b0; S1_row <= 7'd0; S1_col <= 8'd0; S1_y <= 8'd0;
         S1_cb <= 10'sd0; S1_cr <= 10'sd0;
     end else begin
-        S1_v    <= I_valid;
-        S1_ref  <= I_valid && (I_col >= REF_X0) && (I_col <= REF_X1) && (I_row >= REF_Y0) && (I_row <= REF_Y1);
-        S1_last <= I_valid && (I_row == LAST_ROW) && (I_col == LAST_COL);
-        S1_near <= (I_row >= NEAR_ROW);
-        S1_rcol <= I_valid && (I_col >= REF_X0) && (I_col <= REF_X1);       // 参考区的列
-        S1_chk  <= (I_row == REF_Y0 - REF_ABOVE);                           // 看花纹和墙的那一行
-        S1_row  <= I_row;
-        S1_col  <= I_col;
+        S1_v    <= S00_v;
+        S1_ref  <= S00_v && (S00_col >= REF_X0) && (S00_col <= REF_X1) && (S00_row >= REF_Y0) && (S00_row <= REF_Y1);
+        S1_last <= S00_v && (S00_row == LAST_ROW) && (S00_col == LAST_COL);
+        S1_near <= (S00_row >= NEAR_ROW);
+        S1_rcol <= S00_v && (S00_col >= REF_X0) && (S00_col <= REF_X1);       // 参考区的列
+        S1_chk  <= (S00_row == REF_Y0 - REF_ABOVE);                           // 看花纹和墙的那一行
+        S1_row  <= S00_row;
+        S1_col  <= S00_col;
         S1_y    <= S_y0;
-        S1_cb   <= $signed({2'd0, I_rgb[7:0]})   - $signed({2'd0, S_y0});
-        S1_cr   <= $signed({2'd0, I_rgb[23:16]}) - $signed({2'd0, S_y0});
+        S1_cb   <= $signed({2'd0, S00_rgb[7:0]})   - $signed({2'd0, S_y0});
+        S1_cr   <= $signed({2'd0, S00_rgb[23:16]}) - $signed({2'd0, S_y0});
     end
 end
 
