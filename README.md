@@ -11,7 +11,7 @@
 ![CAD](https://img.shields.io/badge/3D-Fusion_360-e8434a?style=for-the-badge)
 ![Mood](https://img.shields.io/badge/Mood-HAPPY_DOG-ffb000?style=for-the-badge)
 
-<img src="assets/dog_front.jpg" alt="MinecraftDog 实物" width="56%">
+<img src="assets/dog_front.PNG" alt="MinecraftDog 实物" width="56%">
 
 </div>
 
@@ -29,7 +29,7 @@
 
 | 🎮 游戏里的我和狗 | 🌍 现实里的狗 |
 |:-:|:-:|
-| <img src="assets/game_me_and_dog.jpg" alt="游戏里的作者和狗" width="400"> | <img src="assets/dog_side.jpg" alt="狗狗侧面" width="400"> |
+| <img src="assets/game_me_and_dog.jpg" alt="游戏里的作者和狗" width="400"> | <img src="assets/dog_side.PNG" alt="狗狗侧面" width="400"> |
 
 </div>
 
@@ -49,7 +49,7 @@
 
 | 背上的屏幕 | 正脸 |
 |:-:|:-:|
-| <img src="assets/dog_top.jpg" alt="背上的屏幕" width="300"> | <img src="assets/dog_face.jpg" alt="狗狗正脸" width="300"> |
+| <img src="assets/dog_top.PNG" alt="背上的屏幕" width="300"> | <img src="assets/dog_face.PNG" alt="狗狗正脸" width="300"> |
 
 </div>
 
