@@ -1,5 +1,23 @@
 <div align="center">
 
+<<<<<<< HEAD
+=======
+<img src="assets/title.svg" alt="MINECRAFT DOG" width="100%">
+
+### 🐾 汪！一只从方块世界跑出来的狗
+
+基于**安路 PH1P35 FPGA** + **STM32F103RCT6** 的 Minecraft（我的世界）跟随机器狗
+
+![FPGA](https://img.shields.io/badge/FPGA-Anlogic_PH1P35-5fae35?style=for-the-badge)
+![MCU](https://img.shields.io/badge/MCU-STM32F103RCT6-8a5a3c?style=for-the-badge)
+![CAD](https://img.shields.io/badge/3D-Fusion_360-e8434a?style=for-the-badge)
+![Mood](https://img.shields.io/badge/Mood-HAPPY_DOG-ffb000?style=for-the-badge)
+
+<img src="assets/dog_front.PNG" alt="MinecraftDog 实物" width="56%">
+
+</div>
+
+>>>>>>> 2e838b97cb37c7aed1da56ff1e13d8bef7d32a5f
 ## 🌱 新的世界
 
 <img src="assets/block_grass.png" alt="" width="72" align="right">
@@ -10,6 +28,15 @@
 
 <div align="center">
 
+<<<<<<< HEAD
+=======
+| 🎮 游戏里的我和狗 | 🌍 现实里的狗 |
+|:-:|:-:|
+| <img src="assets/game_me_and_dog.jpg" alt="游戏里的作者和狗" width="400"> | <img src="assets/dog_side.PNG" alt="狗狗侧面" width="400"> |
+
+</div>
+
+>>>>>>> 2e838b97cb37c7aed1da56ff1e13d8bef7d32a5f
 ## 🐺 它会什么
 
 | 技能          | 效果                                                     |
@@ -24,6 +51,15 @@
 
 <div align="center">
 
+<<<<<<< HEAD
+=======
+| 背上的屏幕 | 正脸 |
+|:-:|:-:|
+| <img src="assets/dog_top.PNG" alt="背上的屏幕" width="300"> | <img src="assets/dog_face.PNG" alt="狗狗正脸" width="300"> |
+
+</div>
+
+>>>>>>> 2e838b97cb37c7aed1da56ff1e13d8bef7d32a5f
 ## 🌾 小麦信标
 
 <img src="assets/mob_villager.png" alt="" width="64" align="right">
