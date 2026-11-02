@@ -1,4 +1,5 @@
 <div align="center">
+<<<<<<< HEAD
 
 <img src="assets/title.svg" alt="MINECRAFT DOG" width="100%">
 
@@ -156,3 +157,5 @@ MinecraftDog/
 Minecraft 是 Mojang Synergies AB 的商标。NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.</sub>
 
 </div>
+=======
+>>>>>>> c5eb4ed39d14604d1dba9a46a7ca702f40f5f91e
