@@ -1,5 +1,4 @@
 <div align="center">
-<<<<<<< HEAD
 
 <img src="assets/title.svg" alt="MINECRAFT DOG" width="100%">
 
@@ -16,6 +15,8 @@
 
 </div>
 
+<div align="center"><img src="assets/grass.svg" alt="" width="100%"></div>
+
 ## 新的世界
 
 <img src="assets/block_grass.png" alt="" width="72" align="right">
@@ -25,11 +26,7 @@
 所以我决定把它合成出来：FPGA 当红石，3D 打印机当工作台，电机当腿。它真的走进了现实世界，会跟着我走，会吃骨头，找不到我的时候还会汪汪叫。
 
 <div align="center">
-
-| 游戏里的我和狗 | 现实里的狗 |
-|:-:|:-:|
-| <img src="assets/game_me_and_dog.jpg" alt="游戏里的作者和狗" width="400"> | <img src="assets/dogside.jpg" alt="狗狗侧面" width="400"> |
-
+<img src="assets/game_me_and_dog.jpg" alt="游戏里的我和狗" width="70%">
 </div>
 
 ## 它会什么
@@ -136,26 +133,17 @@ MinecraftDog/
 
 ## 作者
 
-<img src="assets/author.png" alt="作者" width="120" align="left">
 <img src="assets/author_game.PNG" alt="作者在游戏里" width="120" align="left">
 
 一个每次打开 Minecraft 都很开心的人。
 
 <br clear="left">
 
-<div align="center">
-<img src="assets/game_skin.jpg" alt="作者的游戏皮肤" width="60%">
-</div>
-
 <div align="center"><img src="assets/grass.svg" alt="" width="100%"></div>
 
 <div align="center">
-
-为 2026 全国大学生嵌入式芯片与系统设计竞赛 FPGA 赛道（安路科技选题）而做，更为了开心。
 
 <sub>这是一个粉丝作品，和 Mojang、Microsoft 没有任何关系。方块、生物的图片和游戏截图来自 Minecraft，版权归 Mojang；标题图是自己画的。<br>
 Minecraft 是 Mojang Synergies AB 的商标。NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.</sub>
 
 </div>
-=======
->>>>>>> c5eb4ed39d14604d1dba9a46a7ca702f40f5f91e
