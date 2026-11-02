@@ -2,140 +2,138 @@
 
 <img src="assets/title.svg" alt="MINECRAFT DOG" width="100%">
 
-### 汪！一只从方块世界跑出来的狗
+### Woof! A dog that ran out of the block world
 
-基于**安路 PH1P35 FPGA** + **STM32F103RCT6** 的 Minecraft（我的世界）跟随机器狗
+A Minecraft follower robot dog built on an **Anlogic PH1P35 FPGA** + **STM32F103RCT6**
 
 ![FPGA](https://img.shields.io/badge/FPGA-Anlogic_PH1P35-5fae35?style=for-the-badge)
 ![MCU](https://img.shields.io/badge/MCU-STM32F103RCT6-8a5a3c?style=for-the-badge)
 ![CAD](https://img.shields.io/badge/3D-Fusion_360-e8434a?style=for-the-badge)
 ![Mood](https://img.shields.io/badge/Mood-HAPPY_DOG-ffb000?style=for-the-badge)
 
-<img src="assets/dog_front.PNG" alt="MinecraftDog 实物" width="56%">
+<img src="assets/dog_front.PNG" alt="MinecraftDog, the real thing" width="56%">
 
 </div>
 
 <div align="center"><img src="assets/grass.svg" alt="" width="100%"></div>
 
-## 新的世界
+## A New World
 
 <img src="assets/block_grass.png" alt="" width="72" align="right">
 
-我非常喜欢 Minecraft，每次玩都特别开心。挖矿、盖房子、一不小心掉进岩浆，回头一看，那只用骨头驯服的狗还跟在身后。
-
-所以我决定把它合成出来：FPGA 当红石，3D 打印机当工作台，电机当腿。它真的走进了现实世界，会跟着我走，会吃骨头，找不到我的时候还会汪汪叫。
+I love Minecraft, and every time I play it I have a great time. Mining, building, accidentally falling into lava, and when I look back, the dog I tamed with a bone is still right behind me.
 
 <div align="center">
-<img src="assets/game_me_and_dog.jpg" alt="游戏里的我和狗" width="70%">
+<img src="assets/game_me_and_dog.jpg" alt="Me and my dog in the game" width="70%">
 </div>
 
-## 它会什么
+## What It Can Do
 
-| 技能 | 效果 |
+| Skill | What happens |
 | --- | --- |
-| 跟着主人走 | 你走开它就跟上来，走到你身边两米内乖乖站好 |
-| 绕开障碍 | 前面有东西就自己绕过去，死路里还会转一圈找出口 |
-| 吃骨头 | 把骨头递到嘴边：咔嚓咔嚓，尾巴摇起来 |
-| 摇尾巴 | 你走到三米以内，它就开心地左右摇 |
-| 汪汪叫 | 你跑太远、信号丢了，或者它被困住了，都会大声叫你 |
-| 狗眼看世界 | 背上的屏幕能看到它眼里的画面，哪里能走、哪里挡路一目了然 |
-| 自带 BGM | 走到哪响到哪 |
+| Follows its owner (the beacon) | Walk away and it catches up, then stands still within two meters of you |
+| Avoids obstacles | Steers around anything in its way, and in a dead end it turns around to find a way out |
+| Feeding | Hold food up to its mouth: it plays the eating sound and wags its tail |
+| Tail wagging | Wags its tail when you are within three meters |
+| Barking | Barks loudly for you when you get too far away, the signal drops, or it gets stuck |
+| Dog's-eye view | The screen on its back shows what it sees, so you can tell at a glance where it can go and what is in the way |
+| Its own BGM | Music plays wherever it goes |
 
 <div align="center">
 
-| 背上的屏幕 | 正脸 |
+| Screen on its back | Face |
 |:-:|:-:|
-| <img src="assets/dog_top.PNG" alt="背上的屏幕" width="300"> | <img src="assets/dog_face.PNG" alt="狗狗正脸" width="300"> |
+| <img src="assets/dog_top.PNG" alt="Screen on its back" width="300"> | <img src="assets/dog_face.PNG" alt="The dog's face" width="300"> |
 
 </div>
 
-## 小麦信标
+## The Wheat Beacon
 
 <img src="assets/mob_villager.png" alt="" width="64" align="right">
 
-在游戏里，手里拿着小麦，动物就会跟着你走。所以我用积木拼了一把小麦，里面藏着 UWB 标签和电池。拿着它走，狗就跟着走。
+I built a bundle of wheat out of toy bricks and put a UWB tag and a battery inside. Carry it around and the dog follows.
 
-（游戏里的狗其实不吃这一套，但这只吃。）
+(In the game, dogs don't actually go for wheat. This one does.)
 
 <div align="center">
-<img src="assets/wheat_front.png" alt="小麦信标正面" height="260">
-<img src="assets/wheat_inside.png" alt="小麦信标里面" height="260">
+<img src="assets/wheat_front.png" alt="Wheat beacon, front" height="260">
+<img src="assets/wheat_inside.png" alt="Inside the wheat beacon" height="260">
 </div>
 
 <div align="center"><img src="assets/grass.svg" alt="" width="100%"></div>
 
-## 合成表
+## Crafting Recipe
 
-### 物品栏
+### Inventory
 
-| 物品 | 用的是 | 在狗身上是 |
+| Item | Part | On the dog |
 | --- | --- | --- |
-| FPGA | 安路 **PH1P35**（PH1P35MDG324），米联客 MLKPAI-F02 + FC02 开发平台 | 大脑 |
-| 单片机 | **STM32F103RCT6** + 1.44 寸彩屏 | 小跟班，管 UWB 和轮子 |
-| 摄像头 | 米联客 MLK-CAM002（Sony IMX415，4.2 mm 镜头） | 眼睛 |
-| 屏幕 | 米联客 10.1 英寸 MIPI 屏（800×1280） | 背上的显示屏 |
-| UWB 基站 | 爱蓝信 ALX-G100A（AOA 测角测距）× 4 | 鼻子，闻得出主人在哪 |
-| UWB 标签 | OverAir U68 + 2000 mAh 电池 | 藏在小麦信标里 |
-| 陀螺仪 | 维特 JY61P | 方向感 |
-| 电机驱动 | TB6612 双路驱动模块带稳压版（D153C） | 腿上的肌肉 |
-| 轮子 | 直流减速电机 × 2 | 腿 |
-| 尾巴电机 | 张大头 ZDT Emm42（X42S 闭环步进） | 尾巴！ |
-| 喂食检测 | 霍尔传感器模块 + 藏着磁铁的骨头 | 嘴 |
-| 声音 | ES8388 + 3020 腔体喇叭（4 Ω 3 W）× 2 + TF 卡 | 嗓子 |
-| 电源 | 12 V 锂电池组（2550 mAh）× 2 + 稳压 5 V | 饱食度 |
-| 外壳 | 3D 打印 | 方块身体 |
+| FPGA | Anlogic **PH1P35** (PH1P35MDG324), MiLianKe MLKPAI-F02 + FC02 development platform | Brain |
+| MCU | **STM32F103RCT6** + 1.44-inch color LCD | Lower-level controller for UWB and the wheels |
+| Camera | MiLianKe MLK-CAM002 (Sony IMX415, 4.2 mm lens) | Eyes |
+| Display | MiLianKe 10.1-inch MIPI panel (800×1280) | Screen on its back |
+| UWB anchors | ALX-G100A (AoA angle and distance) × 4 | Nose that sniffs out where its owner is |
+| UWB tag | OverAir U68 + 2000 mAh battery | Hidden in the wheat beacon |
+| IMU | WitMotion JY61P | Sense of direction |
+| Motor driver | TB6612 dual-channel driver module with regulator (D153C) | Leg muscles |
+| Wheels | DC gear motors × 2 | Legs |
+| Tail motor | ZDT Emm42 (X42S closed-loop stepper) | The tail! |
+| Feeding sensor | Hall sensor module + a bone with a hidden magnet | Mouth |
+| Sound | ES8388 + 3020 cavity speakers (4 Ω 3 W) × 2 + TF card | Voice |
+| Power | 12 V lithium battery packs (2550 mAh) × 2 + 5 V regulator | Hunger bar |
+| Shell | 3D printed | Blocky body |
 
-### 工作台
+### Crafting Table
 
-| 用来做 | 平台 |
+| Used for | Tools |
 | --- | --- |
-| FPGA（Verilog） | 安路 Tang Dynasty（TD）6.2.1，仿真用 Icarus Verilog |
-| STM32（C） | STM32CubeMX + STM32CubeIDE |
-| 3D 模型 | Autodesk Fusion 360 |
+| FPGA (Verilog) | Anlogic Tang Dynasty (TD) 6.2.1, simulated with Icarus Verilog |
+| STM32 (C) | STM32CubeMX + STM32CubeIDE |
+| 3D model | Autodesk Fusion 360 |
 
-## 地图
+## Map
 
 ```text
 MinecraftDog/
-├── Minecraft_MLKfpgacode/        FPGA 代码，详细说明看里面的 README
-│   └── mcproject_code/           TD 工程，源码在 src/rtl，bit 在 src/boot
+├── Minecraft_MLKfpgacode/        FPGA code, see the README inside (in Chinese)
+│   └── mcproject_code/           TD project: sources in src/rtl, bitstreams in src/boot
 ├── Minecraft_MCU/
-│   ├── MinecraftDog_STM32/       STM32 代码，详细说明看里面的 README
-│   └── MinecraftDog_mspm0/       早期的 MSPM0 版本，已经不用
+│   ├── MinecraftDog_STM32/       STM32 code, see the README inside (in Chinese)
+│   └── MinecraftDog_mspm0/       early MSPM0 version, no longer used
 ├── 3Dmodel/
-│   ├── MinecraftDog_FPGA.f3d     Fusion 360 源文件，可以直接打开改
-│   ├── MinecraftDog_FPGA.stl     整只狗
-│   └── stls/                     每个零件的 STL，拿去就能打印
-├── source/                       音效、比赛资料、技术文档、原图素材
-├── assets/                       这个页面用的图
-└── FPGA开发记录.md               一路踩过的坑，和技术文档要改的地方
+│   ├── MinecraftDog_FPGA.f3d     Fusion 360 source file, open it and edit
+│   ├── MinecraftDog_FPGA.stl     the whole dog
+│   └── stls/                     STL for every part, ready to print
+├── source/                       sound effects, competition files, report, original art
+├── assets/                       images for this page
+└── FPGA开发记录.md               dev log (in Chinese): pitfalls along the way, report notes
 ```
 
-## 拆开来长这样
+## Taken Apart
 
 <img src="assets/mob_skeleton.png" alt="" width="84" align="right">
 
-外壳在 Fusion 360 里建模，分成一块块打印再拼起来。源文件放在 `3Dmodel/` 了。
+The shell was modeled in Fusion 360, printed in separate pieces and then put together. The source files are in `3Dmodel/`.
 
 <div align="center">
-<img src="source/技术文档配图/3d_explode.png" alt="外壳爆炸图" width="56%">
+<img src="source/技术文档配图/3d_explode.png" alt="Exploded view of the shell" width="56%">
 </div>
 
-## 成就
+## Achievements
 
-- [x] **跟我来** 第一次跟着小麦走起来
-- [x] **好狗狗** 走到主人身边，自己停下
-- [x] **汪！** 主人走远了，急得叫出声
-- [x] **开饭啦** 吃到骨头，摇起了尾巴
-- [x] **回头是岸** 被围住也能转圈找到出口
+- [x] **Follow Me** Walked after the wheat for the first time
+- [x] **Good Dog** Reached its owner and stopped on its own
+- [x] **Woof!** Its owner wandered too far, so it barked
+- [x] **Dinner Time** Ate a bone and wagged its tail
+- [x] **Way Out** Boxed in, it turned around and found an exit
 
 <img src="assets/mob_spider.png" alt="" width="84" align="right">
 
-## 作者
+## Author
 
-<img src="assets/author_game.PNG" alt="作者在游戏里" width="120" align="left">
+<img src="assets/author_game.PNG" alt="The author in the game" width="120" align="left">
 
-一个每次打开 Minecraft 都很开心的人。
+Someone who has a great time every time they open Minecraft.
 
 <br clear="left">
 
@@ -143,7 +141,7 @@ MinecraftDog/
 
 <div align="center">
 
-<sub>这是一个粉丝作品，和 Mojang、Microsoft 没有任何关系。方块、生物的图片和游戏截图来自 Minecraft，版权归 Mojang；标题图是自己画的。<br>
-Minecraft 是 Mojang Synergies AB 的商标。NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.</sub>
+<sub>This is a fan project with no connection to Mojang or Microsoft. The block and mob images and the game screenshots come from Minecraft and are copyrighted by Mojang; the title image was drawn by me.<br>
+Minecraft is a trademark of Mojang Synergies AB. NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.</sub>
 
 </div>
