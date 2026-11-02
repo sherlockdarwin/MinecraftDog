@@ -379,11 +379,7 @@ initial begin
     if (dut.u_behavior.BARK_CM !== 999 || dut.u_behavior.BARK_MS !== 1000 || dut.u_behavior.BARK_CLIP !== 3) fail("bark parameters");
     if (dut.u_tail.SWING_DEG !== 45 || dut.u_tail.RPM !== 10 || dut.u_tail.GEAR_X100 !== 100 || dut.u_tail.LEFT_IS_CCW !== 1) fail("tail parameters");
     if (dut.u_behavior.TAIL_NEAR_CM !== 300 || dut.u_behavior.TAIL_FAR_CM !== 320 || dut.u_behavior.TAIL_NEAR_MS !== 300) fail("tail owner-near parameters");
-<<<<<<< HEAD
     if (dut.u_obs.TC !== 15 || dut.u_obs.TY !== 15 || dut.u_obs.u_core.u_class.TC !== 15 || dut.u_obs.u_core.u_class.TY !== 15) fail("floor thresholds not passed down to the classifier");
-=======
-    if (dut.u_obs.TC !== 12 || dut.u_obs.TY !== 12 || dut.u_obs.u_core.u_class.TC !== 12 || dut.u_obs.u_core.u_class.TY !== 12) fail("floor thresholds not passed down to the classifier");
->>>>>>> c5eb4ed39d14604d1dba9a46a7ca702f40f5f91e
     if (dut.u_disp.OBS_V0 !== 830 || dut.u_disp.REF_X0 !== 56 || dut.u_disp.REF_X1 !== 103 || dut.u_disp.REF_Y0 !== 82 || dut.u_disp.REF_Y1 !== 89) fail("obstacle view parameters of the display");
     if (dut.u_obs.u_core.u_class.YSPREAD !== dut.OBS_YSPREAD || dut.OBS_YSPREAD !== 2) fail("obstacle luma spread not passed down to the classifier");
     if (dut.u_obs.u_core.u_scan.ROW_MIN !== 53 || dut.u_disp.ROW_MIN !== 53) fail("obstacle judged rows (ROW_MIN) not passed down to the scan / the display");

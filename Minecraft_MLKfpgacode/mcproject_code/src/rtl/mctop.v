@@ -118,13 +118,8 @@ localparam [7:0]  OBS_REF_X0     = 8'd56;      // 地面参考区（网格坐标
 localparam [7:0]  OBS_REF_X1     = 8'd103;
 localparam [6:0]  OBS_REF_Y0     = 7'd82;
 localparam [6:0]  OBS_REF_Y1     = 7'd89;
-<<<<<<< HEAD
 localparam [11:0] OBS_TC         = 12'd15;     // 地面颜色门限：越大越容易把东西判成障碍
 localparam [11:0] OBS_TY         = 12'd15;
-=======
-localparam [11:0] OBS_TC         = 12'd12;     // 地面颜色门限：越大越容易把东西判成障碍
-localparam [11:0] OBS_TY         = 12'd12;
->>>>>>> c5eb4ed39d14604d1dba9a46a7ca702f40f5f91e
 localparam [2:0]  OBS_YSPREAD    = 3'd2;       // 地面亮度宽容度（每格 16 级）：反光 / 阴影的地面被判成障碍就加大（最大 7），和地面一样灰的东西判不出来就减小（4 太宽、3 偏宽；11-01 近处收到 ±1 时反光的地面粘成大片紫色，别再收）
 localparam [6:0]  OBS_ROW_MIN    = 7'd53;      // 判断画面第 53~89 行（160×90 网格）= 镜头前约 49 cm ~ 2.36 m（10-30 由 60 = 1.35 m 改远，给 AVOID_FAR_CM 提前绕用；1~1.35 m 的照样只是"看得见、不算挡路"）。第 52 行以上 > 2.5 m、第 44 行以上是地平线以上，没有距离。第 60 行 1.35 m、55 行约 2 m、70 行约 84 cm，见 mc_obs_lut.v
 localparam [7:0]  OBS_D_CAP      = 8'd150;     // 选方向最远算到多少厘米
