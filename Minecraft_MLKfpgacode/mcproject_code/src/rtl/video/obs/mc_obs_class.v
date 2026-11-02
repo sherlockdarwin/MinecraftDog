@@ -3,28 +3,16 @@
 // mc_obs_class.v  地面 / 障碍分类（每个 160×90 网格点一个判断），思路来自 Ulrich & Nourbakhsh 2000"按外观找障碍"：
 //   车正前方脚下那一块（参考区）当作"地面样本"，统计它的颜色分布；画面里颜色在这个分布里常见的格子 = 地面，不常见的 = 障碍。
 //
-//   0. 暗角补偿：镜头画面越靠边越暗（10-31 从屏幕照片量：同一片地面到画面左右边只剩中间的 60~80%），不补的话边上的地面亮度落在地面模型外面，判成障碍，
-//      手动转一下、这片地面到了画面中间又判对了。每个点的 R、G、B 都乘 1 + n/16（向下取整，不超过 255）：
-//      n = nc + nr（最多 7），nc = round(SHADE × 列距² / 6400)、nr = round(SHADE × 行距² / 6400)；列距 = |列 − 79.5| 向下取整、行距 = |行 − 44.5| 向下取整
-//      （6400 = 80²：列距到画面边上正好约 SHADE/16）。SHADE = 0 不补。显示用的亮度也是补过的。
 //   1. 颜色：亮度 Y = (R + 2G + B) / 4，色度 Cb = B − Y、Cr = R − Y（都是移位加减，不用乘法）。
 //      色度量化成 16 × 16 格（−64 ~ +63，每格 8），亮度量化成 16 格（每格 16）。
-//   2. 地面模型 = 三张直方图：Hc[Cb, Cr]（256 格）、Hy[Y]、Hs[Y]（16 格），12 位。Hy 放宽得多（远处用），Hs 放宽得少（近处用）。
-//      判断：Hc[这个点的格] ≥ TC 且 亮度表[这个点的格] ≥ TY → 地面（O_obs = 0），否则障碍（O_obs = 1）。
-//      亮度表：第 NEAR_ROW 行以下（近处，要不要撞墙看这里）用 Hs，再往上用 Hy（远处地面反光、亮度变化大，要放宽）。
-//   3. 学习：参考区（REF_X0~X1 列、REF_Y0~Y1 行）里这些点在本帧计数 Ac / Ay、再数一共几个（Nr）：判成地面的；判成障碍、但同一列再往前（第 REF_Y0 − REF_ABOVE 行）是地面的。
-//      立着的东西（墙）往画面上方一直连着，那一行也是障碍 → 不学：墙进了参考区不会被学成地面（以前全学，墙进来下一帧就变成地面，车直接撞上去）。
-//      贴在地上的花纹前面还是地面 → 照样学：不然某个花纹的颜色只要有一会儿跌破门限（参考区里暂时没有它），就再也学不回来了。一帧最后一个点处理完后：
-//        Nr ≥ 参考区点数的 1/4 → 更新模型：
-//          Hc[b] ← Hc[b] − Hc[b]/4 + Σ(b 和它周围 3×3 格的 Ac)     （色度相近的也算，避免落在格子边上的地面被当成障碍）
-//          Hy[y] ← Hy[y] − Hy[y]/4 + Σ(y−YSPREAD ~ y+YSPREAD 格的 Ay)（亮度放宽 ±YSPREAD 格，阴影 / 反光不至于全算成障碍）
-//          Hs[y] ← Hs[y] − Hs[y]/4 + Σ(y−YS_NEAR ~ y+YS_NEAR 格的 Ay)
-//        Nr 不够 → 这一帧不更新（模型冻住，不衰减：不然墙贴着车头时模型会衰减到空，回到地面也不认识了）。
-//        连续 RELEARN_FR 帧冻住（换了地面 / 光线突变，新地面一直不认识）→ 下一帧参考区全部学（不管判成什么），只学这一帧。
-//        上电后的前 RELEARN_FR 帧也全部学（模型是空的、自动曝光还在调）。
-//      参考区最多 511 个点（Ac / Ay 9 位）→ H 最大 4 × 511 < 4096，12 位不会溢出；然后把 Ac / Ay 清零。旧模型每帧只留 3/4，地面慢慢变亮变暗跟得上
-//      （新颜色只要落在放宽范围里就判成地面、学进去）。上电先把五张表清零（第一帧全判成障碍，第二帧开始正常）。
-//   时序：输入一拍一个点，两个点之间至少隔 3 拍（mc_obs_down 保证）；输出比输入晚 5 拍（附带行列号、亮度）。
+//   2. 地面模型 = 两张直方图：Hc[Cb, Cr]（256 格）、Hy[Y]（16 格），12 位。
+//      判断：Hc[这个点的格] ≥ TC 且 Hy[这个点的格] ≥ TY → 地面（O_obs = 0），否则障碍（O_obs = 1）。
+//   3. 学习：参考区（REF_X0~X1 列、REF_Y0~Y1 行）里的点在本帧计数 Ac / Ay。一帧最后一个点处理完后更新模型：
+//        Hc[b] ← Hc[b] − Hc[b]/4 + Σ(b 和它周围 3×3 格的 Ac)     （色度相近的也算，避免落在格子边上的地面被当成障碍）
+//        Hy[y] ← Hy[y] − Hy[y]/4 + Σ(y−YSPREAD ~ y+YSPREAD 格的 Ay)（亮度放宽 ±YSPREAD 格，阴影 / 反光不至于全算成障碍）
+//      参考区最多 511 个点（Ac / Ay 9 位）→ H 最大 4 × 511 < 4096，12 位不会溢出；然后把 Ac / Ay 清零。旧模型每帧只留 3/4：参考区被短暂挡住（比如脚踩进来）不会马上把模型带偏，
+//      换了一种地面几帧以后就学会。上电先把四张表清零（前一帧全判成障碍，第二帧开始正常）。
+//   时序：输入一拍一个点，两个点之间至少隔 3 拍（mc_obs_down 保证）；输出比输入晚 3 拍（附带行列号、亮度）。
 //         模型更新约 3300 拍，在一帧最后一个点之后、下一帧第一个点之前做完（中间至少隔 12 行 ≈ 1 万拍）。
 // =============================================================================
 module mc_obs_class #(
@@ -35,11 +23,6 @@ module mc_obs_class #(
     parameter [11:0] TC     = 12'd12,   // 色度直方图门限
     parameter [11:0] TY     = 12'd12,   // 亮度直方图门限
     parameter [2:0]  YSPREAD = 3'd2,    // 学习时亮度往两边放宽几格（每格 16 级）：越大越不怕阴影 / 反光，但和地面一样灰的东西越难判出来
-    parameter [2:0]  YS_NEAR = 3'd1,    // 近处（第 NEAR_ROW 行以下）亮度放宽几格，≤ YSPREAD
-    parameter [6:0]  NEAR_ROW = 7'd65,  // 从这一行往下算近处（90 = 没有近处）
-    parameter [9:0]  RELEARN_FR = 10'd300,  // 连续这么多帧认不出参考区 → 重学一帧；上电后也全学这么多帧（≥ 1）
-    parameter [6:0]  REF_ABOVE = 7'd6,  // 看参考区上面第几行来分花纹和墙（6 = 第 76 行，约 69 cm；比这矮的东西算花纹，参考区里约 3~5 cm 高）
-    parameter integer SHADE = 5,        // 暗角补偿 0~8：画面左右边的点乘 1 + SHADE/16；0 = 不补
     parameter [6:0]  LAST_ROW = 7'd89,
     parameter [7:0]  LAST_COL = 8'd159
 )(
@@ -60,60 +43,12 @@ module mc_obs_class #(
 );
 
 // ---------------------------------------------------------------------------
-// 暗角补偿（两拍）：先按行列查 n，再乘
-// ---------------------------------------------------------------------------
-function integer shade_t;               // 第 k 档的距离门限：round(SHADE × d² / 6400) ≥ k 的最小 d（到不了 = 127）
-    input integer k;
-    integer d;
-    begin
-        shade_t = 127;
-        for (d = 126; d >= 0; d = d - 1) if (2 * SHADE * d * d >= (2 * k - 1) * 6400) shade_t = d;
-    end
-endfunction
-localparam [6:0] ST1 = shade_t(1), ST2 = shade_t(2), ST3 = shade_t(3), ST4 = shade_t(4), ST5 = shade_t(5), ST6 = shade_t(6), ST7 = shade_t(7);
-wire [6:0] S_dc = (I_col < 8'd80) ? 7'd79 - I_col[6:0] : I_col[6:0] - 7'd80;     // 列距
-wire [6:0] S_dr = (I_row < 7'd45) ? 7'd44 - I_row : I_row - 7'd45;               // 行距
-wire [2:0] S_nsc = (S_dc >= ST7) ? 3'd7 : (S_dc >= ST6) ? 3'd6 : (S_dc >= ST5) ? 3'd5 : (S_dc >= ST4) ? 3'd4 :
-                  (S_dc >= ST3) ? 3'd3 : (S_dc >= ST2) ? 3'd2 : (S_dc >= ST1) ? 3'd1 : 3'd0;
-wire [1:0] S_nsr = (S_dr >= ST2) ? 2'd2 : (S_dr >= ST1) ? 2'd1 : 2'd0;             // 行距最大 44，SHADE ≤ 8 时 nr ≤ 2
-wire [3:0] S_ns = {1'b0, S_nsc} + {2'd0, S_nsr};
-
-function [7:0] shade;                   // c × (1 + n/16)，向下取整，不超过 255
-    input [7:0] c;
-    input [2:0] n;
-    reg [10:0] t;
-    reg [8:0]  s;
-    begin
-        t = (n[0] ? {3'd0, c} : 11'd0) + (n[1] ? {2'd0, c, 1'b0} : 11'd0) + (n[2] ? {1'd0, c, 2'b0} : 11'd0);
-        s = {1'b0, c} + {2'd0, t[10:4]};
-        shade = s[8] ? 8'd255 : s[7:0];
-    end
-endfunction
-
-reg        S0_v, S00_v;
-reg [6:0]  S0_row, S00_row;
-reg [7:0]  S0_col, S00_col;
-reg [23:0] S0_rgb, S00_rgb;
-reg [2:0]  S0_n;
-always @(posedge I_clk or negedge I_rst_n) begin
-    if (!I_rst_n) begin
-        S0_v <= 1'b0; S0_row <= 7'd0; S0_col <= 8'd0; S0_rgb <= 24'd0; S0_n <= 3'd0;
-        S00_v <= 1'b0; S00_row <= 7'd0; S00_col <= 8'd0; S00_rgb <= 24'd0;
-    end else begin
-        S0_v <= I_valid; S0_row <= I_row; S0_col <= I_col; S0_rgb <= I_rgb;
-        S0_n <= S_ns[3] ? 3'd7 : S_ns[2:0];
-        S00_v <= S0_v; S00_row <= S0_row; S00_col <= S0_col;
-        S00_rgb <= {shade(S0_rgb[23:16], S0_n), shade(S0_rgb[15:8], S0_n), shade(S0_rgb[7:0], S0_n)};
-    end
-end
-
-// ---------------------------------------------------------------------------
 // 第 1 拍：Y / Cb / Cr，参考区判断
 // ---------------------------------------------------------------------------
-wire [9:0] S_ysum = {2'd0, S00_rgb[23:16]} + {1'd0, S00_rgb[15:8], 1'b0} + {2'd0, S00_rgb[7:0]};
+wire [9:0] S_ysum = {2'd0, I_rgb[23:16]} + {1'd0, I_rgb[15:8], 1'b0} + {2'd0, I_rgb[7:0]};
 wire [7:0] S_y0   = S_ysum[9:2];
 
-reg        S1_v, S1_ref, S1_last, S1_near, S1_rcol, S1_chk;
+reg        S1_v, S1_ref, S1_last;
 reg [6:0]  S1_row;
 reg [7:0]  S1_col;
 reg [7:0]  S1_y;
@@ -121,20 +56,17 @@ reg signed [9:0] S1_cb, S1_cr;
 
 always @(posedge I_clk or negedge I_rst_n) begin
     if (!I_rst_n) begin
-        S1_v <= 1'b0; S1_ref <= 1'b0; S1_last <= 1'b0; S1_near <= 1'b0; S1_rcol <= 1'b0; S1_chk <= 1'b0; S1_row <= 7'd0; S1_col <= 8'd0; S1_y <= 8'd0;
+        S1_v <= 1'b0; S1_ref <= 1'b0; S1_last <= 1'b0; S1_row <= 7'd0; S1_col <= 8'd0; S1_y <= 8'd0;
         S1_cb <= 10'sd0; S1_cr <= 10'sd0;
     end else begin
-        S1_v    <= S00_v;
-        S1_ref  <= S00_v && (S00_col >= REF_X0) && (S00_col <= REF_X1) && (S00_row >= REF_Y0) && (S00_row <= REF_Y1);
-        S1_last <= S00_v && (S00_row == LAST_ROW) && (S00_col == LAST_COL);
-        S1_near <= (S00_row >= NEAR_ROW);
-        S1_rcol <= S00_v && (S00_col >= REF_X0) && (S00_col <= REF_X1);       // 参考区的列
-        S1_chk  <= (S00_row == REF_Y0 - REF_ABOVE);                           // 看花纹和墙的那一行
-        S1_row  <= S00_row;
-        S1_col  <= S00_col;
+        S1_v    <= I_valid;
+        S1_ref  <= I_valid && (I_col >= REF_X0) && (I_col <= REF_X1) && (I_row >= REF_Y0) && (I_row <= REF_Y1);
+        S1_last <= I_valid && (I_row == LAST_ROW) && (I_col == LAST_COL);
+        S1_row  <= I_row;
+        S1_col  <= I_col;
         S1_y    <= S_y0;
-        S1_cb   <= $signed({2'd0, S00_rgb[7:0]})   - $signed({2'd0, S_y0});
-        S1_cr   <= $signed({2'd0, S00_rgb[23:16]}) - $signed({2'd0, S_y0});
+        S1_cb   <= $signed({2'd0, I_rgb[7:0]})   - $signed({2'd0, S_y0});
+        S1_cr   <= $signed({2'd0, I_rgb[23:16]}) - $signed({2'd0, S_y0});
     end
 end
 
@@ -151,11 +83,10 @@ wire [7:0] S_bin_c = {q16(S1_cb), q16(S1_cr)};     // 色度格 = {Cb 格, Cr �
 wire [3:0] S_bin_y = S1_y[7:4];
 
 // ---------------------------------------------------------------------------
-// 直方图 RAM：Hc / Hy / Hs（模型）、Ac / Ay（本帧参考区计数）。读：给地址的下一拍出数据
+// 直方图 RAM：Hc / Hy（模型）、Ac / Ay（本帧参考区计数）。读：给地址的下一拍出数据
 // ---------------------------------------------------------------------------
 reg [11:0] S_hc [0:255];
 reg [11:0] S_hy [0:15];
-reg [11:0] S_hs [0:15];
 reg [8:0]  S_ac [0:255];
 reg [8:0]  S_ay [0:15];
 
@@ -164,18 +95,9 @@ localparam [2:0] E_IDLE = 3'd0, E_HC = 3'd1, E_HY = 3'd2, E_CLR = 3'd3, E_INIT =
 reg  [2:0]  S_est;
 reg  [8:0]  S_eb;                       // 当前格
 reg  [3:0]  S_ej;                       // 当前邻格序号
-reg  [11:0] S_esum, S_esn;              // 邻格和（Hc / Hy；Hs）
-reg  [11:0] S_eh, S_ehs;                // 这一格的旧模型值（Hc / Hy；Hs）
+reg  [11:0] S_esum;                     // 邻格和
+reg  [11:0] S_eh;                       // 这一格的旧模型值
 assign O_busy = (S_est != E_IDLE);
-
-// 学习的门：参考区里判成地面的才学；全学的时候（上电、重学）不管
-localparam [9:0] REF_MIN = ((REF_X1 - REF_X0 + 1) * (REF_Y1 - REF_Y0 + 1)) / 4;   // 判成地面的点至少这么多才更新模型
-localparam       REF_W = REF_X1 - REF_X0 + 1;
-reg  [REF_W-1:0] S_above;               // 参考区的每一列：第 REF_Y0 − REF_ABOVE 行是不是地面（移位寄存器，[0] = 这一列；参考区每行转一圈）
-reg        S_boot, S_again;             // 上电后全学 / 重学一帧
-reg  [9:0] S_frz;                       // 上电后第几帧；之后是连续冻住了几帧
-reg  [9:0] S_nr;                        // 这一帧学了几个点
-wire       S_all = S_boot | S_again;
 
 // 邻格：色度 3×3（j = 0~8 → dcb = j/3 − 1，dcr = j%3 − 1）；亮度 ±YSPREAD（j = 0~2·YSPREAD → dy = j − YSPREAD）
 reg  [3:0]  S_ncb, S_ncr;
@@ -190,7 +112,6 @@ end
 localparam [3:0] YN = {YSPREAD, 1'b0};                                  // 亮度邻格数 − 1（= 2·YSPREAD）
 wire [4:0] S_ny  = {1'b0, S_eb[3:0]} + {1'b0, S_ej} - {2'd0, YSPREAD};  // 亮度邻格（5 位：小于 0 绕到 25 以上、大于 15 都算越界，YSPREAD ≤ 7 不会混）
 wire       S_nyin = (S_ny <= 5'd15);
-wire       S_jn   = (S_ej >= YSPREAD - YS_NEAR) && (S_ej <= YSPREAD + YS_NEAR);   // 这个邻格也算进 Hs
 
 // 地址选择
 wire [7:0] S_ac_ra = (S_est == E_HC) ? {S_ncb, S_ncr} : S_bin_c;
@@ -198,12 +119,11 @@ wire [3:0] S_ay_ra = (S_est == E_HY) ? S_ny[3:0] : S_bin_y;
 wire [7:0] S_hc_ra = (S_est == E_HC) ? S_eb[7:0] : S_bin_c;
 wire [3:0] S_hy_ra = (S_est == E_HY) ? S_eb[3:0] : S_bin_y;
 
-reg [11:0] S_hc_rd, S_hy_rd, S_hs_rd;
+reg [11:0] S_hc_rd, S_hy_rd;
 reg [8:0]  S_ac_rd, S_ay_rd;
 always @(posedge I_clk) begin
     S_hc_rd <= S_hc[S_hc_ra];
     S_hy_rd <= S_hy[S_hy_ra];
-    S_hs_rd <= S_hs[S_hy_ra];
     S_ac_rd <= S_ac[S_ac_ra];
     S_ay_rd <= S_ay[S_ay_ra];
 end
@@ -211,84 +131,68 @@ end
 // ---------------------------------------------------------------------------
 // 第 2 拍：查到直方图值 → 判断；参考区计数加 1（写在下一拍）
 // ---------------------------------------------------------------------------
-reg        S2_v, S2_ref, S2_last, S2_near, S2_rcol, S2_chk;
+reg        S2_v, S2_ref, S2_last;
 reg [6:0]  S2_row;
 reg [7:0]  S2_col, S2_y, S2_bc;
 reg [3:0]  S2_by;
-wire       S_gnd = (S_hc_rd >= TC) && ((S2_near ? S_hs_rd : S_hy_rd) >= TY);   // 这个点是地面
 
 always @(posedge I_clk or negedge I_rst_n) begin
     if (!I_rst_n) begin
-        S2_v <= 1'b0; S2_ref <= 1'b0; S2_last <= 1'b0; S2_near <= 1'b0; S2_rcol <= 1'b0; S2_chk <= 1'b0; S2_row <= 7'd0; S2_col <= 8'd0; S2_y <= 8'd0;
+        S2_v <= 1'b0; S2_ref <= 1'b0; S2_last <= 1'b0; S2_row <= 7'd0; S2_col <= 8'd0; S2_y <= 8'd0;
         S2_bc <= 8'd0; S2_by <= 4'd0;
         O_valid <= 1'b0; O_row <= 7'd0; O_col <= 8'd0; O_y <= 8'd0; O_obs <= 1'b0;
     end else begin
-        S2_v <= S1_v; S2_ref <= S1_ref; S2_last <= S1_last; S2_near <= S1_near; S2_rcol <= S1_rcol; S2_chk <= S1_chk;
+        S2_v <= S1_v; S2_ref <= S1_ref; S2_last <= S1_last;
         S2_row <= S1_row; S2_col <= S1_col; S2_y <= S1_y; S2_bc <= S_bin_c; S2_by <= S_bin_y;
         O_valid <= S2_v;
         O_row   <= S2_row;
         O_col   <= S2_col;
         O_y     <= S2_y;
-        O_obs   <= !S_gnd;
+        O_obs   <= !((S_hc_rd >= TC) && (S_hy_rd >= TY));
     end
 end
 
 // ---------------------------------------------------------------------------
 // RAM 写：参考区计数（流），模型更新 / 清零（引擎）
 // ---------------------------------------------------------------------------
-reg        S_wc_ac, S_wc_ay, S_wc_hc, S_wc_hy, S_wc_hs;
+reg        S_wc_ac, S_wc_ay, S_wc_hc, S_wc_hy;
 reg [7:0]  S_wa_ac, S_wa_hc;
 reg [3:0]  S_wa_ay, S_wa_hy;
 reg [8:0]  S_wd_ac, S_wd_ay;
-reg [11:0] S_wd_hc, S_wd_hy, S_wd_hs;
+reg [11:0] S_wd_hc, S_wd_hy;
 
 always @(posedge I_clk) begin
     if (S_wc_ac) S_ac[S_wa_ac] <= S_wd_ac;
     if (S_wc_ay) S_ay[S_wa_ay] <= S_wd_ay;
     if (S_wc_hc) S_hc[S_wa_hc] <= S_wd_hc;
     if (S_wc_hy) S_hy[S_wa_hy] <= S_wd_hy;
-    if (S_wc_hs) S_hs[S_wa_hy] <= S_wd_hs;
 end
 
 // 引擎：每格先读 9（或 2·YSPREAD + 1）个邻格累加，再读出旧模型、写新模型
 //   读地址在 S_ej 计数时给出，下一拍数据到；S_ej 从 0 走到 N（N = 邻格数），第 N 拍收最后一个邻格
-reg  [11:0] S_hnew, S_hsnew;
+reg  [11:0] S_hnew;
 reg         S_pend_last;                // 本帧最后一个点已经过了第 2 拍，等它的计数写完再启动引擎
-reg         S_e_dv, S_e_dn;             // 上一拍发出的邻格读是否在范围内（数据这一拍有效）/ 是否也算进 Hs
+reg         S_e_dv;                     // 上一拍发出的邻格读是否在范围内（数据这一拍有效）
 
 always @(posedge I_clk or negedge I_rst_n) begin
     if (!I_rst_n) begin
-        S_est <= E_INIT; S_eb <= 9'd0; S_ej <= 4'd0; S_esum <= 12'd0; S_esn <= 12'd0; S_eh <= 12'd0; S_ehs <= 12'd0; S_pend_last <= 1'b0; S_e_dv <= 1'b0; S_e_dn <= 1'b0;
-        S_boot <= 1'b1; S_again <= 1'b0; S_frz <= 10'd0; S_nr <= 10'd0; S_above <= {REF_W{1'b0}};
-        S_wc_ac <= 1'b0; S_wc_ay <= 1'b0; S_wc_hc <= 1'b0; S_wc_hy <= 1'b0; S_wc_hs <= 1'b0;
+        S_est <= E_INIT; S_eb <= 9'd0; S_ej <= 4'd0; S_esum <= 12'd0; S_eh <= 12'd0; S_pend_last <= 1'b0; S_e_dv <= 1'b0;
+        S_wc_ac <= 1'b0; S_wc_ay <= 1'b0; S_wc_hc <= 1'b0; S_wc_hy <= 1'b0;
         S_wa_ac <= 8'd0; S_wa_hc <= 8'd0; S_wa_ay <= 4'd0; S_wa_hy <= 4'd0;
-        S_wd_ac <= 9'd0; S_wd_ay <= 9'd0; S_wd_hc <= 12'd0; S_wd_hy <= 12'd0; S_wd_hs <= 12'd0;
+        S_wd_ac <= 9'd0; S_wd_ay <= 9'd0; S_wd_hc <= 12'd0; S_wd_hy <= 12'd0;
     end else begin
-        S_wc_ac <= 1'b0; S_wc_ay <= 1'b0; S_wc_hc <= 1'b0; S_wc_hy <= 1'b0; S_wc_hs <= 1'b0;
-        // 看花纹和墙的那一行：把每一列是不是地面记下来；参考区每行转一圈，读完放回去
-        if (S2_rcol && S2_chk)       S_above <= {S_gnd, S_above[REF_W-1:1]};
-        else if (S2_ref)             S_above <= {S_above[0], S_above[REF_W-1:1]};
+        S_wc_ac <= 1'b0; S_wc_ay <= 1'b0; S_wc_hc <= 1'b0; S_wc_hy <= 1'b0;
         // 流：参考区计数 +1（第 2 拍读到的旧值）
-        if (S2_v && S2_ref && (S_gnd || S_all || S_above[0])) begin  // 参考区在一帧最后，模型更新在两帧之间，不会撞上
+        if (S2_v && S2_ref) begin                                    // 参考区在一帧最后，模型更新在两帧之间，不会撞上
             S_wc_ac <= 1'b1; S_wa_ac <= S2_bc; S_wd_ac <= S_ac_rd + 9'd1;
             S_wc_ay <= 1'b1; S_wa_ay <= S2_by; S_wd_ay <= S_ay_rd + 9'd1;
-            S_nr    <= S_nr + 10'd1;
         end
         if (S2_v && S2_last) S_pend_last <= 1'b1;
 
         case (S_est)
             E_IDLE: if (S_pend_last) begin                              // 最后一个点的计数和这一拍同时写进去，引擎下一拍才读
                         S_pend_last <= 1'b0;
-                        S_nr <= 10'd0; S_eb <= 9'd0; S_ej <= 4'd0; S_esum <= 12'd0; S_esn <= 12'd0; S_e_dv <= 1'b0; S_e_dn <= 1'b0;
-                        if (S_all || S_nr >= REF_MIN) S_est <= E_HC; else S_est <= E_CLR;   // 不够：不更新，只清本帧计数
-                        if (S_boot) begin                               // 上电后：全学 RELEARN_FR 帧
-                            if (S_frz == RELEARN_FR - 10'd1) begin S_boot <= 1'b0; S_frz <= 10'd0; end
-                            else S_frz <= S_frz + 10'd1;
-                        end else if (S_again || S_nr >= REF_MIN) begin
-                            S_again <= 1'b0; S_frz <= 10'd0;
-                        end else if (S_frz == RELEARN_FR - 10'd1) begin // 连续冻住 RELEARN_FR 帧：下一帧全学
-                            S_again <= 1'b1; S_frz <= 10'd0;
-                        end else S_frz <= S_frz + 10'd1;
+                        S_est <= E_HC; S_eb <= 9'd0; S_ej <= 4'd0; S_esum <= 12'd0; S_e_dv <= 1'b0;
                     end
             E_HC: begin                                                // 每格 10 拍：j = 0~8 发邻格读，j = 9 收最后一个、写
                       S_e_dv <= S_nin && (S_ej <= 4'd8);
@@ -304,14 +208,12 @@ always @(posedge I_clk or negedge I_rst_n) begin
                   end
             E_HY: begin                                                // 每格 YN + 2 拍：j = 0~YN 发邻格读，j = YN + 1 收最后一个、写
                       S_e_dv <= S_nyin && (S_ej <= YN);
-                      S_e_dn <= S_jn;
                       if (S_ej != 4'd0 && S_e_dv) S_esum <= S_esum + {3'd0, S_ay_rd};
-                      if (S_ej != 4'd0 && S_e_dv && S_e_dn) S_esn <= S_esn + {3'd0, S_ay_rd};
-                      if (S_ej == 4'd1) begin S_eh <= S_hy_rd; S_ehs <= S_hs_rd; end
+                      if (S_ej == 4'd1) S_eh <= S_hy_rd;
                       if (S_ej == YN + 4'd1) begin
-                          S_wc_hy <= 1'b1; S_wc_hs <= 1'b1; S_wa_hy <= S_eb[3:0];
-                          S_wd_hy <= S_hnew; S_wd_hs <= S_hsnew;
-                          S_ej <= 4'd0; S_esum <= 12'd0; S_esn <= 12'd0; S_e_dv <= 1'b0; S_e_dn <= 1'b0;
+                          S_wc_hy <= 1'b1; S_wa_hy <= S_eb[3:0];
+                          S_wd_hy <= S_hnew;
+                          S_ej <= 4'd0; S_esum <= 12'd0; S_e_dv <= 1'b0;
                           if (S_eb == 9'd15) begin S_est <= E_CLR; S_eb <= 9'd0; end
                           else S_eb <= S_eb + 9'd1;
                       end else S_ej <= S_ej + 4'd1;
@@ -321,7 +223,7 @@ always @(posedge I_clk or negedge I_rst_n) begin
                       S_wc_ay <= 1'b1; S_wa_ay <= S_eb[3:0]; S_wd_ay <= 9'd0;
                       if (S_est == E_INIT) begin
                           S_wc_hc <= 1'b1; S_wa_hc <= S_eb[7:0]; S_wd_hc <= 12'd0;
-                          S_wc_hy <= 1'b1; S_wc_hs <= 1'b1; S_wa_hy <= S_eb[3:0]; S_wd_hy <= 12'd0; S_wd_hs <= 12'd0;
+                          S_wc_hy <= 1'b1; S_wa_hy <= S_eb[3:0]; S_wd_hy <= 12'd0;
                       end
                       if (S_eb == 9'd255) begin S_est <= E_IDLE; S_eb <= 9'd0; end
                       else S_eb <= S_eb + 9'd1;
@@ -333,8 +235,7 @@ end
 
 // 新模型 = 旧 − 旧/4 + 邻格和（最后一个邻格这一拍才到，一起加）
 always @(*) begin
-    S_hnew  = S_eh - {2'd0, S_eh[11:2]} + S_esum + ((S_e_dv) ? {3'd0, (S_est == E_HC) ? S_ac_rd : S_ay_rd} : 12'd0);
-    S_hsnew = S_ehs - {2'd0, S_ehs[11:2]} + S_esn + ((S_e_dv && S_e_dn) ? {3'd0, S_ay_rd} : 12'd0);
+    S_hnew = S_eh - {2'd0, S_eh[11:2]} + S_esum + ((S_e_dv) ? {3'd0, (S_est == E_HC) ? S_ac_rd : S_ay_rd} : 12'd0);
 end
 
 endmodule
