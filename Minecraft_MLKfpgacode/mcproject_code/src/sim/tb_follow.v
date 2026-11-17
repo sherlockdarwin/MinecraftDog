@@ -23,6 +23,7 @@ reg signed [7:0]  tdeg0 = 0, tdeg1 = 0;
 reg [9:0]         tgt_cm = 0;
 reg               otog = 0;
 reg [71:0]        ofree = {9{8'd255}};
+reg [7:0]         tof_cm = 8'd255;           // 激光测距（两实例共用；255 = 没有 / 掉线 = 只用视觉）
 reg               imu_ok = 0;
 reg signed [15:0] yaw0 = 0, yaw1 = 0, gz0 = 0, gz1 = 0;
 
@@ -33,16 +34,17 @@ wire signed [8:0] td0, td1;
 wire              k0, k1;                 // 困住了
 
 mc_follow d0 (.I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick), .I_tgt_ok(tgt_ok), .I_tgt_deg(tdeg0), .I_tgt_cm(tgt_cm),
-              .I_obs_tog(otog), .I_obs_free(ofree), .I_imu_ok(imu_ok), .I_yaw(yaw0), .I_gz(gz0),
+              .I_obs_tog(otog), .I_obs_free(ofree), .I_tof_cm(tof_cm), .I_imu_ok(imu_ok), .I_yaw(yaw0), .I_gz(gz0),
               .O_cmd_valid(v0), .O_cmd_stop(s0), .O_cmd_l(l0), .O_cmd_r(r0), .O_state(st0), .O_tgt_deg(td0), .O_stuck(k0));
 mc_follow #(
     .STOP_CM(150), .START_PWM(2500), .KP_D(20), .MAX_FWD(6400), .ANGLE_FILTER(1), .DEADBAND(2),
     .PIVOT_ENTER(60), .PIVOT_CONFIRM_MS(200), .PIVOT_EXIT(30), .PIVOT_PWM(3000), .MAX_WHEEL(6000), .ACC(300), .DEC(500), .TURN_SLEW(700),
     .HEAD_KP(25), .HEAD_KI(50), .HEAD_KD(12), .HEAD_I_MAX(250), .HEAD_I_ZONE(6), .TURN_MAX(1400),
     .AVOID_CM(120), .CLEAR_CM(70), .SPIN_CM(50), .KP_OBS(30), .SPIN_PWM(6500), .AVOID_TURN_MAX(2500), .AVOID_HOLD_CM(30), .CMS_FULL(120), .W_TGT(3), .W_PREV(2),
-    .AVOID_FAR_CM(180), .OWNER_GAP_CM(160), .SCAN_DEG(90), .SCAN_PAUSE_MS(60), .SCAN_STEP_MS(200)
+    .AVOID_FAR_CM(180), .OWNER_GAP_CM(160), .SCAN_DEG(90), .SCAN_PAUSE_MS(60), .SCAN_STEP_MS(200),
+    .TOF_SIDE(1)
 ) d1 (.I_clk(clk), .I_rst_n(rst_n), .I_tick_1ms(tick), .I_tgt_ok(tgt_ok), .I_tgt_deg(tdeg1), .I_tgt_cm(tgt_cm),
-      .I_obs_tog(otog), .I_obs_free(ofree), .I_imu_ok(imu_ok), .I_yaw(yaw1), .I_gz(gz1),
+      .I_obs_tog(otog), .I_obs_free(ofree), .I_tof_cm(tof_cm), .I_imu_ok(imu_ok), .I_yaw(yaw1), .I_gz(gz1),
       .O_cmd_valid(v1), .O_cmd_stop(s1), .O_cmd_l(l1), .O_cmd_r(r1), .O_state(st1), .O_tgt_deg(td1), .O_stuck(k1));
 
 integer errors = 0;
@@ -54,6 +56,7 @@ integer P_PIN [0:1], P_PCONF [0:1], P_POUT [0:1], P_PPWM [0:1], P_MAXW [0:1], P_
 integer P_KP [0:1], P_KI [0:1], P_KD [0:1], P_IMAX [0:1], P_TMAX [0:1], P_SLEW [0:1], P_IZ [0:1];
 integer P_AVOID [0:1], P_CLEAR [0:1], P_SPIN [0:1], P_KPO [0:1], P_SPWM [0:1], P_AMAX [0:1], P_HOLDCM [0:1], P_CMS [0:1], P_WT [0:1], P_WP [0:1];
 integer P_FAR [0:1], P_GAP [0:1], P_SDEG [0:1], P_SPAUSE [0:1], P_SSTEP [0:1];
+integer P_TOFS [0:1];                    // 激光盖住正前方两边各几个方向（默认 2，另一组 1）
 integer KIC [0:1], HQ [0:1];
 task set_params;
     integer i;
@@ -68,6 +71,7 @@ task set_params;
         P_KP[1] = 25; P_KI[1] = 50; P_KD[1] = 12; P_IMAX[1] = 250; P_TMAX[1] = 1400; P_SLEW[1] = 700; P_IZ[1] = 6;
         P_AVOID[1] = 120; P_CLEAR[1] = 70; P_SPIN[1] = 50; P_KPO[1] = 30; P_SPWM[1] = 6500; P_AMAX[1] = 2500; P_HOLDCM[1] = 30; P_CMS[1] = 120; P_WT[1] = 3; P_WP[1] = 2;
         P_FAR[1] = 180; P_GAP[1] = 160; P_SDEG[1] = 90; P_SPAUSE[1] = 60; P_SSTEP[1] = 200;   // 间距 160 > 停车 150：好造"主人比间距还近"
+        P_TOFS[0] = 2; P_TOFS[1] = 1;
         for (i = 0; i < 2; i = i + 1) KIC[i] = $rtoi(P_KI[i] * 20.0 * 256.0 / 1000.0 + 0.5);    // 规格：KI × 周期 × 256 / 1000 四舍五入
         for (i = 0; i < 2; i = i + 1) HQ[i] = P_HOLDCM[i] * 8000 * 50 / P_CMS[i];   // 规格：前进量每 20 ms 累加，加到 HOLD_CM ÷（CMS / 8000 cm/s × 0.02 s）（整数，向下取整）
     end
@@ -92,6 +96,7 @@ integer c_e_piv, c_e_spin, c_e_avoid, c_e_clear, c_ntie, c_btie, c_slim, c_hlim,
 integer c_prnd, c_pwrap, c_stopgo, c_half, c_slew, c_izone, c_dbkeep, c_dbeq, c_dbret, c_avkeep, c_avret, c_holdlock, c_wrap, c_dterm, c_iclp, c_iclpn, c_tclp, c_tclpa, c_efloor, c_pclamp, c_prot, c_nimu, c_lostnimu, c_round;
 integer c_far, c_far_eq, c_far_gap, c_far_ang3, c_far_ang4, c_far_none, c_far_t0, c_far_lim, c_far_hyst, c_far_keep, c_far_ret, c_hold_part, c_nopiv_hold, c_nopiv_scan, c_piv_after;
 integer c_sc_stop, c_sc_start, c_sc_exit, c_sc_left, c_sc_lt, c_sc_neg, c_sc_eq, c_sc_to, c_stuck, c_stuck_stay, c_tot_eq, c_tot_lt, c_stuck_max;
+integer c_tof_spin, c_tof_blk, c_tof_vis, c_tof_eq, c_tof_far, c_tof_edge0, c_tof_edge1, c_tof_edgel;
 
 function integer iabs; input integer x; iabs = (x < 0) ? -x : x; endfunction
 function integer imin; input integer a, b; imin = (a < b) ? a : b; endfunction
@@ -112,6 +117,16 @@ function integer ramp;
     end
 endfunction
 function integer ff; input integer b; ff = ofree[8*(b-4) +: 8]; endfunction
+function integer ffu;                    // 融合后的"能走多远"：方向 8 ± TOF_SIDE 以内 = min(视觉, 激光)，以外 = 视觉；激光 255 = 只用视觉
+    input integer i;
+    input integer b;
+    integer v;
+    begin
+        v = ofree[8*(b-4) +: 8];
+        if (b >= 8 - P_TOFS[i] && b <= 8 + P_TOFS[i] && tof_cm < v) ffu = tof_cm;
+        else ffu = v;
+    end
+endfunction
 function integer pref; input integer k; pref = (k % 2 == 0) ? 8 + k / 2 : 8 - (k + 1) / 2; endfunction
 function integer pick;                    // 能走 ≥ thr 的方向里代价最小的（上次方向 pp），用来统计"换一种算法会不会选别的"
     input integer i, a, pp, thr;
@@ -120,7 +135,7 @@ function integer pick;                    // 能走 ≥ thr 的方向里代价�
         best = 1000000; pick = 99;
         for (k = 0; k < 9; k = k + 1) begin
             b = pref(k); c = P_WT[i] * iabs(HEAD_DEG[b] - a) + P_WP[i] * iabs(HEAD_DEG[b] - pp);
-            if (ff(b) >= thr && c < best) begin best = c; pick = HEAD_DEG[b]; end
+            if (ffu(i, b) >= thr && c < best) begin best = c; pick = HEAD_DEG[b]; end
         end
     end
 endfunction
@@ -178,7 +193,7 @@ task decide;
                     btd = 1000; btf = 0; aok = 0; ac = 1000000; bok = 0; bc = 1000000; apsi = 0; af = 0; bpsi = 0; bf = 0; btc = -1;
                     fok = 0; fc = 1000000; fpsi = 0; ffr = 0;
                     for (k = 0; k < 9; k = k + 1) begin
-                        b = pref(k); psi = HEAD_DEG[b]; f = ff(b);
+                        b = pref(k); psi = HEAD_DEG[b]; f = ffu(i, b);
                         dt = iabs(psi - a);
                         if (dt == btd && i == 0 && ((f < P_AVOID[i]) != (btf < P_AVOID[i]))) c_ntie = c_ntie + 1;
                         if (dt < btd) begin btd = dt; btf = f; end
@@ -190,9 +205,19 @@ task decide;
                         if (f >= tfar && cost < fc) begin fc = cost; fok = 1; fpsi = psi; ffr = f; end
                     end
                     cpsi = aok ? apsi : bpsi; cf = aok ? af : bf;
-                    f0 = ff(8);
+                    f0 = ffu(i, 8);
                     blk = (f0 < P_AVOID[i]) || (btf < P_AVOID[i]);
                     far = (btd <= 3) && (btf < tfar);
+                    if (tof_cm < 255) begin                     // 激光真起作用了（场景计数；对错由逐个命令核对管）
+                        if (i == 0 && f0 < P_SPIN[i] && ff(8) >= P_SPIN[i]) c_tof_spin = c_tof_spin + 1;                  // 视觉看不到、激光近 → SPIN
+                        if (i == 0 && blk && ff(8) >= P_AVOID[i] && f0 < P_AVOID[i]) c_tof_blk = c_tof_blk + 1;           // 激光让正前方挡路
+                        if (i == 0 && tof_cm > ff(8) && ff(8) < P_AVOID[i]) c_tof_vis = c_tof_vis + 1;                     // 视觉更近：用视觉（取近的，不是激光代替视觉）
+                        if (i == 0 && tof_cm == P_AVOID[i] && ff(8) > tof_cm && !(btf < P_AVOID[i])) c_tof_eq = c_tof_eq + 1;   // 激光正好 AVOID：不挡
+                        if (i == 0 && far && fok && ff(8) >= tfar && f0 < tfar) c_tof_far = c_tof_far + 1;                // 激光让远处挡路提前绕
+                        if (i == 0 && tof_cm < ff(8 + P_TOFS[i]) && a == HEAD_DEG[8 + P_TOFS[i]]) c_tof_edge0 = c_tof_edge0 + 1;          // 主人在激光最边上的方向（算挡）
+                        if (i == 1 && tof_cm < ff(8 + P_TOFS[i] + 1) && a == HEAD_DEG[8 + P_TOFS[i] + 1]) c_tof_edge1 = c_tof_edge1 + 1;  // 另一组：主人在激光外第一个方向（右，不算挡）
+                        if (i == 1 && tof_cm < ff(8 - P_TOFS[i] - 1) && a == HEAD_DEG[8 - P_TOFS[i] - 1]) c_tof_edgel = c_tof_edgel + 1;  // （左）
+                    end
                     nopiv = (!blk && hold[i] > 0) || scan[i] || stuck[i];
                     if (!piv[i]) begin
                         if (i == 0 && aa == P_PIN[i]) c_e_piv = c_e_piv + 1;
@@ -234,7 +259,7 @@ task decide;
                                 if (i == 0 && pv[i]) begin               // 没有"上次方向"那一项就会选别的：记一次
                                     c9_7 = 1000000; c9_9 = 0;
                                     for (k = 0; k < 9; k = k + 1) begin
-                                        b = pref(k); f = ff(b); dt = P_WT[i] * iabs(HEAD_DEG[b] - a);
+                                        b = pref(k); f = ffu(i, b); dt = P_WT[i] * iabs(HEAD_DEG[b] - a);
                                         if (f >= tfar && dt < c9_7) begin c9_7 = dt; c9_9 = HEAD_DEG[b]; end
                                     end
                                     if (c9_9 != fpsi) c_far_hyst = c_far_hyst + 1;
@@ -302,14 +327,14 @@ task decide;
                             if (i == 0 && pv[i]) begin               // 没有"上次方向"那一项就会选别的：记一次
                                 c9_7 = 1000000; c9_9 = 0;
                                 for (k = 0; k < 9; k = k + 1) begin
-                                    b = pref(k); f = ff(b); dt = P_WT[i] * iabs(HEAD_DEG[b] - a);
+                                    b = pref(k); f = ffu(i, b); dt = P_WT[i] * iabs(HEAD_DEG[b] - a);
                                     if (f >= (aok ? P_AVOID[i] : P_CLEAR[i]) && dt < c9_7) begin c9_7 = dt; c9_9 = HEAD_DEG[b]; end
                                 end
                                 if (c9_9 != cpsi) c_hyst = c_hyst + 1;
                                 // 车转过以后：上次方向要是还按"相对车头"存（不换算），会选别的
                                 c9_7 = 1000000; c9_9 = 0;
                                 for (k = 0; k < 9; k = k + 1) begin
-                                    b = pref(k); f = ff(b); dt = P_WT[i] * iabs(HEAD_DEG[b] - a) + P_WP[i] * iabs(HEAD_DEG[b] - lastpsi[i]);
+                                    b = pref(k); f = ffu(i, b); dt = P_WT[i] * iabs(HEAD_DEG[b] - a) + P_WP[i] * iabs(HEAD_DEG[b] - lastpsi[i]);
                                     if (f >= (aok ? P_AVOID[i] : P_CLEAR[i]) && dt < c9_7) begin c9_7 = dt; c9_9 = HEAD_DEG[b]; end
                                 end
                                 if (c9_9 != cpsi) c_prot = c_prot + 1;
@@ -317,7 +342,7 @@ task decide;
                             if (i == 0 && !pv[i] && (lastm[i] == 5 || lastm[i] == 4)) begin
                                 c9_7 = 1000000; c9_9 = 0;
                                 for (k = 0; k < 9; k = k + 1) begin
-                                    b = pref(k); f = ff(b); dt = P_WT[i] * iabs(HEAD_DEG[b] - a) + P_WP[i] * iabs(HEAD_DEG[b] - ppsi);
+                                    b = pref(k); f = ffu(i, b); dt = P_WT[i] * iabs(HEAD_DEG[b] - a) + P_WP[i] * iabs(HEAD_DEG[b] - ppsi);
                                     if (f >= (aok ? P_AVOID[i] : P_CLEAR[i]) && dt < c9_7) begin c9_7 = dt; c9_9 = HEAD_DEG[b]; end
                                 end
                                 if (c9_9 != cpsi) begin if (lastm[i] == 5) c_stale_go = c_stale_go + 1; else c_stale_turn = c_stale_turn + 1; end
@@ -554,6 +579,7 @@ initial begin
     c_far = 0; c_far_eq = 0; c_far_gap = 0; c_far_ang3 = 0; c_far_ang4 = 0; c_far_none = 0; c_far_t0 = 0; c_far_lim = 0; c_far_hyst = 0; c_far_keep = 0; c_far_ret = 0;
     c_hold_part = 0; c_nopiv_hold = 0; c_nopiv_scan = 0; c_piv_after = 0;
     c_sc_stop = 0; c_sc_start = 0; c_sc_exit = 0; c_sc_left = 0; c_sc_lt = 0; c_sc_neg = 0; c_sc_eq = 0; c_sc_to = 0; c_stuck = 0; c_stuck_stay = 0; c_tot_eq = 0; c_tot_lt = 0; c_stuck_max = 0;
+    c_tof_spin = 0; c_tof_blk = 0; c_tof_vis = 0; c_tof_eq = 0; c_tof_far = 0; c_tof_edge0 = 0; c_tof_edge1 = 0; c_tof_edgel = 0;
     age = 100;
     head(12000);
     repeat (5) @(posedge clk); rst_n = 1;
@@ -738,6 +764,30 @@ initial begin
     plant = 0; rate_(0);
     repeat (5) one_tick;
 
+    // ======== TOF 融合场景（车头由测试台给）========
+    // 视觉全空 + 激光 55 cm → SPIN（视觉看不到墙、激光看到了）
+    lose; head(12000); deg(0); tgt_cm = 400; all_free; tof_cm = 55; periods(10);
+    // 激光 90 cm → AVD（视觉看不到 90 cm 以内的障碍）
+    tof_cm = 90; periods(8);
+    // 激光 255（掉线）→ 恢复正常 GO
+    tof_cm = 255; periods(8);
+    // 激光 100（正好 AVOID_CM）→ 视觉全空时：ffu(8) = 100，不挡（边界：≥ AVOID_CM 才能走）
+    tof_cm = 100; periods(6);
+    // 激光 99 → 挡路
+    tof_cm = 99; periods(6);
+    tof_cm = 255; all_free; periods(5);
+    // 激光近、视觉更近：用视觉（min 取视觉，激光 90 cm，视觉 70 cm → f0 = 70，SPIN）
+    tof_cm = 90; set_free(255, 255, 255, 255, 70, 255, 255, 255, 255); periods(8);
+    // 激光盖住边上：方向 8 ± TOF_SIDE 以内都被激光压；外面的不受影响
+    // d0: TOF_SIDE = 2 → 方向 6~10 受影响；主人在 10（右 9°），视觉 255，激光 55 → AVD
+    all_free; tof_cm = 55; deg(9); periods(6);
+    // d0: 主人在 11（右 13°），在激光范围外（TOF_SIDE=2 → 方向 11 不受）→ 视觉 255，不挡，GO
+    // d1: TOF_SIDE = 1 → 方向 7~9；主人在 9（右 4°），受激光 → AVD
+    deg(13); periods(6);
+    // d1 边界：主人在 10（右 9°），超出 d1 的激光范围 → 不受激光，GO（d0 受，AVD）
+    deg(9); periods(6);
+    tof_cm = 255; all_free; deg(0); periods(5);
+
     $display("states: LOST %0d NCAM %0d HERE %0d BLK %0d TURN %0d GO %0d AVD %0d SPIN %0d NIMU %0d; tie %0d hyst %0d fallback %0d limit %0d clamp %0d pend-reset %0d reacquire %0d",
              cnt[0], cnt[1], cnt[2], cnt[3], cnt[4], cnt[5], cnt[6], cnt[7], cnt[8], c_tie, c_hyst, c_fallback, c_lim, c_clampw, c_pend_reset, c_reacq);
     for (i = 0; i < 9; i = i + 1) if (cnt[i] < 2) begin $display("FAIL scene setup: state %0d seen %0d times", i, cnt[i]); errors = errors + 1; end
@@ -767,6 +817,11 @@ initial begin
         $display("FAIL scene setup: some far-obstacle / hold case was not exercised"); errors = errors + 1;
     end
     $display("scan total: exact-circle %0d one-short %0d step-limit %0d", c_tot_eq, c_tot_lt, c_stuck_max);
+    $display("tof: spin %0d blk %0d vis-closer %0d edge-eq %0d far %0d edge-in %0d edge-out-r %0d edge-out-l %0d",
+             c_tof_spin, c_tof_blk, c_tof_vis, c_tof_eq, c_tof_far, c_tof_edge0, c_tof_edge1, c_tof_edgel);
+    if (c_tof_spin < 1 || c_tof_blk < 1 || c_tof_vis < 1 || c_tof_eq < 1 || c_tof_far < 1 || c_tof_edge0 < 1) begin
+        $display("FAIL scene setup: some TOF fusion case was not exercised (spin/blk/vis/eq/far/edge-in must each be ≥ 1)"); errors = errors + 1;
+    end
     if (c_sc_start < 3 || c_sc_exit < 2 || c_sc_stop < 2 || c_sc_left < 1 || c_sc_lt < 1 || c_sc_neg < 1 || c_sc_eq < 1 || c_sc_to < 1 || c_stuck < 2 || c_stuck_stay < 1 ||
         c_tot_eq < 1 || c_tot_lt < 1 || c_stuck_max < 1) begin
         $display("FAIL scene setup: some scan case was not exercised"); errors = errors + 1;

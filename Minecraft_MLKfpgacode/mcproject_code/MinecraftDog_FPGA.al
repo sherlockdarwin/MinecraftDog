@@ -178,6 +178,14 @@
                     <Attr Name="CompileOrder" Val="21"/>
                 </FileInfo>
             </File>
+            <File Path="src/rtl/sensor/mc_tof_vl53.v">
+                <FileInfo>
+                    <Attr Name="UsedInSyn" Val="true"/>
+                    <Attr Name="UsedInP&R" Val="true"/>
+                    <Attr Name="BelongTo" Val="design_1"/>
+                    <Attr Name="CompileOrder" Val="102"/>
+                </FileInfo>
+            </File>
             <File Path="src/rtl/system/mc_activity_mon.v">
                 <FileInfo>
                     <Attr Name="UsedInSyn" Val="true"/>

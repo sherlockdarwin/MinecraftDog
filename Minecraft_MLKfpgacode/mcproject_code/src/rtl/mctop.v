@@ -56,6 +56,9 @@ module mctop (
     output wire         O_imu_tx,           // CEP 5 / H14    → JY61P RX
     input  wire         I_imu_rx,           // CEP 6 / H13    ← JY61P TX（脚上开了上拉）
 
+    // ---- 激光测距 VL53-200（维特，UART 115200 只收，模块 VCC 接 CEP 脚 1，GND 接脚 2）----
+    input  wire         I_tof_rx,           // CEP 7 / G15    ← 模块 TXD（脚上开了上拉，没接模块 = 没有测距数据，视觉照常工作）
+
     // ---- 音频：板载 ES8388（耳机口 / 两个喇叭口）----
     output wire         O_aud_mclk,         // F14   MCLK 12.5 MHz
     output wire         O_aud_sclk,         // K13
@@ -163,6 +166,11 @@ localparam       AVOID_OWNER_GAP_CM = 60;      //   只算比主人（UWB 距离
 localparam       AVOID_SCAN_DEG     = 20;      // 哪边都走不了（都 < AVOID_CLEAR_CM）：原地一步转 20°（往主人那边）……
 localparam       AVOID_SCAN_PAUSE_MS= 200;     //   ……每步停 0.2 s 看清楚；转满一圈还没有出口 → 困住：停着、狗叫
 localparam       AVOID_SCAN_STEP_MS = 1000;    //   一步转了 1 s 还没转够 20°（电机推不动）也算一步
+// ---- 激光测距 VL53-200（mc_tof_vl53；装在镜头同一平面、车头最前面后面 5 cm，距离和避障画面一样从镜头算；逻辑见 obstacle.md §11）----
+localparam       TOF_MIN_MM         = 50;      // 比这近的不算（5 cm 以内是狗自己的鼻子；没东西时模块也会报几毫米）。前面没东西屏幕却显示 005~008cm（照到了外壳）→ 加大
+localparam       TOF_MAX_CM         = 120;     // 比这远当作没有（模块默认"一般模式"最远 1.2 m）。前面没东西屏幕却显示 080~120cm（照到了地面）→ 先把模块往上仰 5°，不行再减小
+localparam       TOF_FREEZE_CM      = 80;      // 激光看到这么近有东西：避障暂停学地面（东西快进 / 已经进了黄框，黄框离镜头 49~58 cm）；0 = 从不暂停
+localparam       TOF_SIDE           = 2;       // 激光距离盖住正前方两边各几个方向（2 = −9° ~ +9°，激光视场约 ±12.5°）：绕墙绕得太早 / 太晚 → 减小 / 加大（0~4）
 // ---- 按键 ----
 localparam       KEY_LONG_MS     = 800;        // 长按判定时间
 localparam       RST_HOLD_MS     = 2000;       // SW1 按住多久整机复位；0 = 取消这个功能
@@ -375,6 +383,35 @@ mc_cam_if #(
     .O_isp_data        (S_isp_data)
 );
 
+// ---- 激光测距：VL53-200（UART 只收）→ 前面最近的东西（厘米）→ 跟随决策（和视觉正前方取近的）、避障（近了暂停学地面）、屏幕第 3 行（100 MHz 域）----
+wire [7:0]   S_tof_cm;                         // 255 = 没有 / 没量到 / 掉线
+wire         S_tof_near;                       // ≤ TOF_FREEZE_CM：暂停学地面
+wire         S_tof_alive, S_tof_link;          // 屏幕：NOLK（300 ms 没字节）/ LOST（有字节、900 ms 没有测量）/ OK
+wire [7:0]   S_tof_st;                         // 屏幕排查：最近一组的原始状态号
+wire [13:0]  S_tof_mm;                         //           最近一组的原始毫米
+wire [9:0]   S_tof_dt;                         //           最近两次测量隔了多少毫秒
+
+mc_tof_vl53 #(
+    .CLK_HZ  (100_000_000),
+    .BAUD    (115200),
+    .MIN_MM  (TOF_MIN_MM),
+    .MAX_CM  (TOF_MAX_CM),
+    .NEAR_CM (TOF_FREEZE_CM)
+) u_tof (
+    .I_clk      (S_clk_100m),
+    .I_rst_n    (S_rst_n_100m),
+    .I_tick_1ms (S_tick_1ms),
+    .I_rx       (I_tof_rx),
+    .O_cm       (S_tof_cm),
+    .O_upd      (),
+    .O_near     (S_tof_near),
+    .O_alive    (S_tof_alive),
+    .O_link     (S_tof_link),
+    .O_st       (S_tof_st),
+    .O_mm       (S_tof_mm),
+    .O_dt       (S_tof_dt)
+);
+
 // ---- 避障：白平衡后的 1920×1080 → 160×90 → 地面 / 障碍 → 方向、框（相机像素时钟域）----
 wire [24:0]  S_obs_wbus;
 wire         S_obs_pub_bank, S_obs_pub_valid, S_obs_disp_bank;
@@ -395,6 +432,7 @@ mc_obs #(
     .I_fs        (S_isp_fs),
     .I_valid     (S_isp_valid),
     .I_data      (S_isp_data),
+    .I_freeze    (S_tof_near && (TOF_FREEZE_CM != 0)),   // 100 MHz 域，mc_obs 里同步
     .O_wbus      (S_obs_wbus),
     .O_pub_bank  (S_obs_pub_bank),
     .O_pub_valid (S_obs_pub_valid),
@@ -469,7 +507,8 @@ mc_follow #(
     .AVOID_CM (AVOID_CM), .CLEAR_CM (AVOID_CLEAR_CM), .SPIN_CM (AVOID_SPIN_CM), .KP_OBS (AVOID_KP_OBS), .SPIN_PWM (AVOID_SPIN_PWM),
     .AVOID_TURN_MAX (AVOID_TURN_MAX), .AVOID_HOLD_CM (AVOID_HOLD_CM),
     .W_TGT (AVOID_W_TGT), .W_PREV (AVOID_W_PREV), .AVOID_FAR_CM (AVOID_FAR_CM), .OWNER_GAP_CM (AVOID_OWNER_GAP_CM),
-    .SCAN_DEG (AVOID_SCAN_DEG), .SCAN_PAUSE_MS (AVOID_SCAN_PAUSE_MS), .SCAN_STEP_MS (AVOID_SCAN_STEP_MS)
+    .SCAN_DEG (AVOID_SCAN_DEG), .SCAN_PAUSE_MS (AVOID_SCAN_PAUSE_MS), .SCAN_STEP_MS (AVOID_SCAN_STEP_MS),
+    .TOF_SIDE (TOF_SIDE)
 ) u_follow (
     .I_clk       (S_clk_100m),
     .I_rst_n     (S_rst_n_100m),
@@ -479,6 +518,7 @@ mc_follow #(
     .I_tgt_cm    (S_uwb_cm),
     .I_obs_tog   (S_obs_res_tog),
     .I_obs_free  (S_obs_head_free),
+    .I_tof_cm    (S_tof_cm),
     .I_imu_ok    (S_imu_ok),
     .I_yaw       (S_imu_yaw),
     .I_gz        (S_imu_gz),
@@ -691,6 +731,14 @@ mc_osd_dash #(
     .I_imu_state   (S_imu_state),
     .I_imu_yaw     (S_imu_yaw_deg),
     .I_imu_gz      (S_imu_gz_dps),
+
+    .I_tof_cm      (S_tof_cm),
+    .I_tof_alive   (S_tof_alive),
+    .I_tof_link    (S_tof_link),
+    .I_tof_frz     (S_tof_near && (TOF_FREEZE_CM != 0)),
+    .I_tof_st      (S_tof_st),
+    .I_tof_mm      (S_tof_mm),
+    .I_tof_dt      (S_tof_dt),
 
     .I_aud_sd      (S_aud_sd),
     .I_aud_codec   (S_aud_codec),

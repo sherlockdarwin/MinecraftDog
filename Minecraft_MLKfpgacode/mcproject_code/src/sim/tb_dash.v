@@ -5,6 +5,8 @@
 //   · 数字转换：位数不够显示高位时只显示低位（开机秒数 32 位取低 5 位）、0、最大值、保留前导零；
 //     有符号数字（亮度档 −4~+4，显示 '+' / '-' 和一位数；4 位有符号的最大 +7 / 最小 −8）；曝光行数 4 位；
 //   · 跟随行：UWB 有 / 没有、有符号角度（8 位：显示低两位）、距离（10 位：显示低三位）、9 个决策状态（含 NIMU）、左右轮 PWM（14 位有符号，4 位 + 符号）；
+//   · 激光行：NOLK（优先，测量还新鲜也显示）/ LOST / OK、距离、REF LRN / HOLD、原始状态号（3 位）和毫米（4 位，14 位来源只显示低四位）；
+//     两次测量的间隔在避障行最后（3 位，10 位来源只显示低三位）；曝光行数在第 0 行；
 //   · 陀螺仪行：5 个状态名（含 LOST）、车头航向 / 目标航向（9 位有符号，±180、0、个位数）、角速度（12 位有符号：显示低三位，±2000 → ±000）；三个数取不同的值（接反能看出来）；
 //   · 所有状态名（尾巴 / TF 卡 / 编解码器 / 背景音乐 / 音效）、未定义状态值显示 "?"；背景音乐和音效取不同的值（接反能看出来）；
 //   · 三个键的电平的 8 种组合、最近一次按键事件（含同时来的优先级）、开机秒数（先让它自己数，再强制成各种值）；
@@ -46,6 +48,13 @@ reg  [1:0] tail_seq = 2'd0;
 reg  [2:0] aud_sd = 3'd1;
 reg  [1:0] aud_codec = 2'd1;
 reg  [1:0] bgm_state = 2'd2, sfx_state = 2'd0;
+reg  [7:0] tof_cm = 8'd255;
+reg        tof_alive = 1'b0;
+reg        tof_link  = 1'b0;
+reg        tof_frz   = 1'b0;
+reg  [7:0] tof_st    = 8'd0;            // 激光模块最近一组的原始状态号 / 毫米（排查用）
+reg  [13:0] tof_mm   = 14'd0;
+reg  [9:0] tof_dt    = 10'd0;           // 激光最近两次测量隔了多少毫秒（第 3 行最后）
 wire [19:0] bus;
 
 mc_osd_dash dut (
@@ -55,6 +64,7 @@ mc_osd_dash dut (
     .I_hall(hall), .I_tail_seq(tail_seq),
     .I_uwb_ok(uwb_ok), .I_uwb_link(uwb_link), .I_uwb_deg(uwb_deg), .I_uwb_cm(uwb_cm), .I_cmd_state(cmd_st), .I_cmd_l(cmd_l), .I_cmd_r(cmd_r),
     .I_head_tgt(head_tgt), .I_imu_state(imu_st), .I_imu_yaw(imu_yaw), .I_imu_gz(imu_gz),
+    .I_tof_cm(tof_cm), .I_tof_alive(tof_alive), .I_tof_link(tof_link), .I_tof_frz(tof_frz), .I_tof_st(tof_st), .I_tof_mm(tof_mm), .I_tof_dt(tof_dt),
     .I_aud_sd(aud_sd), .I_aud_codec(aud_codec), .I_bgm_state(bgm_state), .I_sfx_state(sfx_state),
     .O_bus(bus)
 );
@@ -100,6 +110,9 @@ function [23:0] sdeg8;      input [7:0] v; integer e; reg [7:0] s, t, o; begin e
 function [23:0] dec3w;      input [9:0] v; reg [7:0] a, b, c; begin a = 8'h30 + (v / 100) % 10; b = 8'h30 + (v / 10) % 10; c = 8'h30 + v % 10; dec3w = {a, b, c}; end endfunction   // 10 位 → 低三位
 function [39:0] sdec4;      input [13:0] v; integer e; reg [7:0] s, a, b, c, d; begin e = (v > 8191) ? v - 16384 : v; s = (e < 0) ? 8'h2D : 8'h2B; if (e < 0) e = -e;
                             a = 8'h30 + (e / 1000) % 10; b = 8'h30 + (e / 100) % 10; c = 8'h30 + (e / 10) % 10; d = 8'h30 + e % 10; sdec4 = {s, a, b, c, d}; end endfunction   // 14 位有符号 → "±dddd"
+function [31:0] dec4w;      input [13:0] v; reg [7:0] a, b, c, d; begin a = 8'h30 + (v / 1000) % 10; b = 8'h30 + (v / 100) % 10; c = 8'h30 + (v / 10) % 10; d = 8'h30 + v % 10; dec4w = {a, b, c, d}; end endfunction   // 14 位 → 低四位
+function [31:0] tof_name;   input alive, link; begin if (!link) tof_name = "NOLK"; else if (alive) tof_name = "OK  "; else tof_name = "LOST"; end endfunction   // 线上没字节优先
+function [31:0] frz_name;   input frz; frz_name = frz ? "HOLD" : "LRN "; endfunction
 function [31:0] cmd_name;   input [3:0] v; case (v) 4'd0: cmd_name = "LOST"; 4'd1: cmd_name = "NCAM"; 4'd2: cmd_name = "HERE"; 4'd3: cmd_name = "BLK "; 4'd4: cmd_name = "TURN"; 4'd5: cmd_name = "GO  "; 4'd6: cmd_name = "AVD "; 4'd7: cmd_name = "SPIN"; default: cmd_name = "NIMU"; endcase endfunction
 function [31:0] imu_name;   input [2:0] v; case (v) 3'd0: imu_name = "NOLK"; 3'd1: imu_name = "CFG "; 3'd2: imu_name = "WAIT"; 3'd3: imu_name = "OK  "; default: imu_name = "LOST"; endcase endfunction
 function [31:0] sdec3;      input integer e; reg [7:0] s, a, b, c; begin s = (e < 0) ? 8'h2D : 8'h2B; if (e < 0) e = -e; a = 8'h30 + (e / 100) % 10; b = 8'h30 + (e / 10) % 10; c = 8'h30 + e % 10; sdec3 = {s, a, b, c}; end endfunction   // "±ddd"（低三位）
@@ -113,6 +126,7 @@ task build_exp;                              // 按当前输入拼出整屏期�
         for (i = 0; i < CELLS; i = i + 1) exp_mem[i] = 8'h20;
         put(0, 0,  "GAIN ", 5);  put(0, 5, dec3(cam_gain), 3);
         put(0, 10, "HALL ", 5);  exp_mem[15] = hall ? "1" : "0";
+        put(0, 18, "EXP ", 4);   put(0, 22, dec4(cam_exp), 4);
 //      put(0, 18, "TAIL ", 5);  put(0, 23, tail_name(tail_seq), 4);   // 尾巴那一格注释掉了：tail_seq 怎么变，屏幕都不该变
         put(0, 28, "KEY ", 4);   put(0, 32, {(kp[0] ? "1" : "0"), (kp[1] ? "1" : "0"), (kp[2] ? "1" : "0")}, 3);
         put(0, 36, "UP ", 3);    put(0, 39, e_sec, 5);   put(0, 44, "s", 1);
@@ -122,10 +136,12 @@ task build_exp;                              // 按当前输入拼出整屏期�
         put(1, 32, "SFX ", 4);   put(1, 36, state_name(sfx_state), 4);
         put(1, 41, "EV", 2);     put(1, 43, evtxt(cam_ev), 2);
         put(2, 0,  e_evt, 8);
-        put(2, 10, "SW2/3 EV+/- SW1 2s reset", 24);
-        put(2, 35, "EXP ", 4);   put(2, 39, dec4(cam_exp), 4);
+        put(2, 10, "TOF ", 4);  put(2, 14, tof_name(tof_alive, tof_link), 4);
+        put(2, 19, dec3(tof_cm), 3);  put(2, 22, "cm REF ", 7);  put(2, 29, frz_name(tof_frz), 4);
+        put(2, 34, "S", 1);     put(2, 35, dec3(tof_st), 3);  put(2, 39, dec4w(tof_mm), 4);  put(2, 43, "mm", 2);
         put(3, 0,  "NEAR ", 5);  put(3, 5, dec3(obs_near), 3);  put(3, 8, "cm ", 3);  put(3, 11, sdeg(obs_ndeg), 3);  put(3, 14, "deg", 3);
         put(3, 19, obs_stop ? "STOP" : "GO  ", 4);  put(3, 24, sdeg(obs_gdeg), 3);  put(3, 27, "deg ", 4);  put(3, 31, dec3(obs_free), 3);  put(3, 34, "cm", 2);
+        put(3, 37, "dt ", 3);  put(3, 40, dec3w(tof_dt), 3);  put(3, 43, "ms", 2);
         put(4, 0,  "UWB ", 4);  put(4, 4, uwb_ok ? "OK  " : uwb_link ? "LOST" : "NOLK", 4);  put(4, 9, sdeg8(uwb_deg), 3);  put(4, 12, "deg ", 4);  put(4, 16, dec3w(uwb_cm), 3);
         put(4, 19, "cm  CMD ", 8);  put(4, 27, cmd_name(cmd_st), 4);  put(4, 32, "L", 1);  put(4, 33, sdec4(cmd_l), 5);  put(4, 39, "R", 1);  put(4, 40, sdec4(cmd_r), 5);
         put(5, 0,  "IMU ", 4);  put(5, 4, imu_name(imu_st), 4);  put(5, 9, "YAW ", 4);  put(5, 13, sdec3(sx9(imu_yaw)), 4);  put(5, 17, "deg  TGT ", 9);
@@ -292,6 +308,32 @@ initial begin
     aud_sd = 3'd6;                                                       settle; check("SD state 6 -> ??????");
     aud_sd = 3'd5;                                                       settle; check("SD RD ERR");
     aud_sd = 3'd1; aud_codec = 2'd1; bgm_state = 2'd2; sfx_state = 2'd0; settle; check("READY / OK / PLAY / IDLE");
+
+    // ---- 激光测距：NOLK / LOST / OK、距离（000~255）、REF LRN / HOLD ----
+    tof_link = 0; tof_alive = 0; tof_cm = 8'd255; tof_frz = 0; settle; check("TOF NOLK 255cm REF LRN");
+    tof_link = 1; tof_alive = 0;                                settle; check("TOF LOST");
+    tof_alive = 1; tof_cm = 8'd45;                              settle; check("TOF OK 045cm");
+    tof_cm = 8'd0;                                              settle; check("TOF OK 000cm");
+    tof_cm = 8'd120;                                            settle; check("TOF OK 120cm");
+    tof_frz = 1;                                                settle; check("TOF HOLD");
+    tof_frz = 0; tof_alive = 0; tof_link = 0; tof_cm = 8'd255; settle; check("TOF back to NOLK");
+    tof_alive = 1; tof_link = 1; tof_cm = 8'd99; tof_frz = 1;  settle; check("TOF OK HOLD 099cm");
+    // 原始状态号 / 毫米（和 O_cm 无关，单独变：接错 / 位数不对能看出来）
+    tof_st = 8'd0;   tof_mm = 14'd452;                         settle; check("raw S000 0452mm");
+    tof_st = 8'd255; tof_mm = 14'd8190;                        settle; check("raw S255 8190mm");
+    tof_st = 8'd4;   tof_mm = 14'd9999;                        settle; check("raw S004 9999mm");
+    tof_st = 8'd2;   tof_mm = 14'd0;                           settle; check("raw S002 0000mm");
+    tof_st = 8'd137; tof_mm = 14'd16383;                       settle; check("raw S137, 16383 -> 6383 (low 4 digits)");
+    tof_st = 8'd0;   tof_mm = 14'd7;                           settle; check("raw S000 0007mm");
+    // 线上没字节优先显示 NOLK（测量还新鲜也一样）
+    tof_alive = 1; tof_link = 0;                                settle; check("TOF alive but no bytes -> NOLK");
+    tof_alive = 1; tof_link = 1;                                settle; check("TOF OK again");
+    // 两次测量的间隔（10 位：显示低三位）
+    tof_dt = 10'd300;  settle; check("dt 300ms");
+    tof_dt = 10'd7;    settle; check("dt 007ms");
+    tof_dt = 10'd999;  settle; check("dt 999ms");
+    tof_dt = 10'd1023; settle; check("dt 1023 -> 023 (low 3 digits)");
+    tof_dt = 10'd0;    settle; check("dt 000ms");
 
     release dut.S_sec;
     if (errors == 0) $display("PASS  tb_dash");

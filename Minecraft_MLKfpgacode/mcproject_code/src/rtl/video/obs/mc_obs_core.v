@@ -32,6 +32,7 @@ module mc_obs_core #(
     input  wire [6:0]  I_row,
     input  wire [7:0]  I_col,
     input  wire [23:0] I_rgb,
+    input  wire        I_freeze,         // 1 = 冻结：这帧不更新地面模型（已经同步到本时钟域）
 
     output reg  [24:0] O_wbus,          // → 显示端
     output reg         O_pub_bank,
@@ -59,6 +60,7 @@ mc_obs_class #(
     .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1), .TC (TC), .TY (TY), .YSPREAD (YSPREAD)
 ) u_class (
     .I_clk (I_clk), .I_rst_n (I_rst_n),
+    .I_freeze (I_freeze),
     .I_valid (I_valid), .I_row (I_row), .I_col (I_col), .I_rgb (I_rgb),
     .O_valid (S_c_v), .O_row (S_c_row), .O_col (S_c_col), .O_y (S_c_y), .O_obs (S_c_obs), .O_busy ()
 );

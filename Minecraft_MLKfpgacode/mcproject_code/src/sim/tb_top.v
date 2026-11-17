@@ -6,6 +6,7 @@
 //   尾巴（步进电机）10-25 注释掉、10-31 接回来：上电回零 19 字节、每一遍 45 字节（使能 + 左 + 右 + 中）逐字节核对。
 //   MSPM0 串口：每 20 "ms" 发一帧（替身相机没图 → 一直是 #S*）、收主人位置帧 → 文字第 5 行、超时后又是 LOST。
 //   陀螺仪：测试台里一个只会发帧的 JY61P（已经是 115200、只发 52 / 53 帧）→ 上电探测到 → 发 4 条配置命令 → 归零 → 文字第 6 行、跟随决策。
+//   激光测距：按说明书格式发距离（1 Mbps）→ 文字第 3 行（含原始状态号 / 毫米）、跟随决策、避障暂停学地面；255（没有新数据）夹在中间跳过；乱码 → LOST、不发 → NOLK。
 //
 // 为了仿真快（整个顶层的行为级仿真每个时钟都要算几百个 always 块，很慢），用 defparam 把时间全部压缩：
 //   mc_tick 按 1 MHz 时钟工作（"1 ms" = 1000 个 100MHz 时钟，"10 ms 节拍" = 100 us）、按键去抖/长按缩短、
@@ -29,6 +30,7 @@ reg  m0_rx = 1'b1;                              // MSPM0 → FPGA
 wire m0_tx;
 reg  imu_rx = 1'b1;                             // JY61P → FPGA
 wire imu_tx;
+reg  tof_rx = 1'b1;                             // VL53-200 → FPGA（高 = 空闲；没接时 u_tof 保持 O_cm = 255 / O_link = 0）
 wire [12:0] ddr_addr; wire [1:0] ddr_ba; wire [0:0] ddr_cke, ddr_odt, ddr_cs_n, ddr_ck_p, ddr_ck_n;
 wire ddr_ras_n, ddr_cas_n, ddr_we_n;
 wire [1:0] ddr_dm, ddr_dqs_p, ddr_dqs_n; wire [15:0] ddr_dq;
@@ -45,6 +47,7 @@ mctop dut (
     .O_step_tx(step_tx), .I_hall_n(~hall),              // 模块低有效：测试台里 hall = 1 表示磁铁靠近
     .O_m0_tx(m0_tx), .I_m0_rx(m0_rx),
     .O_imu_tx(imu_tx), .I_imu_rx(imu_rx),
+    .I_tof_rx(tof_rx),
     .O_aud_mclk(aud_mclk), .O_aud_sclk(aud_sclk), .O_aud_lrck(aud_lrck), .O_aud_dsdin(aud_dsdin),
     .O_aud_cclk(aud_cclk), .IO_aud_cdata(aud_sda), .O_spk_ctl(spk_ctl),
     .O_sd_cs_n(sd_cs_n), .O_sd_sck(sd_sck), .O_sd_mosi(sd_mosi), .I_sd_miso(sd_miso),
@@ -76,6 +79,7 @@ defparam dut.u_imu.CLK_HZ            = 10_000_000;   // 陀螺仪串口快 10 �
 defparam dut.u_imu.BOOT_MS           = 20;
 defparam dut.u_imu.PROBE_MS          = 10;
 defparam dut.u_imu.STILL_MS          = 20;
+defparam dut.u_tof.BAUD              = 1_000_000;    // 激光串口 1 Mbps（真实 115200 和各种格式由 tb_tof_vl53 覆盖）
 
 integer errors = 0;
 task fail; input [255:0] msg; begin $display("FAIL %0s (t=%0t)", msg, $time); errors = errors + 1; end endtask
@@ -142,6 +146,19 @@ always @(posedge dut.S_clk_100m) if (wire_en) begin
     `WCHK(dut.u_dash.I_imu_gz,    dut.u_imu.O_gz_dps,    "dashboard yaw rate is not the IMU's deg/s")
     `WCHK(dut.u_dash.I_head_tgt,  dut.u_follow.O_tgt_deg, "dashboard target heading is not the follow decision's")
     `WCHK(dut.u_dash.I_cmd_state, dut.u_follow.O_state,  "dashboard decision state is not the follow decision's")
+    `WCHK(dut.u_tof.I_rx,         tof_rx,                "TOF receive pin not connected")
+    `WCHK(dut.u_tof.I_clk,        dut.S_clk_100m,        "TOF clock is not the 100 MHz clock")
+    `WCHK(dut.u_tof.I_rst_n,      dut.S_rst_n_100m,      "TOF reset")
+    `WCHK(dut.u_tof.I_tick_1ms,   dut.S_tick_1ms,        "TOF 1 ms tick")
+    `WCHK(dut.u_dash.I_tof_frz,   dut.S_tof_near,        "dashboard REF HOLD flag is not tof_near")
+    `WCHK(dut.u_follow.I_tof_cm,  dut.S_tof_cm,          "follow I_tof_cm is not u_tof.O_cm")
+    `WCHK(dut.u_dash.I_tof_cm,    dut.S_tof_cm,          "dashboard tof_cm is not u_tof.O_cm")
+    `WCHK(dut.u_dash.I_tof_alive, dut.S_tof_alive,       "dashboard tof_alive is not u_tof.O_alive")
+    `WCHK(dut.u_dash.I_tof_link,  dut.S_tof_link,        "dashboard tof_link is not u_tof.O_link")
+    `WCHK(dut.u_dash.I_tof_st,    dut.u_tof.O_st,        "dashboard raw state is not u_tof.O_st")
+    `WCHK(dut.u_dash.I_tof_mm,    dut.u_tof.O_mm,        "dashboard raw mm is not u_tof.O_mm")
+    `WCHK(dut.u_dash.I_tof_dt,    dut.u_tof.O_dt,        "dashboard measurement interval is not u_tof.O_dt")
+    `WCHK(dut.u_obs.I_freeze,     dut.S_tof_near,        "obs freeze input is not tof_near")
 end
 
 // ---- JY61P（已经是 115200、只输出 52 / 53 帧；串口按 u_imu 的 CLK_HZ 压缩成每位 860 ns）：一直发，FPGA 发的字节记下来 ----
@@ -242,6 +259,26 @@ task m0_send;
             for (j = 0; j < 8; j = j + 1) begin m0_rx = s[8*k + j]; #(BIT_NS); end
             m0_rx = 1'b1; #(2 * BIT_NS);
         end
+    end
+endtask
+
+// ---- VL53-200 激光（1 Mbps）：按说明书的格式发一组 "State;0 , Range Valid" CR LF + "d:  450 mm" CR LF（状态号 0~255）----
+task tof_byte; input [7:0] b; integer k; begin tof_rx = 1'b0; #(BIT_NS); for (k = 0; k < 8; k = k + 1) begin tof_rx = b[k]; #(BIT_NS); end tof_rx = 1'b1; #(BIT_NS); end endtask
+task tof_str; input [8*24-1:0] s; input integer n; integer k; begin for (k = n - 1; k >= 0; k = k - 1) tof_byte(s[8*k +: 8]); end endtask
+reg [8*8-1:0] tof_dts;                           // 期望的 "dt NNNms"
+task tof_group;                                  // 毫米 100 ~ 9999
+    input integer st;
+    input integer mm;
+    begin
+        tof_str("State;", 6);
+        if (st >= 100) tof_byte(8'h30 + (st / 100) % 10);
+        if (st >= 10)  tof_byte(8'h30 + (st / 10) % 10);
+        tof_byte(8'h30 + st % 10);
+        tof_str(" , Range Valid", 14); tof_byte(8'h0D); tof_byte(8'h0A);
+        tof_str("d: ", 3);
+        if (mm >= 1000) tof_byte(8'h30 + (mm / 1000) % 10); else tof_byte(8'h20);
+        tof_byte(8'h30 + (mm / 100) % 10); tof_byte(8'h30 + (mm / 10) % 10); tof_byte(8'h30 + mm % 10);
+        tof_str(" mm", 3); tof_byte(8'h0D); tof_byte(8'h0A);
     end
 endtask
 
@@ -387,6 +424,8 @@ initial begin
         dut.u_obs.D_CAP !== 150 || dut.u_obs.D_STOP !== 60) fail("obstacle parameters");
     if (dut.u_cam.CROP_X0_GRP !== 1 || dut.u_cam.CROP_Y0 !== 13 || dut.u_cam.OUT_H !== 448) fail("camera parameters (1920x1080 from group 1 / row 13, scaled to 448 rows)");
     if (dut.u_audio.u_cfg.SPK_VOL !== dut.AUD_SPK_VOL) fail("speaker volume parameter not passed down");   // 值在 mctop.v 配置区调
+    if (dut.u_tof.MIN_MM !== 50 || dut.u_tof.MAX_CM !== 120 || dut.u_tof.NEAR_CM !== 80 || dut.u_tof.ALIVE_MS !== 900 || dut.u_tof.LINK_MS !== 300 ||
+        dut.u_follow.TOF_SIDE !== 2) fail("laser ranging parameters");
 
     // ---------- 0a. 接线核对（强制值窗口）----------
     // 仿真里相机 / DDR / 屏幕是替身，状态信号全是常数，接错、接反都看不出来。
@@ -522,11 +561,11 @@ initial begin
     exp_v = s16w({clip1_b[45], clip1_b[44]});
     if (!l_first_set || s16w(l_first) !== exp_v) begin $display("FAIL first background-music sample %0d, expected %0d (clip 1 sample 0)", s16w(l_first), exp_v); errors = errors + 1; end
     // 屏幕文字（3 行整行核对，开机秒数那 5 位不比）
-    expect_text(0, 0,  "GAIN 061  HALL 0            KEY 000 UP ", 39);   // 尾巴那一格注释掉了       // 61 / 1717 = 相机替身的诱饵值
+    expect_text(0, 0,  "GAIN 061  HALL 0  EXP 1717  KEY 000 UP ", 39);   // 尾巴那一格注释掉了       // 61 / 1717 = 相机替身的诱饵值
     expect_text(0, 44, "s", 1);
     expect_text(1, 0,  "SD READY  CODEC OK    BGM PLAY  SFX IDLE EV+0", 45);
-    expect_text(2, 0,  "K3 LONG   SW2/3 EV+/- SW1 2s reset EXP 1717  ", 45);
-    expect_text(3, 0,  "NEAR 255cm +00deg  STOP +00deg 000cm         ", 45);   // 没有相机帧：上电时的值
+    expect_text(2, 0,  "K3 LONG   TOF NOLK 255cm REF LRN  S000 0000mm", 45);   // 激光没接（脚一直高）：NOLK、255、照常学、原始值是复位值
+    expect_text(3, 0,  "NEAR 255cm +00deg  STOP +00deg 000cm dt 000ms", 45);   // 没有相机帧：上电时的值；激光还没有测量：dt 000
     expect_text(4, 0,  "UWB NOLK +00deg 000cm  CMD LOST L+0000 R+0000", 45);   // 还没收到过字节
 
     // ---------- 3. 陀螺仪：探测到 115200 → 4 条配置命令 → 车停稳归零 → 文字第 6 行 ----------
@@ -557,6 +596,37 @@ initial begin
     expect_text(4, 0,  "UWB LOST -12deg 350cm  CMD LOST L+0000 R+0000", 45);
     #(3_000_000);
     expect_text(4, 0,  "UWB NOLK -12deg 350cm  CMD LOST L+0000 R+0000", 45);   // 300 "ms" 没有字节
+
+    // ---------- 3b. 激光测距：解出距离 → 文字第 3 行、跟随决策、避障暂停学地面（≤ 80 cm）；两次测量的间隔 → 第 4 行；
+    //            线上安静 > 300 "ms" → NOLK 但距离留着；900 "ms" 没有测量 → LOST、255；没字节 → NOLK ----------
+    //   45 cm（暂停学）和 100 cm（量到了、照常学）分开：OK / HOLD 两个标志接错能看出来；LOST（有字节没有效组）和 NOLK 分开：alive / link 接错能看出来
+    //   中间夹 255（没有新数据，毫米带个诱饵）：跳过，距离照样出来；原始状态号 / 毫米每组都显示
+    tof_group(0, 450); tof_group(255, 8190);
+    #(1_500_000);
+    expect_text(2, 10, "TOF OK   255cm REF HOLD S255 8190mm", 35);    // 只有一次测量：cm 要等第二次，近（45）已经暂停学
+    if (dut.u_follow.I_tof_cm !== 8'd255) fail("laser: one measurement should not reach the follow decision yet");
+    tof_group(0, 450);
+    #(1_500_000);
+    expect_text(2, 10, "TOF OK   045cm REF HOLD S000 0450mm", 35);
+    if (dut.u_follow.I_tof_cm !== 8'd45) fail("laser 45 cm did not reach the follow decision");
+    // 两次测量的间隔（中间夹着 255 的一组 + 1.5 ms，约 220 "ms"）：显示在第 4 行最后
+    if (dut.u_tof.O_dt < 10'd150 || dut.u_tof.O_dt > 10'd300) fail("laser: interval between the two measurements is off");
+    $sformat(tof_dts, "dt %03dms", dut.u_tof.O_dt);
+    expect_text(3, 37, tof_dts, 8);
+    if (dut.u_obs.u_core.u_class.I_freeze !== 1'b1) fail("laser 45 cm: floor learning should be frozen (mc_obs -> core -> class)");
+    tof_group(0, 1000); tof_group(0, 1000);
+    #(1_500_000);
+    expect_text(2, 10, "TOF OK   100cm REF LRN  S000 1000mm", 35);
+    if (dut.u_follow.I_tof_cm !== 8'd100) fail("laser 100 cm did not reach the follow decision");
+    if (dut.u_obs.u_core.u_class.I_freeze !== 1'b0) fail("laser 100 cm: floor learning should not be frozen");
+    #(3_000_000);                                                       // 线上安静 4.5 ms（450 "ms" > 300）：NOLK，但测量还新鲜（< 900 "ms"），距离留着
+    expect_text(2, 10, "TOF NOLK 100cm REF LRN  S000 1000mm", 35);
+    if (dut.u_follow.I_tof_cm !== 8'd100) fail("laser: a quiet line shorter than 900 ms should keep the distance");
+    for (i = 0; i < 12; i = i + 1) begin tof_str("Junk", 4); #(500_000); end   // 再 6 ms 只有乱码：900 "ms" 没有测量 → 不算活着，线还通着
+    expect_text(2, 10, "TOF LOST 255cm REF LRN  S000 1000mm", 35);   // 原始值留着最后一组的
+    if (dut.u_follow.I_tof_cm !== 8'd255) fail("laser timeout: the follow decision should get 255");
+    #(4_000_000);
+    expect_text(2, 10, "TOF NOLK 255cm REF LRN  S000 1000mm", 35);
 
     // ---------- 4. 喂食（霍尔 = 1）：进食音效（2.wav）播一遍，磁铁没拿开不重播；尾巴一遍接一遍地摇，拿开后摇完这一遍就停 ----------
     if (dut.S_tail_busy !== 1'b0) fail("tail should be idle before the feeding test");

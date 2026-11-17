@@ -27,11 +27,13 @@ my %NAMES = (
     plan  => [4, "GO  ", "STOP"],
     uwb   => [4, "NOLK", "LOST", "OK  "],
     cmd   => [4, "LOST", "NCAM", "HERE", "BLK ", "TURN", "GO  ", "AVD ", "SPIN", "NIMU"],
+    tof   => [4, "NOLK", "LOST", "OK  "],
+    frz   => [4, "LRN ", "HOLD"],
     imu   => [4, "NOLK", "CFG ", "WAIT", "OK  ", "LOST"],
 );
 # 选择器编号（"用哪个信号当状态值"），对应生成的 Verilog 里的 S_selv；0 = 固定字符串
-my %SELID = (sd => 1, codec => 2, bgm => 3, sfx => 4, evt => 5, keys => 6, tail => 7, plan => 8, uwb => 9, cmd => 10, imu => 11);
-my %SELTAB = (sd => 'sd', codec => 'codec', bgm => 'state', sfx => 'state', evt => 'evt', keys => 'keys', tail => 'tail', plan => 'plan', uwb => 'uwb', cmd => 'cmd', imu => 'imu');
+my %SELID = (sd => 1, codec => 2, bgm => 3, sfx => 4, evt => 5, keys => 6, tail => 7, plan => 8, uwb => 9, cmd => 10, imu => 11, tof => 12, frz => 13);
+my %SELTAB = (sd => 'sd', codec => 'codec', bgm => 'state', sfx => 'state', evt => 'evt', keys => 'keys', tail => 'tail', plan => 'plan', uwb => 'uwb', cmd => 'cmd', imu => 'imu', tof => 'tof', frz => 'frz');
 my $SELMAX = 0; for my $v (values %SELID) { $SELMAX = $v if $v > $SELMAX; }
 my $SELW = 1; $SELW++ while ((1 << $SELW) <= $SELMAX);      # 选择器的位数
 
@@ -53,17 +55,23 @@ my @SRC = (
     ['yaw',    9,  1, 'I_imu_yaw'],
     ['htgt',   9,  1, 'I_head_tgt'],
     ['gz',    12,  1, 'I_imu_gz'],
+    ['tofcm',  8,  0, 'I_tof_cm'],
+    ['tofst',  8,  0, 'I_tof_st'],
+    ['tofmm', 14,  0, 'I_tof_mm'],
+    ['tofdt', 10,  0, 'I_tof_dt'],
 );
 my %SRCID; for my $i (0 .. $#SRC) { $SRCID{$SRC[$i][0]} = $i; }
 my $SRCW = 1; $SRCW++ while ((1 << $SRCW) < @SRC);             # 取值来源编号的位数
 
 # ---- 项目：{row=>行, col=>列, str=>固定字符串 | sel=>状态名表 | num=>数字来源, dig=>位数} ----
 my @ITEMS = (
-    # 第 0 行：相机增益（自动曝光给的）/ 霍尔 / 尾巴动作 / 三个键的电平（SW1 SW2 SW3）/ 开机秒数
+    # 第 0 行：相机增益 / 曝光行数（自动曝光给的；曝光 11-17 从第 2 行挪过来）/ 霍尔 / 尾巴动作 / 三个键的电平（SW1 SW2 SW3）/ 开机秒数
     { row => 0, col => 0,  str => "GAIN " },
     { row => 0, col => 5,  num => 'gain', dig => 3 },
     { row => 0, col => 10, str => "HALL " },
     { row => 0, col => 15, num => 'hall', dig => 1 },
+    { row => 0, col => 18, str => "EXP " },
+    { row => 0, col => 22, num => 'exp', dig => 4 },
 #   { row => 0, col => 18, str => "TAIL " },          # 尾巴（步进电机）2026-10-25 不用了，这一格注释掉
 #   { row => 0, col => 23, sel => 'tail' },
     { row => 0, col => 28, str => "KEY " },
@@ -82,12 +90,19 @@ my @ITEMS = (
     { row => 1, col => 36, sel => 'sfx' },
     { row => 1, col => 41, str => "EV" },
     { row => 1, col => 43, num => 'ev', dig => 1 },
-    # 第 2 行：最近一次按键事件 / 按键提示 / 曝光行数
+    # 第 2 行：最近一次按键事件 / 激光测距（状态、距离）/ 地面参考区学不学 / 激光模块最近一组的原始状态号、毫米（上车排查用）
     { row => 2, col => 0,  sel => 'evt' },
-    { row => 2, col => 10, str => "SW2/3 EV+/- SW1 2s reset" },
-    { row => 2, col => 35, str => "EXP " },
-    { row => 2, col => 39, num => 'exp', dig => 4 },
-    # 第 3 行：避障（最近的障碍多远、在哪个方向；建议往哪走、那边能走多远）
+    { row => 2, col => 10, str => "TOF " },
+    { row => 2, col => 14, sel => 'tof' },
+    { row => 2, col => 19, num => 'tofcm', dig => 3 },
+    { row => 2, col => 22, str => "cm" },
+    { row => 2, col => 25, str => "REF " },
+    { row => 2, col => 29, sel => 'frz' },
+    { row => 2, col => 34, str => "S" },
+    { row => 2, col => 35, num => 'tofst', dig => 3 },
+    { row => 2, col => 39, num => 'tofmm', dig => 4 },
+    { row => 2, col => 43, str => "mm" },
+    # 第 3 行：避障（最近的障碍多远、在哪个方向；建议往哪走、那边能走多远）/ 激光两次测量的间隔
     { row => 3, col => 0,  str => "NEAR " },
     { row => 3, col => 5,  num => 'near', dig => 3 },
     { row => 3, col => 8,  str => "cm " },
@@ -98,6 +113,9 @@ my @ITEMS = (
     { row => 3, col => 27, str => "deg " },
     { row => 3, col => 31, num => 'gfree', dig => 3 },
     { row => 3, col => 34, str => "cm" },
+    { row => 3, col => 37, str => "dt " },                # 激光最近两次测量隔了多少毫秒（上车排查用，11-18 加）
+    { row => 3, col => 40, num => 'tofdt', dig => 3 },
+    { row => 3, col => 43, str => "ms" },
     # 第 4 行：跟随（主人在哪：UWB 角度 / 距离；决策：状态 / 左右轮 PWM）
     { row => 4, col => 0,  str => "UWB " },
     { row => 4, col => 4,  sel => 'uwb' },
@@ -199,10 +217,10 @@ print <<"EOT";
 //         复位后约 1 ms 画第一遍，之后每 100 ms 刷新一遍。只有一页。
 //
 //   版面（45 列 × 6 行）：
-//     GAIN 050  HALL 0            KEY 000 UP 00123s     ← 相机增益 / 霍尔（1 = 磁铁靠近）/（尾巴那一格 2026-10-25 注释掉了）/ 三个键（SW1 SW2 SW3）/ 开机秒数
+//     GAIN 050  HALL 0  EXP 2275  KEY 000 UP 00123s     ← 相机增益 / 霍尔（1 = 磁铁靠近）/ 曝光行数 /（尾巴那一格 2026-10-25 注释掉了）/ 三个键（SW1 SW2 SW3）/ 开机秒数
 //     SD READY  CODEC OK    BGM PLAY  SFX IDLE EV+0     ← TF 卡（NO FAT 不是 FAT32 / BADFAT 参数不对 / RD ERR 读卡错）/ ES8388 / 背景音乐 / 音效 / 亮度档
-//     K1 SHORT  SW2/3 EV+/- SW1 2s reset EXP 2275       ← 最近一次按键事件 / 按键提示 / 曝光行数
-//     NEAR 045cm -12deg  GO   +06deg 150cm          ← 最近的障碍（255 = 判断区里没有）/ 建议方向（STOP = 走不了）/ 那边能走多远
+//     K1 SHORT  TOF OK   045cm REF LRN  S000 0452mm     ← 最近一次按键事件 / 激光测距（NOLK 300 ms 没字节 / LOST 有字节、900 ms 没有一次测量 / OK；255 = 前面 1.2 m 内没东西）/ 地面参考区（LRN 照常学 / HOLD 激光说车前近处有东西，暂停学）/ 模块最近一组的原始状态号（0 量到了、2 / 4 前面没东西、255 没有新数据……）和毫米
+//     NEAR 045cm -12deg  GO   +06deg 150cm dt 300ms ← 最近的障碍（255 = 判断区里没有）/ 建议方向（STOP = 走不了）/ 那边能走多远 / 激光最近两次测量隔了多少毫秒
 //     UWB OK   -12deg 350cm  CMD GO   L+3000 R+2100 ← 主人在哪（OK / LOST = STM32 在发但没有有效帧 / NOLK = 300 ms 一个字节都没收到）/ 跟随决策（LOST NCAM HERE BLK TURN GO AVD SPIN NIMU）/ 左右轮 PWM
 //     IMU OK   YAW +012deg  TGT +015deg  GZ -003d/s ← 陀螺仪（NOLK 线上没动静 / LOST 线上有数据但没有有效帧（波特率不对） / CFG 正在配置 / WAIT 数据正常、等配置或等车停稳归零 / OK）/ 车头航向（上电归零，右转为正）/ 角度环的目标航向 / Z 角速度
 // =============================================================================
@@ -240,6 +258,13 @@ module mc_osd_dash #(
     input  wire [2:0]   I_imu_state,            // 陀螺仪：0 NOLK 1 CFG 2 WAIT 3 OK 4 LOST（mc_imu_jy61p）
     input  wire [8:0]   I_imu_yaw,              //         车头航向（度，有符号）
     input  wire [11:0]  I_imu_gz,               //         Z 角速度（度/秒，有符号）
+    input  wire [7:0]   I_tof_cm,               // 激光测距（mc_tof_vl53，100 MHz 域）：前面最近的东西（厘米，255 = 没有）
+    input  wire         I_tof_alive,            //         900 ms 内有过一次测量
+    input  wire         I_tof_link,             //         300 ms 内收到过字节
+    input  wire         I_tof_frz,              //         1 = 车前近处有东西，地面参考区暂停学习
+    input  wire [7:0]   I_tof_st,               //         最近一组的原始状态号（排查用）
+    input  wire [13:0]  I_tof_mm,               //         最近一组的原始毫米（排查用，≤ 9999）
+    input  wire [9:0]   I_tof_dt,               //         最近两次测量隔了多少毫秒（排查用，≤ 999）
 
     input  wire [2:0]   I_aud_sd,               // 音频：TF 卡状态 0 INIT 1 READY 2 NO SD 3 NO FAT 4 BADFAT 5 RD ERR
     input  wire [1:0]   I_aud_codec,            //       ES8388 配置状态 0 INIT 1 OK 2 ERR
@@ -389,6 +414,8 @@ always \@* begin
         ${SELW}'d$SELID{uwb}:  S_selv = I_uwb_ok ? 4'd2 : {3'd0, I_uwb_link};
         ${SELW}'d$SELID{cmd}: S_selv = I_cmd_state;
         ${SELW}'d$SELID{imu}: S_selv = {1'd0, I_imu_state};
+        ${SELW}'d$SELID{tof}: S_selv = !I_tof_link ? 4'd0 : I_tof_alive ? 4'd2 : 4'd1;    // 线上没字节优先显示 NOLK（距离还新鲜也显示：线上安静是要查的事）
+        ${SELW}'d$SELID{frz}: S_selv = {3'd0, I_tof_frz};
         default: S_selv = 4'd0;
     endcase
 end

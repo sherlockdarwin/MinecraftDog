@@ -44,6 +44,8 @@
 //      左 = 前进 + 转向、右 = 前进 − 转向，各限 ±MAX_WHEEL；停的时候直接归 0。
 //      （斜坡只管前进：要是两个轮子各自走斜坡，原地转完一个轮子要从 −2200 慢慢爬回正转，车会多转几十度，角度环管不住）
 //   避障结果在相机像素时钟域：mc_obs 每帧翻转 I_obs_tog，翻转以后 I_obs_free 保持一帧不变，这里同步翻转信号后再取。
+//   激光测距 I_tof_cm：每次决策时，方向 8 ± TOF_SIDE 能走多远 = 视觉和激光里近的（和主人方向、正前方、SPIN 等全部判断都用合起来的值）；
+//     看不出来的白墙激光照样量得到 → 1 m 内挡路绕开、60 cm 内原地转（和视觉看到的障碍一样）。I_tof_cm = 255 时和没有激光一样。
 // =============================================================================
 module mc_follow #(
     parameter PERIOD_MS        = 20,
@@ -85,7 +87,9 @@ module mc_follow #(
     parameter OWNER_GAP_CM     = 60,      //   只算比主人近这么多的（再远的可能是主人自己）
     parameter SCAN_DEG         = 20,      // 找出口：每步转多少度（12 ~ 120）
     parameter SCAN_PAUSE_MS    = 200,     //   每步停下来看多久（PERIOD_MS ~ 127 × PERIOD_MS）
-    parameter SCAN_STEP_MS     = 1000     //   一步转这么久还没转够也算一步（电机转不动 / 陀螺仪不动）（同上）
+    parameter SCAN_STEP_MS     = 1000,    //   一步转这么久还没转够也算一步（电机转不动 / 陀螺仪不动）（同上）
+    // ---- 激光测距 ----
+    parameter TOF_SIDE         = 2        // 激光盖住正前方（方向 8）两边各几个方向（0~4；车上的表 2 = ±9°，激光视场 ±12.5°）
 )(
     input  wire               I_clk,
     input  wire               I_rst_n,
@@ -97,6 +101,8 @@ module mc_follow #(
 
     input  wire               I_obs_tog,        // 避障结果（相机像素时钟域）
     input  wire [71:0]        I_obs_free,       // 方向 4~12 各能走多远（厘米，255 = 没挡），方向 4 在 [7:0]
+
+    input  wire [7:0]         I_tof_cm,         // 激光测距（mc_tof_vl53，本时钟域）：前面最近的东西（厘米，255 = 没有 / 掉线）
 
     input  wire               I_imu_ok,         // 陀螺仪（mc_imu_jy61p）
     input  wire signed [15:0] I_yaw,            //   航向角（65536 = 360°，右转为正）
@@ -141,6 +147,18 @@ always @(posedge I_clk or negedge I_rst_n) begin
         else if (I_tick_1ms && S_oage != OBS_TIMEOUT_MS) S_oage <= S_oage + 10'd1;
     end
 end
+
+// ---- 激光测距：方向 8 − TOF_SIDE ~ 8 + TOF_SIDE 能走多远 = 视觉和激光里近的（激光只说"视场里最近的东西多远"，不说在左在右：
+//      视场里的方向都可能被它挡住；视场外的方向激光没有信息，照用视觉）。激光 255（没有 / 掉线）= 只用视觉 ----
+wire [71:0] S_ffu;
+genvar gq;
+generate for (gq = 0; gq < 9; gq = gq + 1) begin : g_tof
+    if (gq + 4 >= 8 - TOF_SIDE && gq + 4 <= 8 + TOF_SIDE) begin : g_in
+        assign S_ffu[8*gq +: 8] = (I_tof_cm < S_free[8*gq +: 8]) ? I_tof_cm : S_free[8*gq +: 8];
+    end else begin : g_out
+        assign S_ffu[8*gq +: 8] = S_free[8*gq +: 8];
+    end
+end endgenerate
 
 // ---- 方向角度表 ----
 reg  [3:0]        S_hb;
@@ -342,7 +360,7 @@ always @(posedge I_clk or negedge I_rst_n) begin
                         if (S_ms == PERIOD_MS - 1) begin
                             S_ms <= 5'd0;
                             S_ok <= I_tgt_ok; S_cm <= I_tgt_cm;
-                            S_fresh <= (S_oage != OBS_TIMEOUT_MS); S_fl <= S_free;
+                            S_fresh <= (S_oage != OBS_TIMEOUT_MS); S_fl <= S_ffu;
                             S_iok <= I_imu_ok; S_yaw <= I_yaw; S_gz <= I_gz; S_mm <= I_yaw + bam(I_tgt_deg);
                             S_f <= F_FILT;
                         end else S_ms <= S_ms + 5'd1;

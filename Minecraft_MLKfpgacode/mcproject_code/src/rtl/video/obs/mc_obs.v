@@ -23,6 +23,7 @@ module mc_obs #(
     input  wire        I_fs,            // isp 输出：帧开始 / 有效 / 每拍 4 像素
     input  wire        I_valid,
     input  wire [95:0] I_data,
+    input  wire        I_freeze,        // 1 = 激光说车前近处有东西：这一帧不学地面（别的时钟域，这里同步）
 
     output wire [24:0] O_wbus,
     output wire        O_pub_bank,
@@ -53,12 +54,15 @@ mc_obs_down u_down (
     .O_fs (), .O_valid (S_d_v), .O_row (S_d_row), .O_col (S_d_col), .O_rgb (S_d_rgb)
 );
 
+wire S_frz;
+mc_sync_bits #(.W(1)) u_sync_frz (.I_clk (I_clk), .I_d (I_freeze), .O_q (S_frz));
+
 mc_obs_core #(
     .REF_X0 (REF_X0), .REF_X1 (REF_X1), .REF_Y0 (REF_Y0), .REF_Y1 (REF_Y1),
     .TC (TC), .TY (TY), .YSPREAD (YSPREAD), .ROW_MIN (ROW_MIN), .D_CAP (D_CAP), .D_STOP (D_STOP)
 ) u_core (
     .I_clk (I_clk), .I_rst_n (I_rst_n),
-    .I_valid (S_d_v), .I_row (S_d_row), .I_col (S_d_col), .I_rgb (S_d_rgb),
+    .I_valid (S_d_v), .I_row (S_d_row), .I_col (S_d_col), .I_rgb (S_d_rgb), .I_freeze (S_frz),
     .O_wbus (O_wbus), .O_pub_bank (O_pub_bank), .O_pub_valid (O_pub_valid), .O_go (O_go), .I_disp_bank (I_disp_bank),
     .O_done (O_done), .O_sec_dist (O_sec_dist), .O_go_head (O_go_head), .O_go_deg (O_go_deg), .O_go_free (O_go_free),
     .O_stop (O_stop), .O_near_cm (O_near_cm), .O_near_deg (O_near_deg),

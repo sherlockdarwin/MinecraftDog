@@ -23,6 +23,9 @@
 //         只有最后一列碰到最后一行（一帧最后一个点）、只有 2 行高的障碍 + 扇区最后一列独有的最高 / 最低点、障碍距离正好等于车宽门限（算挡住）。
 //         （第 15~21 帧和第 2 帧的"场景检查"按 ROW_MIN = 29 设计，ROW_MIN 别的值时只比 RTL 和模型、不查场景。）
 //   判断区上沿（第 22 帧，按 ROW_MIN 摆）：正好 ROW_MIN、ROW_MIN+1 两行（算）、跨过上沿（上沿截在 ROW_MIN）、只有 ROW_MIN 一行在里面（不算）、整块在上面（不管）。
+//   冻结（I_freeze，激光说车前近处有东西）：复位后第 1~14 帧一直给冻结（学够 15 帧以前不听，必须照常学）、学的第 16 帧真的冻结；
+//         第 23 帧冻结时参考区里的红块不学、解冻后学进去；场景 25 再冻结一次（帧数计数不能绕回）、场景 26 用冻结后的模型分类。
+//         每帧模型更新做完以后，RTL 的模型存储和测试台的模型逐格核对（check_model）。
 `ifndef TB_OBS_YS
 `define TB_OBS_YS 2
 `endif
@@ -51,6 +54,7 @@ reg  [6:0]  row = 0;
 reg  [7:0]  col = 0;
 reg  [23:0] rgb = 0;
 reg         disp_bank = 0;
+reg         freeze = 0;               // I_freeze：冻结时这帧不更新地面模型
 wire [24:0] wbus;
 wire        pub_bank, pub_valid, done, stop;
 wire [5:0]  go;
@@ -62,7 +66,7 @@ wire signed [6:0] go_deg, near_deg;
 wire [7:0]  go_free, near_cm;
 
 mc_obs_core #(.YSPREAD(YS), .ROW_MIN(RM), .D_STOP(DSTOP)) dut (
-    .I_clk(clk), .I_rst_n(rst_n), .I_valid(v), .I_row(row), .I_col(col), .I_rgb(rgb),
+    .I_clk(clk), .I_rst_n(rst_n), .I_valid(v), .I_row(row), .I_col(col), .I_rgb(rgb), .I_freeze(freeze),
     .O_wbus(wbus), .O_pub_bank(pub_bank), .O_pub_valid(pub_valid), .O_go(go), .I_disp_bank(disp_bank),
     .O_done(done), .O_sec_dist(sec_dist), .O_go_head(go_head), .O_go_deg(go_deg), .O_go_free(go_free),
     .O_stop(stop), .O_near_cm(near_cm), .O_near_deg(near_deg), .O_head_free(head_free), .O_res_tog(res_tog)
@@ -160,7 +164,8 @@ localparam [23:0] C_X  = {8'd100, 8'd132, 8'd148},  // (10,4) / 8：色度只有
                   C_R5 = {8'd28,  8'd88,  8'd52},   // (6,3)
                   C_P5 = {8'd20,  8'd92,  8'd52},   // (6,2)：只靠 Cr+1 那个邻格（R5）
                   C_L  = {8'd20,  8'd14,  8'd0},     // (6,9) / 0：亮度只有 4 格外的 R1~R5（第 4 格）撑着 = YS 是 4 时的最后一个邻格；YS 小于 4 时够不着
-                  C_O  = {8'd20,  8'd20,  8'd20};   // 暗：障碍
+                  C_O  = {8'd20,  8'd20,  8'd20},   // 暗：障碍
+                  C_R6 = {8'd40,  8'd200, 8'd40};    // (0,0)：色度在地面模型角落外，离 C_R1(0,4) 和地面(4,10) 都远——第二次冻结用
 function [24:0] special;                // {有, 颜色}
     input integer f, r, c;
     begin
@@ -224,6 +229,10 @@ function [24:0] special;                // {有, 颜色}
             if (r >= RM - 8 && r <= RM     && c >= 100 && c <= 109) special = {1'b1, C_O};
             if (r >= RM - 9 && r <= RM - 2 && c >= 130 && c <= 139) special = {1'b1, C_O};
         end
+        // 冻结场景：第 23 / 24 帧 —— 参考区里有一块红色障碍（C_R1，色度在地面模型外）；冻结时不学成地面，解冻后学成地面
+        if ((f == 23 || f == 24) && r >= 83 && r <= 87 && c >= 70 && c <= 85) special = {1'b1, C_R1};
+        // 第二次冻结（f==25 / 26）：参考区里放 C_R6；用来抓 S_nl 计数器溢出绕回 0 导致冻结失效的突变
+        if ((f == 25 || f == 26) && r >= 83 && r <= 87 && c >= 70 && c <= 85) special = {1'b1, C_R6};
     end
 endfunction
 function [7:0] cl; input integer x; cl = (x < 0) ? 8'd0 : (x > 255) ? 8'd255 : x; endfunction
@@ -265,8 +274,9 @@ integer HF [0:15];                     // 每个方向能走多远
 function integer fdiv8; input integer x; fdiv8 = (x + 1024) / 8 - 128; endfunction       // ⌊x/8⌋（x 可以是负数）
 function integer q16; input integer x; integer t; begin t = fdiv8(x + 64); q16 = (t < 0) ? 0 : (t > 15) ? 15 : t; end endfunction
 
-task model_frame;                       // 用当前模型给这一帧分类，再更新模型
+task model_frame;                       // 用当前模型给这一帧分类，再更新模型（freeze=1 且已学够 LEARN_MIN 帧时跳过更新）
     input integer f;
+    input integer freeze_in;            // 1 = 冻结
     integer r, c, y, cb, cr, bc, by, i, j, k, s, cnt, rr, cc, a, b, best, run_len, run_start, ltop, lbot, lhas;
     reg [23:0] p;
     integer act, mt, mb, mx0, mx1, id, wv, wcap, order;
@@ -283,21 +293,25 @@ task model_frame;                       // 用当前模型给这一帧分类，�
                 Y7[r * 160 + c] = y / 2;
                 if (c >= 56 && c <= 103 && r >= 82 && r <= 89) begin Ac[bc] = Ac[bc] + 1; Ay[by] = Ay[by] + 1; end
             end
-        // 模型更新
-        for (i = 0; i < 256; i = i + 1) begin
-            s = 0;
-            for (a = -1; a <= 1; a = a + 1)
-                for (b = -1; b <= 1; b = b + 1)
-                    if (i / 16 + a >= 0 && i / 16 + a <= 15 && i % 16 + b >= 0 && i % 16 + b <= 15) s = s + Ac[(i / 16 + a) * 16 + i % 16 + b];
-            Hc[i] = Hc[i] - Hc[i] / 4 + s;
-            if (Hc[i] > 4095) Hc[i] = 4095;
-        end
+        // 模型更新（冻结时只清计数）
+        if (freeze_in && n_learned >= 15) n_frz = n_frz + 1;
+        if (!(freeze_in && n_learned >= 15)) begin
+            for (i = 0; i < 256; i = i + 1) begin
+                s = 0;
+                for (a = -1; a <= 1; a = a + 1)
+                    for (b = -1; b <= 1; b = b + 1)
+                        if (i / 16 + a >= 0 && i / 16 + a <= 15 && i % 16 + b >= 0 && i % 16 + b <= 15) s = s + Ac[(i / 16 + a) * 16 + i % 16 + b];
+                Hc[i] = Hc[i] - Hc[i] / 4 + s;
+                if (Hc[i] > 4095) Hc[i] = 4095;
+            end
         for (i = 0; i < 16; i = i + 1) begin
             s = 0;
             for (a = -YS; a <= YS; a = a + 1) if (i + a >= 0 && i + a <= 15) s = s + Ay[i + a];
             Hy[i] = Hy[i] - Hy[i] / 4 + s;
             if (Hy[i] > 4095) Hy[i] = 4095;
         end
+        end
+        if (n_learned < 15) n_learned = n_learned + 1;
         // 去噪
         for (r = 0; r < 90; r = r + 1)
             for (c = 0; c < 160; c = c + 1) begin
@@ -377,6 +391,11 @@ endtask
 reg [7:0] IMG [0:1][0:14399];
 reg [7:0] BOX [0:1][0:63];
 integer   nw_img = 0, nw_box = 0, bad_bank = 0;
+integer   n_learned = 0;               // 模型已学了几帧（到 15 不再加；冻结需要知道是否已过 LEARN_MIN）
+integer   n_frz = 0;                   // 模型里真的冻结了几帧（场景检查：冻结在该生效的那一帧生效、学够 15 帧以前不生效）
+integer   nbad_model;                  // 冻结核对：有多少格改了
+integer   hc_pre [0:255];
+integer   hy_pre [0:15];
 integer   ndone = 0;
 always @(posedge clk) if (done) ndone = ndone + 1;
 // 时序前提（测试台自己守住）：模型更新时不来点；扫描在收结果的时候不收新点
@@ -408,6 +427,22 @@ task send_frame;
     end
 endtask
 
+task check_model;                         // 白盒：模型更新做完以后，RTL 的模型存储（S_hc / S_hy）和测试台的 Hc / Hy 逐格相等
+    input integer f;                      //   （冻结早一帧 / 晚一帧、冻结时照样衰减、计数没清，分类上不一定马上看得出，这里每帧都看得出）
+    integer k, nb, t;
+    begin
+        t = 0;
+        while ((dut.u_class.O_busy || dut.u_class.S_pend_last) && t < 20000) begin @(posedge clk); t = t + 1; end
+        if (t >= 20000) begin $display("FAIL frame %0d: model update did not finish", f); errors = errors + 1; end
+        nb = 0;
+        for (k = 0; k < 256; k = k + 1)
+            if (dut.u_class.S_hc[k] !== Hc[k]) begin if (nb < 3) $display("FAIL frame %0d model Hc[%0d] = %0d, expected %0d", f, k, dut.u_class.S_hc[k], Hc[k]); nb = nb + 1; end
+        for (k = 0; k < 16; k = k + 1)
+            if (dut.u_class.S_hy[k] !== Hy[k]) begin if (nb < 3) $display("FAIL frame %0d model Hy[%0d] = %0d, expected %0d", f, k, dut.u_class.S_hy[k], Hy[k]); nb = nb + 1; end
+        if (nb != 0) errors = errors + 1;
+    end
+endtask
+
 task check_frame;
     input integer f, expect_pub;          // expect_pub：这一帧应该送显示
     integer k, r, c, nbad, pb, nimg0, nbox0, t, nd0;
@@ -418,7 +453,8 @@ task check_frame;
         t = 0;
         while (ndone == nd0 && t < 20000) begin @(posedge clk); t = t + 1; end
         if (ndone != nd0 + 1) begin $display("FAIL frame %0d: no O_done", f); errors = errors + 1; end
-        model_frame(f);
+        model_frame(f, freeze);
+        check_model(f);
         repeat (5) @(posedge clk);
         // 方向 / 距离
         for (k = 0; k < 16; k = k + 1)
@@ -478,7 +514,8 @@ task want_frame;                         // 第 9~14 帧都应该成立的
         want(f, 61, 0, 1, 1, "left edge (61,0)"); want(f, 89, 141, 1, 0, "bottom edge (89,141)"); want(f, 89, 159, 1, 0, "corner (89,159)");
     end
 endtask
-initial begin
+initial begin : init_main
+    integer i, k, nbad;
     init_geom;
     check_lut;
     for (i = 0; i < 256; i = i + 1) Hc[i] = 0;
@@ -488,6 +525,9 @@ initial begin
     repeat (400) @(posedge clk);                                   // 上电清表
     if (pub_valid !== 1'b0) begin $display("FAIL published before any frame"); errors = errors + 1; end
 
+    // 复位以后先学够 15 帧才听 I_freeze（激光一直照着地面时模型也不会是空的）：第 1~14 帧（学的第 1~15 帧）一直给冻结，必须照常学；
+    // 第 15 帧的第一次（学的第 16 帧）才真的冻结。模型存储每帧逐格核对（check_model），早一帧 / 晚一帧都看得出来
+    freeze = 1;
     check_frame(1, 1); disp_bank = pub_bank;                     // 第 1 帧：模型是空的 → 全是障碍
     check_frame(2, 1); disp_bank = pub_bank;
     nbox_seen = 0; for (i = 0; i < 16; i = i + 1) nbox_seen = nbox_seen + (b_v[i] != 0);
@@ -517,8 +557,12 @@ initial begin
     want(13, 42, 96, 0, 1, "U (7)"); want(13, 42, 106, 0, 1, "K (7)");
     check_frame(14, 1); disp_bank = pub_bank; want_frame(14);
     want(14, 42, 96, 0, 0, "U (bin 15 neighbour)"); want(14, 42, 106, 0, 0, "K (22)"); if (YS == 2) want(14, 42, 86, 0, 1, "V");
-    // 扫描 / 选方向的边界：每个场景放两帧
-    check_frame(15, 1); disp_bank = pub_bank; check_frame(15, 1); disp_bank = pub_bank;
+    if (n_frz != 0) begin $display("FAIL scene setup: %0d frames frozen before 15 frames were learned", n_frz); errors = errors + 1; end
+    // 扫描 / 选方向的边界：每个场景放两帧（第一次还冻结着 = 学的第 16 帧，真的冻结）
+    check_frame(15, 1); disp_bank = pub_bank;
+    freeze = 0;
+    if (n_frz != 1) begin $display("FAIL scene setup: the 16th frame should be the first frozen one (%0d frozen)", n_frz); errors = errors + 1; end
+    check_frame(15, 1); disp_bank = pub_bank;
     if (RM == 29 && (e_go_head != 12 || HF[11] == 255)) begin $display("FAIL scene setup: frame 15 only heading 12 should be free"); errors = errors + 1; end
     check_frame(16, 1); disp_bank = pub_bank; check_frame(16, 1); disp_bank = pub_bank;
     if (RM == 29 && (e_go_head != 4 || HF[12] != 255 || HF[11] == 255 || HF[5] == 255)) begin $display("FAIL scene setup: frame 16 should pick heading 4 over the equally free heading 12"); errors = errors + 1; end
@@ -535,6 +579,35 @@ initial begin
     check_frame(22, 1); disp_bank = pub_bank; check_frame(22, 1); disp_bank = pub_bank;
     if (!m_has[2] || m_top[2] != RM || m_bot[2] != RM + 1 || !m_has[6] || m_top[6] != RM || m_bot[6] != RM + 3 || m_has[10] || m_has[13])
         begin $display("FAIL scene setup: frame 22 (rows around ROW_MIN = %0d)", RM); errors = errors + 1; end
+
+    // ======== 冻结（I_freeze）：激光说车前有东西 → 参考区里的障碍不学成地面 ========
+    // 先记一下冻结前的模型（第 22 帧以后的地面模型），用来核对冻结帧不改它
+    for (k = 0; k < 256; k = k + 1) hc_pre[k] = Hc[k];
+    for (k = 0; k < 16;  k = k + 1) hy_pre[k] = Hy[k];
+    n_learned = 15;                                  // 已经学够 LEARN_MIN：冻结从此刻起真的生效（RTL 里前 15 帧无视冻结）
+    // 第 23/24 帧：参考区里放一整块红色障碍（C_R1，色度在地面模型外面）—— special 里加
+    freeze = 1;
+    check_frame(23, 1); disp_bank = pub_bank;          // 冻结帧：模型应该不动
+    // 核对冻结帧没有改模型
+    nbad_model = 0;
+    for (k = 0; k < 256; k = k + 1) if (Hc[k] !== hc_pre[k]) nbad_model = nbad_model + 1;
+    for (k = 0; k < 16;  k = k + 1) if (Hy[k] !== hy_pre[k]) nbad_model = nbad_model + 1;
+    if (nbad_model != 0) begin $display("FAIL freeze frame %0d: model changed (freeze should keep model)", 23); errors = errors + 1; end
+    // 参考区里的红色障碍应仍然是障碍（没有学成地面）
+    if (!RAW[85 * 160 + 80]) begin $display("FAIL freeze frame %0d: obstacle in reference region got learned as ground", 23); errors = errors + 1; end
+    freeze = 0;
+    check_frame(24, 1); disp_bank = pub_bank;          // 不冻结了：模型继续学（参考区里还有那块障碍 → 会被学进去）
+    // 第 24 帧 model_frame 先用旧模型分类再更新，所以还是障碍；发第 25 帧用新模型分类，才应该变地面
+    check_frame(24, 1); disp_bank = pub_bank;          // 第 25 帧（内容同 24，仍有 C_R1 在参考区）：模型已学过一帧 → 应判为地面
+    if (RAW[85 * 160 + 80]) begin $display("FAIL after freeze frame %0d: obstacle should now be learned as ground (no freeze)", 25); errors = errors + 1; end
+    // 第二次冻结（场景 25）：上一次冻结以后又学了几帧，冻结照样生效（复位后的帧数计数到 15 要停住，不能绕回 0）
+    freeze = 1;
+    check_frame(25, 1); disp_bank = pub_bank;
+    freeze = 0;
+    if (n_frz != 3) begin $display("FAIL scene setup: scene 25 should be frozen (%0d frozen frames)", n_frz); errors = errors + 1; end
+    check_frame(26, 1); disp_bank = pub_bank;                     // 用冻结帧以后的模型分类：参考区里的新颜色 C_R6 还是障碍
+    if (!RAW[85 * 160 + 80]) begin $display("FAIL scene setup: scene 26 C_R6 in the reference area should still be an obstacle"); errors = errors + 1; end
+
     if (n_late_class != 0 || n_late_scan != 0) begin $display("FAIL testbench timing: %0d points during the model update, %0d while the scan was busy", n_late_class, n_late_scan); errors = errors + 1; end
     if (bad_bank != 0) begin $display("FAIL %0d writes went to the bank being displayed", bad_bank); errors = errors + 1; end
 

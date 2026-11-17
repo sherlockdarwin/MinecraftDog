@@ -32,7 +32,7 @@ I love Minecraft, and every time I play it I have a great time. Mining, building
 | Skill | What happens |
 | --- | --- |
 | Follows its owner (the beacon) | Walk away and it catches up, then stands still within two meters of you |
-| Avoids obstacles | Steers around anything in its way, and in a dead end it turns around to find a way out |
+| Avoids obstacles | Steers around anything in its way, and in a dead end it turns around to find a way out. A laser on its nose is learning to spot the pale walls its eyes miss |
 | Feeding | Hold food up to its mouth: it plays the eating sound and wags its tail |
 | Tail wagging | Wags its tail when you are within three meters |
 | Barking | Barks loudly for you when you get too far away, the signal drops, or it gets stuck |
@@ -75,6 +75,7 @@ I built a bundle of wheat out of toy bricks and put a UWB tag and a battery insi
 | UWB anchors | ALX-G100A (AoA angle and distance) × 4 | Nose that sniffs out where its owner is |
 | UWB tag | OverAir U68 + 2000 mAh battery | Hidden in the wheat beacon |
 | IMU | WitMotion JY61P | Sense of direction |
+| Laser rangefinder | WitMotion VL53-200 (time of flight, serial) | Whiskers for walls |
 | Motor driver | TB6612 dual-channel driver module with regulator (D153C) | Leg muscles |
 | Wheels | DC gear motors × 2 | Legs |
 | Tail motor | ZDT Emm42 (X42S closed-loop stepper) | The tail! |

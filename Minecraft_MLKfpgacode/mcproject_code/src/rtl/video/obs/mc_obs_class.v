@@ -12,6 +12,11 @@
 //        Hy[y] ← Hy[y] − Hy[y]/4 + Σ(y−YSPREAD ~ y+YSPREAD 格的 Ay)（亮度放宽 ±YSPREAD 格，阴影 / 反光不至于全算成障碍）
 //      参考区最多 511 个点（Ac / Ay 9 位）→ H 最大 4 × 511 < 4096，12 位不会溢出；然后把 Ac / Ay 清零。旧模型每帧只留 3/4：参考区被短暂挡住（比如脚踩进来）不会马上把模型带偏，
 //      换了一种地面几帧以后就学会。上电先把四张表清零（前一帧全判成障碍，第二帧开始正常）。
+//   4. 冻结（I_freeze，激光测距说车前不远有东西 → 它可能已经进了参考区）：一帧最后一个点处理完时 I_freeze = 1 → 这一帧不学：
+//      模型更新跳过，只清本帧计数，Hc / Hy 原样留着（不衰减：要是照样衰减、不加新的，几帧以后模型就空了，全判成障碍）。
+//      I_freeze 回到 0 的下一帧照常学。I_freeze 由外部同步到本时钟域（mc_obs）。
+//      复位以后先照常学 LEARN_MIN（15）帧才听 I_freeze：激光装平了一直照到地面（I_freeze 一直是 1）时，模型也不会是空的
+//      （空模型 = 整个画面都是障碍，车动不了），只是之后不再跟着光线变（屏幕第 3 行一直 REF HOLD = 该把激光往上仰）。
 //   时序：输入一拍一个点，两个点之间至少隔 3 拍（mc_obs_down 保证）；输出比输入晚 3 拍（附带行列号、亮度）。
 //         模型更新约 3300 拍，在一帧最后一个点之后、下一帧第一个点之前做完（中间至少隔 12 行 ≈ 1 万拍）。
 // =============================================================================
@@ -28,6 +33,8 @@ module mc_obs_class #(
 )(
     input  wire        I_clk,
     input  wire        I_rst_n,
+
+    input  wire        I_freeze,         // 1 = 冻结：本帧参考区计数丢掉，模型更新引擎只清计数不写模型
 
     input  wire        I_valid,
     input  wire [6:0]  I_row,
@@ -173,10 +180,12 @@ end
 reg  [11:0] S_hnew;
 reg         S_pend_last;                // 本帧最后一个点已经过了第 2 拍，等它的计数写完再启动引擎
 reg         S_e_dv;                     // 上一拍发出的邻格读是否在范围内（数据这一拍有效）
+localparam [3:0] LEARN_MIN = 4'd15;     // 复位以后先学够这么多帧才听 I_freeze
+reg  [3:0]  S_nl;                       // 复位以后学了几帧（到 LEARN_MIN 不再加）
 
 always @(posedge I_clk or negedge I_rst_n) begin
     if (!I_rst_n) begin
-        S_est <= E_INIT; S_eb <= 9'd0; S_ej <= 4'd0; S_esum <= 12'd0; S_eh <= 12'd0; S_pend_last <= 1'b0; S_e_dv <= 1'b0;
+        S_est <= E_INIT; S_eb <= 9'd0; S_ej <= 4'd0; S_esum <= 12'd0; S_eh <= 12'd0; S_pend_last <= 1'b0; S_e_dv <= 1'b0; S_nl <= 4'd0;
         S_wc_ac <= 1'b0; S_wc_ay <= 1'b0; S_wc_hc <= 1'b0; S_wc_hy <= 1'b0;
         S_wa_ac <= 8'd0; S_wa_hc <= 8'd0; S_wa_ay <= 4'd0; S_wa_hy <= 4'd0;
         S_wd_ac <= 9'd0; S_wd_ay <= 9'd0; S_wd_hc <= 12'd0; S_wd_hy <= 12'd0;
@@ -192,7 +201,12 @@ always @(posedge I_clk or negedge I_rst_n) begin
         case (S_est)
             E_IDLE: if (S_pend_last) begin                              // 最后一个点的计数和这一拍同时写进去，引擎下一拍才读
                         S_pend_last <= 1'b0;
-                        S_est <= E_HC; S_eb <= 9'd0; S_ej <= 4'd0; S_esum <= 12'd0; S_e_dv <= 1'b0;
+                        if (I_freeze && S_nl == LEARN_MIN) S_est <= E_CLR;    // 冻结：这一帧不学，模型原样留着（也不衰减），只清计数
+                        else begin
+                            S_est <= E_HC;
+                            if (S_nl != LEARN_MIN) S_nl <= S_nl + 4'd1;
+                        end
+                        S_eb <= 9'd0; S_ej <= 4'd0; S_esum <= 12'd0; S_e_dv <= 1'b0;
                     end
             E_HC: begin                                                // 每格 10 拍：j = 0~8 发邻格读，j = 9 收最后一个、写
                       S_e_dv <= S_nin && (S_ej <= 4'd8);
