@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="微软雅黑, Microsoft YaHei, SimHei, Arial">
+  <rect x="0" y="0" width="1280" height="720" fill="#F5F2E8" />
+  <rect x="0" y="0" width="1280" height="12" fill="#5C8E3A" />
+  <rect x="1190" y="18" width="68" height="22" rx="3" fill="#5C8E3A" />
+  <text x="1224" y="33" text-anchor="middle" font-family="Press Start 2P, Arial Black, Arial" font-size="10" fill="#F5F2E8">P02</text>
+
+  <text x="56" y="50" font-family="Press Start 2P, Arial Black, Arial" font-size="10" fill="#5C8E3A">SYSTEM OVERVIEW</text>
+  <text x="56" y="90" font-family="等线, DengXian, SimHei, Arial" font-size="42" font-weight="bold" fill="#2E3230">系统总览</text>
+
+  <rect x="56" y="100" width="800" height="36" rx="4" fill="#5C8E3A" fill-opacity="0.12" />
+  <text x="68" y="124" font-size="17" fill="#2E3230">所有感知与决策在 FPGA 硬件完成；STM32 只当传感器与电机接口</text>
+
+  <image href="../images/fig_system.png" x="56" y="148" width="1168" height="490" preserveAspectRatio="xMidYMid meet" />
+
+  <rect x="56" y="644" width="360" height="30" rx="15" fill="#5C8E3A" fill-opacity="0.15" />
+  <text x="76" y="664" font-size="15" fill="#2E3230">视频通路：1080p60 → ISP → 10.1 寸竖屏</text>
+  <rect x="436" y="644" width="360" height="30" rx="15" fill="#C4362A" fill-opacity="0.12" />
+  <text x="456" y="664" font-size="15" fill="#2E3230">避障流水线：单目视觉，不占 DDR 带宽</text>
+  <rect x="816" y="644" width="408" height="30" rx="15" fill="#3C6BBE" fill-opacity="0.12" />
+  <text x="836" y="664" font-size="15" fill="#2E3230">决策 + 执行：陀螺仪角度环，每 20 ms</text>
+
+  <line x1="56" y1="688" x2="1224" y2="688" stroke="#D4CCB8" stroke-width="1" />
+  <text x="56" y="704" font-size="13" fill="#6B6E66">图：系统整体框图（技术文档图 2-1）</text>
+  <text x="1224" y="704" text-anchor="end" font-size="13" fill="#6B6E66">MinecraftDog · FPGA 赛道决赛答辩</text>
+</svg>

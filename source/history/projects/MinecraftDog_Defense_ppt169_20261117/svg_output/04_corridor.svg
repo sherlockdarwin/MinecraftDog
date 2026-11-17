@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="微软雅黑, Microsoft YaHei, SimHei, Arial">
+  <rect x="0" y="0" width="1280" height="720" fill="#F5F2E8" />
+  <rect x="0" y="0" width="1280" height="12" fill="#5C8E3A" />
+  <rect x="1190" y="18" width="68" height="22" rx="3" fill="#5C8E3A" />
+  <text x="1224" y="33" text-anchor="middle" font-family="Press Start 2P, Arial Black, Arial" font-size="10" fill="#F5F2E8">P04</text>
+
+  <text x="56" y="50" font-family="Press Start 2P, Arial Black, Arial" font-size="10" fill="#C4362A">CORRIDOR MODEL</text>
+  <text x="56" y="90" font-family="等线, DengXian, SimHei, Arial" font-size="40" font-weight="bold" fill="#2E3230">车宽走廊选方向</text>
+
+  <image href="../images/fig_corridor.png" x="56" y="108" width="644" height="540" preserveAspectRatio="xMidYMid meet" />
+
+  <rect x="720" y="108" width="484" height="160" rx="6" fill="#E8E0CC" />
+  <rect x="720" y="108" width="120" height="28" rx="4" fill="#3C6BBE" />
+  <text x="728" y="127" font-family="Press Start 2P, Arial Black, Arial" font-size="9" fill="#FFFFFF">DIRECTION</text>
+  <text x="736" y="156" font-size="15" fill="#2E3230">在 ±17° 的 9 个方向上，假设沿该方向直行</text>
+  <text x="736" y="178" font-size="15" fill="#2E3230">扫过 30 cm 宽走廊</text>
+  <text x="736" y="200" font-size="14" fill="#6B6E66">（车宽 20 cm + 两侧各 5 cm 余量）</text>
+  <text x="736" y="224" font-size="14" fill="#6B6E66">方向角间隔约 4.5°/扇区（共 16 扇区）</text>
+
+  <rect x="720" y="284" width="484" height="152" rx="6" fill="#E8E0CC" />
+  <rect x="720" y="284" width="120" height="28" rx="4" fill="#C4362A" />
+  <text x="728" y="303" font-family="Press Start 2P, Arial Black, Arial" font-size="9" fill="#FFFFFF">OBSTACLE</text>
+  <text x="736" y="330" font-size="15" fill="#2E3230">离走廊中心线横向 &lt; 15 cm 才算挡路</text>
+  <text x="736" y="354" font-size="15" fill="#2E3230">该方向可行距离 = 挡路障碍里最近的</text>
+  <text x="736" y="378" font-size="14" fill="#6B6E66">近处窄缝宽度不够，不会被当成路</text>
+  <text x="736" y="400" font-size="14" fill="#6B6E66">最多计 150 cm</text>
+
+  <rect x="720" y="452" width="484" height="120" rx="6" fill="#5C8E3A" fill-opacity="0.15" />
+  <rect x="720" y="452" width="80" height="28" rx="4" fill="#5C8E3A" />
+  <text x="728" y="471" font-family="Press Start 2P, Arial Black, Arial" font-size="9" fill="#FFFFFF">STOP</text>
+  <text x="736" y="502" font-size="15" fill="#2E3230">取 9 个方向中可行距离最远的前进</text>
+  <text x="736" y="526" font-size="15" fill="#2E3230">最好的方向也 &lt; 60 cm → STOP</text>
+  <rect x="736" y="540" width="440" height="22" rx="3" fill="#C4362A" fill-opacity="0.15" />
+  <text x="744" y="556" font-size="13" fill="#C4362A">60 cm = 镜头能看到的最近距离，原地转找出口</text>
+
+  <line x1="56" y1="688" x2="1224" y2="688" stroke="#D4CCB8" stroke-width="1" />
+  <text x="56" y="704" font-size="13" fill="#6B6E66">图：车宽走廊与可行方向示意（俯视，技术文档图 2-14）</text>
+  <text x="1224" y="704" text-anchor="end" font-size="13" fill="#6B6E66">MinecraftDog · FPGA 赛道决赛答辩</text>
+</svg>

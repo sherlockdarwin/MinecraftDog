@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="微软雅黑,Microsoft YaHei,SimHei,Arial">
+  <rect x="0" y="0" width="1280" height="720" fill="#F5F2E8" />
+  <rect x="0" y="0" width="1280" height="12" fill="#5C8E3A" />
+  <rect x="1190" y="18" width="68" height="22" rx="3" fill="#5C8E3A" />
+  <text x="1224" y="33" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#F5F2E8">P10</text>
+
+  <text x="56" y="50" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#3C6BBE">RESOURCE &amp; TIMING</text>
+  <text x="56" y="90" font-family="等线,DengXian,SimHei,Arial" font-size="40" font-weight="bold" fill="#2E3230">资源与时序</text>
+
+  <rect x="56" y="108" width="1168" height="38" rx="4" fill="#3C6BBE" fill-opacity="0.12" />
+  <text x="68" y="133" font-size="18" fill="#2E3230">在 40 个 DSP 的国产芯片上塞进了完整的视觉 + 决策 + 音频 + 交互</text>
+
+  <rect x="56" y="162" width="350" height="130" rx="8" fill="#E8E0CC" />
+  <text x="231" y="204" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="30" fill="#5C8E3A">81.1%</text>
+  <text x="231" y="232" text-anchor="middle" font-family="等线,DengXian,SimHei,Arial" font-size="16" fill="#2E3230">LUT 占用（17208 / 21216）</text>
+  <text x="231" y="256" text-anchor="middle" font-size="14" fill="#6B6E66">Slice 85.9%</text>
+
+  <rect x="466" y="162" width="350" height="130" rx="8" fill="#E8E0CC" />
+  <text x="641" y="204" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="30" fill="#3C6BBE">22/40</text>
+  <text x="641" y="232" text-anchor="middle" font-family="等线,DengXian,SimHei,Arial" font-size="16" fill="#2E3230">DSP 使用</text>
+  <text x="641" y="256" text-anchor="middle" font-size="14" fill="#6B6E66">小常数乘法改移位相加</text>
+
+  <rect x="876" y="162" width="348" height="130" rx="8" fill="#E8E0CC" />
+  <text x="1050" y="204" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="26" fill="#C4362A">0</text>
+  <text x="1050" y="232" text-anchor="middle" font-family="等线,DengXian,SimHei,Arial" font-size="16" fill="#2E3230">时序违例</text>
+  <text x="1050" y="256" text-anchor="middle" font-size="14" fill="#6B6E66">建立裕量 +0.180 ns</text>
+
+  <rect x="56" y="312" width="350" height="130" rx="8" fill="#5C8E3A" fill-opacity="0.12" />
+  <text x="231" y="354" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="24" fill="#5C8E3A">74/108</text>
+  <text x="231" y="380" text-anchor="middle" font-family="等线,DengXian,SimHei,Arial" font-size="16" fill="#2E3230">ERAM 使用</text>
+  <text x="231" y="404" text-anchor="middle" font-size="14" fill="#6B6E66">Logo 位图放 ERAM 省千个 LUT</text>
+
+  <rect x="466" y="312" width="350" height="130" rx="8" fill="#5C8E3A" fill-opacity="0.12" />
+  <text x="641" y="354" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="17" fill="#5C8E3A">33 PASS</text>
+  <text x="641" y="380" text-anchor="middle" font-family="等线,DengXian,SimHei,Arial" font-size="16" fill="#2E3230">仿真测试台全通过</text>
+  <text x="641" y="404" text-anchor="middle" font-size="14" fill="#6B6E66">逐一突变检查</text>
+
+  <rect x="876" y="312" width="348" height="130" rx="8" fill="#5C8E3A" fill-opacity="0.12" />
+  <text x="1050" y="354" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="17" fill="#5C8E3A">7 CLK</text>
+  <text x="1050" y="380" text-anchor="middle" font-family="等线,DengXian,SimHei,Arial" font-size="16" fill="#2E3230">时钟域（相互异步）</text>
+  <text x="1050" y="404" text-anchor="middle" font-size="14" fill="#6B6E66">FIFO / 翻转同步 / 双缓冲</text>
+
+  <rect x="56" y="464" width="1168" height="100" rx="6" fill="#E8E0CC" />
+  <text x="72" y="490" font-family="Press Start 2P,Arial Black,Arial" font-size="11" fill="#3C6BBE">TIMING SUMMARY</text>
+  <text x="72" y="522" font-size="15" fill="#2E3230">建立裕量 SWNS: +0.180 ns（0 违例）</text>
+  <text x="400" y="522" font-size="15" fill="#2E3230">保持裕量 HWNS: +0.020 ns</text>
+  <text x="720" y="522" font-size="15" fill="#2E3230">分析路径数: 2,985,295</text>
+  <text x="1020" y="522" font-size="15" fill="#2E3230">端点数: 13,070</text>
+  <text x="72" y="550" font-size="13" fill="#6B6E66">工具：安路 TD 6.2.1 · 综合、布局布线、时序分析、生成比特流</text>
+
+  <line x1="56" y1="688" x2="1224" y2="688" stroke="#D4CCB8" stroke-width="1" />
+  <text x="56" y="704" font-size="13" fill="#6B6E66">数据来源：TD 完整流程综合报告（2026-11-03）</text>
+  <text x="1224" y="704" text-anchor="end" font-size="13" fill="#6B6E66">MinecraftDog · FPGA 赛道决赛答辩</text>
+</svg>

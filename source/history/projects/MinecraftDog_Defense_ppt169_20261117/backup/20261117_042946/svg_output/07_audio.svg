@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="微软雅黑,Microsoft YaHei,SimHei,Arial">
+  <rect x="0" y="0" width="1280" height="720" fill="#F5F2E8" />
+  <rect x="0" y="0" width="1280" height="12" fill="#5C8E3A" />
+  <rect x="1190" y="18" width="68" height="22" rx="3" fill="#5C8E3A" />
+  <text x="1224" y="33" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#F5F2E8">P07</text>
+
+  <text x="56" y="50" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#3C6BBE">AUDIO SYSTEM</text>
+  <text x="56" y="90" font-family="等线,DengXian,SimHei,Arial" font-size="40" font-weight="bold" fill="#2E3230">双路 WAV 音频</text>
+
+  <image href="../images/fig_audio.png" x="56" y="108" width="800" height="480" preserveAspectRatio="xMidYMid meet" />
+
+  <rect x="880" y="108" width="344" height="130" rx="6" fill="#E8E0CC" />
+  <text x="896" y="130" font-family="Press Start 2P,Arial Black,Arial" font-size="11" fill="#3C6BBE">ARCHITECTURE</text>
+  <text x="896" y="156" font-size="15" fill="#2E3230">两路共用一份 FAT32 挂载</text>
+  <text x="896" y="178" font-size="15" fill="#2E3230">仲裁器轮流服务两路读文件</text>
+  <text x="896" y="200" font-size="14" fill="#6B6E66">背景音乐不打断音效，同时播放</text>
+  <text x="896" y="222" font-size="13" fill="#6B6E66">全在 100 MHz 单时钟域</text>
+
+  <rect x="880" y="252" width="344" height="100" rx="6" fill="#E8E0CC" />
+  <text x="896" y="274" font-family="Press Start 2P,Arial Black,Arial" font-size="11" fill="#5C8E3A">CHANNEL</text>
+  <text x="896" y="300" font-size="15" fill="#2E3230">左声道 J12：背景音乐</text>
+  <text x="896" y="322" font-size="15" fill="#2E3230">右声道 J11：音效 / 狗叫</text>
+  <text x="896" y="344" font-size="13" fill="#6B6E66">各响各的，各接一个喇叭</text>
+
+  <rect x="880" y="366" width="344" height="140" rx="6" fill="#5C8E3A" fill-opacity="0.12" />
+  <text x="896" y="388" font-family="Press Start 2P,Arial Black,Arial" font-size="11" fill="#5C8E3A">KEY TECH</text>
+  <text x="896" y="414" font-size="14" fill="#2E3230">无软核 FAT32 + WAV 解析</text>
+  <text x="896" y="436" font-size="14" fill="#2E3230">相位累加器零阶保持重采样</text>
+  <text x="896" y="458" font-size="14" fill="#2E3230">I2S 帧率固定 48828 Hz</text>
+  <text x="896" y="484" font-size="13" fill="#6B6E66">7 个仿真测试台覆盖音频子系统</text>
+
+  <line x1="56" y1="688" x2="1224" y2="688" stroke="#D4CCB8" stroke-width="1" />
+  <text x="56" y="704" font-size="13" fill="#6B6E66">图：音频子系统框图（技术文档图 2-19）</text>
+  <text x="1224" y="704" text-anchor="end" font-size="13" fill="#6B6E66">MinecraftDog · FPGA 赛道决赛答辩</text>
+</svg>

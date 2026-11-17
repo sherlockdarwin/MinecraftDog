@@ -1,0 +1,1023 @@
+{
+  "schema": "ppt-master.svg-quality-report.v1",
+  "stage": "final",
+  "target": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117",
+  "source_fingerprint": {
+    "algorithm": "sha256",
+    "digest": "1ba8805286f122cf2cc709f0d55d3996c35409c4f4a4c261cbaa4fff59b141ba",
+    "file_count": 11,
+    "files": [
+      {
+        "file": "01_cover.svg",
+        "sha256": "5c6250032f350f24f26bbec18c292d348af083d91bfa4effc1c87b20e35dc728"
+      },
+      {
+        "file": "02_overview.svg",
+        "sha256": "813995263351555ced0bdc863c9c0dac54020ea3ad11e2b675adaf05e889a24f"
+      },
+      {
+        "file": "03_obstacle.svg",
+        "sha256": "001c1801a0028114b18e2a3a18c127e41f31ae0fdc642f0319017f6a89d28bb7"
+      },
+      {
+        "file": "04_corridor.svg",
+        "sha256": "c3b72ce20e433c3d0d81ec1786c077362d1b200719d7148c3bf018273c685cb2"
+      },
+      {
+        "file": "05_decision.svg",
+        "sha256": "1eed38f25c0d66455c73473b4400a7ab617aeefdb592daf98cf397f8f0d55e00"
+      },
+      {
+        "file": "06_simulation.svg",
+        "sha256": "ac8a92e8a4beb8a94469d714cfa0d8854099850e9b943f9863886480ecb4dbdb"
+      },
+      {
+        "file": "07_audio.svg",
+        "sha256": "0641d8024f499e2f3b42e8531b3893870337e9d28a22805a8ea8cb3567e5086d"
+      },
+      {
+        "file": "08_interaction.svg",
+        "sha256": "2fc15a9d9372f027df942952c3750a15ede324681a9ddff5fbaedaae09a1f7e8"
+      },
+      {
+        "file": "09_validation.svg",
+        "sha256": "f63a0f932fedb50148eeecb85e1d36d786eee406f29d1df9bac22370ecbbe295"
+      },
+      {
+        "file": "10_resource.svg",
+        "sha256": "ce9eb7943db325e977eff76ae3d3d3e34105eb074060ef18e445556ddf1869bb"
+      },
+      {
+        "file": "11_summary.svg",
+        "sha256": "74a09d6b2b93bae06ef49fcfda42f2972eedb654afe4d3dc514a66e3a408b207"
+      }
+    ]
+  },
+  "summary": {
+    "total": 11,
+    "passed": 0,
+    "warnings": 11,
+    "errors": 0
+  },
+  "issue_types": {},
+  "categories": {
+    "blocking": {
+      "count": 0,
+      "issues": []
+    },
+    "introduced": {
+      "count": 22,
+      "issues": [
+        {
+          "file": "01_cover.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=等线): 等线, DengXian, SimHei, Arial"
+        },
+        {
+          "file": "01_cover.svg",
+          "message": "18 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <image> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "02_overview.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial"
+        },
+        {
+          "file": "02_overview.svg",
+          "message": "17 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "03_obstacle.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial"
+        },
+        {
+          "file": "03_obstacle.svg",
+          "message": "28 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "04_corridor.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial"
+        },
+        {
+          "file": "04_corridor.svg",
+          "message": "30 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "05_decision.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial"
+        },
+        {
+          "file": "05_decision.svg",
+          "message": "23 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "06_simulation.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial"
+        },
+        {
+          "file": "06_simulation.svg",
+          "message": "27 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "07_audio.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial"
+        },
+        {
+          "file": "07_audio.svg",
+          "message": "26 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "08_interaction.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial"
+        },
+        {
+          "file": "08_interaction.svg",
+          "message": "26 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "09_validation.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial"
+        },
+        {
+          "file": "09_validation.svg",
+          "message": "35 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "10_resource.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial"
+        },
+        {
+          "file": "10_resource.svg",
+          "message": "41 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        },
+        {
+          "file": "11_summary.svg",
+          "message": "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial"
+        },
+        {
+          "file": "11_summary.svg",
+          "message": "35 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+        }
+      ]
+    },
+    "inherited": {
+      "count": 0,
+      "issues": []
+    },
+    "source-import": {
+      "count": 0,
+      "summary": {
+        "warning_count": 0,
+        "by_code": {}
+      }
+    }
+  },
+  "drift": {
+    "colors": {
+      "#000000": [
+        "01_cover.svg",
+        "11_summary.svg"
+      ],
+      "#1A2E10": [
+        "01_cover.svg",
+        "11_summary.svg"
+      ],
+      "#2D4A1E": [
+        "01_cover.svg",
+        "11_summary.svg"
+      ],
+      "#6B9050": [
+        "01_cover.svg",
+        "11_summary.svg"
+      ],
+      "#7DC944": [
+        "01_cover.svg",
+        "11_summary.svg"
+      ],
+      "#A0C878": [
+        "01_cover.svg"
+      ],
+      "#C8E6A8": [
+        "01_cover.svg",
+        "11_summary.svg"
+      ],
+      "#E8F5D8": [
+        "01_cover.svg",
+        "11_summary.svg"
+      ],
+      "#FFFFFF": [
+        "01_cover.svg",
+        "04_corridor.svg",
+        "11_summary.svg"
+      ]
+    },
+    "fonts": {},
+    "sizes": {
+      "48": [
+        "11_summary.svg"
+      ]
+    }
+  },
+  "carrier_receipt": {
+    "scope": "informational-not-a-quota",
+    "pages": 11,
+    "totals": {
+      "text_elements": 201,
+      "image_placements": 9,
+      "icons": 0,
+      "svg_geometry_elements": 107,
+      "preset_shapes": 0,
+      "page_frame_elements": 0,
+      "marker_uses": 0,
+      "inline_emphasis_runs": 0,
+      "gradient_uses": 2,
+      "filter_uses": 0,
+      "text_effects": 0
+    },
+    "pages_with": {
+      "images": 9,
+      "icons": 0,
+      "presets": 0,
+      "charts": 0,
+      "tables": 0,
+      "formulas": 0,
+      "inline_emphasis_runs": 0,
+      "gradient_uses": 2,
+      "filter_uses": 0,
+      "text_effects": 0
+    },
+    "relationship_pages": 9,
+    "geometry_elements": {
+      "circle": 12,
+      "ellipse": 0,
+      "line": 11,
+      "path": 0,
+      "polygon": 0,
+      "polyline": 0,
+      "rect": 84
+    },
+    "preset_names": {},
+    "native_objects": {
+      "chart": 0,
+      "formula_block": 0,
+      "formula_inline": 0,
+      "other": 0,
+      "table": 0
+    },
+    "image_page_max_frame_share_range": [
+      0.3125,
+      0.621
+    ]
+  },
+  "project_issues": {
+    "template": [],
+    "animation": [],
+    "illustration": [],
+    "communication_trace": [],
+    "pptx_structure": []
+  },
+  "files": [
+    {
+      "file": "01_cover.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/01_cover.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=等线): 等线, DengXian, SimHei, Arial",
+        "18 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <image> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 10,
+          "images": {
+            "placements": 1,
+            "files": [
+              "dog_front.png"
+            ],
+            "max_frame_share": 0.3902
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 1,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 7,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P, Arial Black, Arial",
+          "微软雅黑, Microsoft YaHei, SimHei, Arial",
+          "等线, DengXian, SimHei, Arial"
+        ],
+        "text_elements": 10,
+        "tspan_elements": 0,
+        "contextual_values": {
+          "colors": [
+            "#000000",
+            "#1A2E10",
+            "#2D4A1E",
+            "#6B9050",
+            "#7DC944",
+            "#A0C878",
+            "#C8E6A8",
+            "#E8F5D8",
+            "#FFFFFF"
+          ]
+        }
+      },
+      "passed": true,
+      "source_sha256": "5c6250032f350f24f26bbec18c292d348af083d91bfa4effc1c87b20e35dc728"
+    },
+    {
+      "file": "02_overview.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/02_overview.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial",
+        "17 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 9,
+          "images": {
+            "placements": 1,
+            "files": [
+              "fig_system.png"
+            ],
+            "max_frame_share": 0.621
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 7,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P, Arial Black, Arial",
+          "微软雅黑, Microsoft YaHei, SimHei, Arial",
+          "等线, DengXian, SimHei, Arial"
+        ],
+        "text_elements": 9,
+        "tspan_elements": 0
+      },
+      "passed": true,
+      "source_sha256": "813995263351555ced0bdc863c9c0dac54020ea3ad11e2b675adaf05e889a24f"
+    },
+    {
+      "file": "03_obstacle.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/03_obstacle.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial",
+        "28 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 21,
+          "images": {
+            "placements": 1,
+            "files": [
+              "fig_obs.png"
+            ],
+            "max_frame_share": 0.4494
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 6,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P, Arial Black, Arial",
+          "微软雅黑, Microsoft YaHei, SimHei, Arial",
+          "等线, DengXian, SimHei, Arial"
+        ],
+        "text_elements": 21,
+        "tspan_elements": 0
+      },
+      "passed": true,
+      "source_sha256": "001c1801a0028114b18e2a3a18c127e41f31ae0fdc642f0319017f6a89d28bb7"
+    },
+    {
+      "file": "04_corridor.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/04_corridor.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial",
+        "30 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 19,
+          "images": {
+            "placements": 1,
+            "files": [
+              "fig_corridor.png"
+            ],
+            "max_frame_share": 0.3773
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 10,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P, Arial Black, Arial",
+          "微软雅黑, Microsoft YaHei, SimHei, Arial",
+          "等线, DengXian, SimHei, Arial"
+        ],
+        "text_elements": 19,
+        "tspan_elements": 0,
+        "contextual_values": {
+          "colors": [
+            "#FFFFFF"
+          ]
+        }
+      },
+      "passed": true,
+      "source_sha256": "c3b72ce20e433c3d0d81ec1786c077362d1b200719d7148c3bf018273c685cb2"
+    },
+    {
+      "file": "05_decision.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/05_decision.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial",
+        "23 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 15,
+          "images": {
+            "placements": 1,
+            "files": [
+              "fig_follow.png"
+            ],
+            "max_frame_share": 0.5323
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 7,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P, Arial Black, Arial",
+          "微软雅黑, Microsoft YaHei, SimHei, Arial",
+          "等线, DengXian, SimHei, Arial"
+        ],
+        "text_elements": 15,
+        "tspan_elements": 0
+      },
+      "passed": true,
+      "source_sha256": "1eed38f25c0d66455c73473b4400a7ab617aeefdb592daf98cf397f8f0d55e00"
+    },
+    {
+      "file": "06_simulation.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/06_simulation.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial",
+        "27 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 20,
+          "images": {
+            "placements": 1,
+            "files": [
+              "chart_follow.png"
+            ],
+            "max_frame_share": 0.5039
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 6,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P,Arial Black,Arial",
+          "微软雅黑,Microsoft YaHei,SimHei,Arial",
+          "等线,DengXian,SimHei,Arial"
+        ],
+        "text_elements": 20,
+        "tspan_elements": 0
+      },
+      "passed": true,
+      "source_sha256": "ac8a92e8a4beb8a94469d714cfa0d8854099850e9b943f9863886480ecb4dbdb"
+    },
+    {
+      "file": "07_audio.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/07_audio.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial",
+        "26 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 19,
+          "images": {
+            "placements": 1,
+            "files": [
+              "fig_audio.png"
+            ],
+            "max_frame_share": 0.4167
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 6,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P,Arial Black,Arial",
+          "微软雅黑,Microsoft YaHei,SimHei,Arial",
+          "等线,DengXian,SimHei,Arial"
+        ],
+        "text_elements": 19,
+        "tspan_elements": 0
+      },
+      "passed": true,
+      "source_sha256": "0641d8024f499e2f3b42e8531b3893870337e9d28a22805a8ea8cb3567e5086d"
+    },
+    {
+      "file": "08_interaction.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/08_interaction.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial",
+        "26 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 19,
+          "images": {
+            "placements": 1,
+            "files": [
+              "fig_behavior.png"
+            ],
+            "max_frame_share": 0.3876
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 6,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P,Arial Black,Arial",
+          "微软雅黑,Microsoft YaHei,SimHei,Arial",
+          "等线,DengXian,SimHei,Arial"
+        ],
+        "text_elements": 19,
+        "tspan_elements": 0
+      },
+      "passed": true,
+      "source_sha256": "2fc15a9d9372f027df942952c3750a15ede324681a9ddff5fbaedaae09a1f7e8"
+    },
+    {
+      "file": "09_validation.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/09_validation.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial",
+        "35 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 20,
+          "images": {
+            "placements": 1,
+            "files": [
+              "field1.jpg"
+            ],
+            "max_frame_share": 0.3125
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 8,
+              "circle": 6,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P,Arial Black,Arial",
+          "微软雅黑,Microsoft YaHei,SimHei,Arial",
+          "等线,DengXian,SimHei,Arial"
+        ],
+        "text_elements": 20,
+        "tspan_elements": 0
+      },
+      "passed": true,
+      "source_sha256": "f63a0f932fedb50148eeecb85e1d36d786eee406f29d1df9bac22370ecbbe295"
+    },
+    {
+      "file": "10_resource.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/10_resource.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial",
+        "41 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 30,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 11,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P,Arial Black,Arial",
+          "微软雅黑,Microsoft YaHei,SimHei,Arial",
+          "等线,DengXian,SimHei,Arial"
+        ],
+        "text_elements": 30,
+        "tspan_elements": 0
+      },
+      "passed": true,
+      "source_sha256": "ce9eb7943db325e977eff76ae3d3d3e34105eb074060ef18e445556ddf1869bb"
+    },
+    {
+      "file": "11_summary.svg",
+      "path": "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output/11_summary.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [
+        "Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial",
+        "35 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id=\"...\">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as \"background\" or \"decoration\""
+      ],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 19,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 1,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 10,
+              "circle": 6,
+              "ellipse": 0,
+              "line": 1,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 0,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Press Start 2P,Arial Black,Arial",
+          "微软雅黑,Microsoft YaHei,SimHei,Arial",
+          "等线,DengXian,SimHei,Arial"
+        ],
+        "text_elements": 19,
+        "tspan_elements": 0,
+        "contextual_values": {
+          "colors": [
+            "#000000",
+            "#1A2E10",
+            "#2D4A1E",
+            "#6B9050",
+            "#7DC944",
+            "#C8E6A8",
+            "#E8F5D8",
+            "#FFFFFF"
+          ]
+        },
+        "sparse_typography_sizes": {
+          "48": 1
+        }
+      },
+      "passed": true,
+      "source_sha256": "74a09d6b2b93bae06ef49fcfda42f2972eedb654afe4d3dc514a66e3a408b207"
+    }
+  ]
+}

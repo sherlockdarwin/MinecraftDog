@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="微软雅黑,Microsoft YaHei,SimHei,Arial">
+  <rect x="0" y="0" width="1280" height="720" fill="#F5F2E8" />
+  <rect x="0" y="0" width="1280" height="12" fill="#5C8E3A" />
+  <rect x="1190" y="18" width="68" height="22" rx="3" fill="#5C8E3A" />
+  <text x="1224" y="33" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#F5F2E8">P09</text>
+
+  <text x="56" y="50" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#5C8E3A">FIELD VERIFIED</text>
+  <text x="56" y="90" font-family="等线,DengXian,SimHei,Arial" font-size="40" font-weight="bold" fill="#2E3230">上板验证</text>
+
+  <image href="../images/field1.jpg" x="56" y="108" width="600" height="480" preserveAspectRatio="xMidYMid meet" />
+
+  <rect x="680" y="108" width="544" height="36" rx="4" fill="#5C8E3A" fill-opacity="0.12" />
+  <text x="692" y="132" font-size="17" fill="#2E3230">全部功能上车验证</text>
+
+  <circle cx="700" cy="173" r="8" fill="#5C8E3A" />
+  <text x="718" y="179" font-size="16" fill="#2E3230">跟随 + 绕障 + 找出口</text>
+  <circle cx="700" cy="217" r="8" fill="#5C8E3A" />
+  <text x="718" y="223" font-size="16" fill="#2E3230">陀螺仪角度环保持航向</text>
+  <circle cx="700" cy="261" r="8" fill="#5C8E3A" />
+  <text x="718" y="267" font-size="16" fill="#2E3230">狗叫 + 喂食进食音效 + 摇尾</text>
+  <circle cx="700" cy="305" r="8" fill="#5C8E3A" />
+  <text x="718" y="311" font-size="16" fill="#2E3230">背景音乐 TF 卡循环播放</text>
+  <circle cx="700" cy="349" r="8" fill="#3C6BBE" />
+  <text x="718" y="355" font-size="16" fill="#2E3230">四基站 UWB 融合（静止实测）</text>
+  <circle cx="700" cy="393" r="8" fill="#3C6BBE" />
+  <text x="718" y="399" font-size="16" fill="#2E3230">33 个仿真测试台全部 PASS</text>
+
+  <rect x="680" y="430" width="544" height="72" rx="6" fill="#5C8E3A" fill-opacity="0.15" />
+  <text x="696" y="460" font-size="15" fill="#2E3230">屏幕状态方块 + 6 行文字让 DDR2 校准、</text>
+  <text x="696" y="482" font-size="15" fill="#2E3230">相机配置、串口与陀螺仪状态一眼可见</text>
+
+  <rect x="680" y="520" width="170" height="68" rx="6" fill="#E8E0CC" />
+  <text x="765" y="548" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="18" fill="#5C8E3A">33</text>
+  <text x="765" y="572" text-anchor="middle" font-size="13" fill="#6B6E66">仿真测试台</text>
+
+  <rect x="860" y="520" width="170" height="68" rx="6" fill="#E8E0CC" />
+  <text x="945" y="548" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="18" fill="#3C6BBE">0</text>
+  <text x="945" y="572" text-anchor="middle" font-size="13" fill="#6B6E66">时序违例</text>
+
+  <rect x="1054" y="520" width="170" height="68" rx="6" fill="#E8E0CC" />
+  <text x="1139" y="548" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="11" fill="#C4362A">81.1%</text>
+  <text x="1139" y="572" text-anchor="middle" font-size="13" fill="#6B6E66">LUT 占用</text>
+
+  <line x1="56" y1="688" x2="1224" y2="688" stroke="#D4CCB8" stroke-width="1" />
+  <text x="56" y="704" font-size="13" fill="#6B6E66">现场照片：整车演示（2026-11-01）</text>
+  <text x="1224" y="704" text-anchor="end" font-size="13" fill="#6B6E66">MinecraftDog · FPGA 赛道决赛答辩</text>
+</svg>

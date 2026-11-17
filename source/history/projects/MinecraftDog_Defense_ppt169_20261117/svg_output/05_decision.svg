@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="微软雅黑, Microsoft YaHei, SimHei, Arial">
+  <rect x="0" y="0" width="1280" height="720" fill="#F5F2E8" />
+  <rect x="0" y="0" width="1280" height="12" fill="#5C8E3A" />
+  <rect x="1190" y="18" width="68" height="22" rx="3" fill="#5C8E3A" />
+  <text x="1224" y="33" text-anchor="middle" font-family="Press Start 2P, Arial Black, Arial" font-size="10" fill="#F5F2E8">P05</text>
+
+  <text x="56" y="50" font-family="Press Start 2P, Arial Black, Arial" font-size="10" fill="#3C6BBE">FOLLOW DECISION</text>
+  <text x="56" y="90" font-family="等线, DengXian, SimHei, Arial" font-size="40" font-weight="bold" fill="#2E3230">跟随避障决策</text>
+
+  <rect x="56" y="100" width="1168" height="38" rx="4" fill="#3C6BBE" fill-opacity="0.12" />
+  <text x="68" y="125" font-size="17" fill="#2E3230">全部方向换算为世界坐标系方向 → 决策只定一个目标航向 → 陀螺仪 PID 角度环执行</text>
+
+  <image href="../images/fig_follow.png" x="56" y="148" width="1168" height="420" preserveAspectRatio="xMidYMid meet" />
+
+  <rect x="56" y="584" width="368" height="78" rx="6" fill="#E8E0CC" />
+  <text x="68" y="606" font-family="Press Start 2P, Arial Black, Arial" font-size="12" fill="#3C6BBE">COST FUNCTION</text>
+  <text x="68" y="628" font-size="14" fill="#2E3230">2×|方向−人角度| + 1×|方向−上次绕行|</text>
+  <text x="68" y="648" font-size="13" fill="#6B6E66">靠近人 · 不换边（VFH+ + Follow-the-Gap）</text>
+
+  <rect x="444" y="584" width="368" height="78" rx="6" fill="#E8E0CC" />
+  <text x="456" y="606" font-family="Press Start 2P, Arial Black, Arial" font-size="12" fill="#C4362A">FIND EXIT</text>
+  <text x="456" y="628" font-size="14" fill="#2E3230">四面受阻 → 停 0.2 s → 转 20° → 再看</text>
+  <text x="456" y="648" font-size="13" fill="#6B6E66">转满一圈无出口 → 困住 → 停车狗叫</text>
+
+  <rect x="832" y="584" width="392" height="78" rx="6" fill="#E8E0CC" />
+  <text x="844" y="606" font-family="Press Start 2P, Arial Black, Arial" font-size="12" fill="#5C8E3A">GYRO LOOP</text>
+  <text x="844" y="628" font-size="14" fill="#2E3230">误差 e = 目标航向 − 车头航向</text>
+  <text x="844" y="648" font-size="13" fill="#6B6E66">转向 = 70e + 积分 − 10×角速度（PID）</text>
+
+  <line x1="56" y1="688" x2="1224" y2="688" stroke="#D4CCB8" stroke-width="1" />
+  <text x="56" y="704" font-size="13" fill="#6B6E66">参考：VFH+（Ulrich 与 Borenstein，1998）· Follow-the-Gap（Sezer 与 Gokasan，2012）</text>
+  <text x="1224" y="704" text-anchor="end" font-size="13" fill="#6B6E66">MinecraftDog · FPGA 赛道决赛答辩</text>
+</svg>

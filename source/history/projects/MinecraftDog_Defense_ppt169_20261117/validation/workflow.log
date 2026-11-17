@@ -1,0 +1,222 @@
+
+=== 2026-11-16T20:02:07.827Z NOTE id=20040ca740fc ===
+Project initialized: profile=default; canvas=ppt169; path=/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117
+
+=== 2026-11-16T20:20:37.226Z PYTHON run=41ebf9f39bed ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/project_manager.py", "validate", "."]
+stdout:
+  [ERROR]
+    - design_spec.md schema: missing section 'image_resource_list'
+    - design_spec.md schema: missing section 'content_outline'
+    - design_spec.md schema: missing section 'speaker_notes'
+  [WARN]
+  [ERROR] Project structure is invalid.
+=== 2026-11-16T20:20:37.578Z END run=41ebf9f39bed elapsed_ms=352 output_lines=19 retained=6 omitted=13 ===
+
+=== 2026-11-16T20:22:22.616Z PYTHON run=826701961590 ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/project_manager.py", "validate", "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117"]
+stdout:
+  [ERROR]
+    - design_spec.md schema: missing section 'image_resource_list'
+    - design_spec.md schema: missing section 'content_outline'
+    - design_spec.md schema: missing section 'speaker_notes'
+  [WARN]
+  [ERROR] Project structure is invalid.
+=== 2026-11-16T20:22:22.819Z END run=826701961590 elapsed_ms=203 output_lines=19 retained=6 omitted=13 ===
+
+=== 2026-11-16T20:22:40.531Z PYTHON run=b55c59916023 ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/project_manager.py", "scaffold-spec", "--help"]
+=== 2026-11-16T20:22:40.709Z END run=b55c59916023 elapsed_ms=177 output_lines=5 retained=0 omitted=5 ===
+
+=== 2026-11-16T20:24:21.068Z PYTHON run=d0e7080a6f1d ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/project_manager.py", "validate", "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117"]
+stdout:
+  [OK] Project structure is complete.
+=== 2026-11-16T20:24:21.270Z END run=d0e7080a6f1d elapsed_ms=201 output_lines=3 retained=1 omitted=2 ===
+
+=== 2026-11-16T20:25:26.418Z PYTHON run=202b7b804359 ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/svg_quality_checker.py", "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117", "--canonical-authoring", "--stage", "final", "--json"]
+stdout:
+  [ERROR] 01_cover.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 11 (13 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (6 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '等线, DengXian, SimHei, Arial'; text[10]:font-family '等线, DengXian, SimHei, Arial' -> None; text[11]:font-family '等线, DengXian, SimHei, Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial
+     [WARN] 18 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <image> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 02_overview.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (7 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑, Microsoft YaHei, SimHei, Arial'; text[9]:font-family '微软雅黑, Microsoft YaHei, SimHei, Arial' -> None; text[12]:font-family '微软雅黑, Microsoft YaHei, SimHei, Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial
+     [WARN] 17 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 03_obstacle.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (16 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑, Microsoft YaHei, SimHei, Arial'; text[10]:font-family '微软雅黑, Microsoft YaHei, SimHei, Arial' -> None; text[11]:font-family '微软雅黑, Microsoft YaHei, SimHei, Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial
+     [WARN] 28 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 04_corridor.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences), 9 (3 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (14 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑, Microsoft YaHei, SimHei, Arial'; text[12]:font-family '微软雅黑, Microsoft YaHei, SimHei, Arial' -> None; text[13]:font-family '微软雅黑, Microsoft YaHei, SimHei, Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial
+     [WARN] 30 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 05_decision.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (10 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑, Microsoft YaHei, SimHei, Arial'; text[9]:font-family '微软雅黑, Microsoft YaHei, SimHei, Arial' -> None; text[13]:font-family '微软雅黑, Microsoft YaHei, SimHei, Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial
+     [WARN] 23 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 06_simulation.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (15 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑,Microsoft YaHei,SimHei,Arial'; text[11]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None; text[12]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial
+     [WARN] 27 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 07_audio.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences), 11 (13 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (14 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑,Microsoft YaHei,SimHei,Arial'; text[11]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None; text[12]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial
+     [WARN] 26 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 08_interaction.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences), 11 (13 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (14 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑,Microsoft YaHei,SimHei,Arial'; text[11]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None; text[12]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial
+     [WARN] 26 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 09_validation.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences), 11 (13 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (15 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑,Microsoft YaHei,SimHei,Arial'; text[10]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None; text[12]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial
+     [WARN] 35 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 10_resource.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences), 11 (13 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (15 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑,Microsoft YaHei,SimHei,Arial'; text[9]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None; text[13]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial
+     [WARN] 41 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [ERROR] 11_summary.svg - Failed
+     viewBox: 0 0 1280 720
+     [ERROR] spec_lock typography-size recurrence: undeclared font-size 10 (19 occurrences), 11 (13 occurrences) exceeds the sparse-display limit of 2 occurrences. Structural text must return to its declared role band; a genuinely recurring display treatment needs a justified named role in the Design Spec and spec_lock.
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (12 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '微软雅黑,Microsoft YaHei,SimHei,Arial'; text[15]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None; text[17]:font-family '微软雅黑,Microsoft YaHei,SimHei,Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P,Arial Black,Arial
+     [WARN] 35 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <rect> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [SUMMARY] Check Summary
+  Total files: 11
+    [OK] Fully passed: 0 (0%)
+    [WARN] With warnings: 0 (0%)
+    [ERROR] With errors: 20 (100%)
+  Provenance categories:
+    blocking: 20         hard findings; gate also requires exit 0
+    introduced: 44       advisory; new or changed
+    inherited: 0         informational; prototype-identical
+    source-import: 0     informational; source-conversion loss
+  [CARRIERS] Actual-use receipt (informational; not a quota)
+    Pages: 11 | text: 201 | images: 9 | icons: 0
+    Geometry: SVG elements 107 | native presets 0 | page-frame elements 0 | marker uses 0
+  [REPORT] JSON quality report exported: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/validation/svg_quality_report.json
+=== 2026-11-16T20:25:27.152Z END run=202b7b804359 elapsed_ms=734 output_lines=137 retained=91 omitted=46 ===
+
+=== 2026-11-16T20:27:01.222Z PYTHON run=c41f61b59bcb ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/svg_quality_checker.py", "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117", "--canonical-authoring", "--stage", "final", "--json"]
+stdout:
+  [WARN] 01_cover.svg - Passed (with warnings)
+     [WARN] Noncanonical compact authoring: Visible text requires one direct root font-family default; semantic groups and text elements keep only real overrides (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Noncanonical compact authoring: Authoring SVG contains noncanonical or redundant inherited style declarations (6 change(s)); examples (group:attr None -> value hoists the shared value onto that group; child:attr value -> None drops the copy the child now inherits): svg[1]:font-family None -> '等线, DengXian, SimHei, Arial'; text[10]:font-family '等线, DengXian, SimHei, Arial' -> None; text[11]:font-family '等线, DengXian, SimHei, Arial' -> None (advisory; normalize with `python3 scripts/compact_svg_styles.py <svg_output> --inplace`, re-stamp pages that carry Chart/Table fallbacks, and rerun the final gate, or leave the explicit form)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=Press Start 2P): Press Start 2P, Arial Black, Arial
+  [SUMMARY] Check Summary
+  Total files: 11
+    [OK] Fully passed: 0 (0%)
+    [WARN] With warnings: 11 (100%)
+    [ERROR] With errors: 0 (0%)
+  Provenance categories:
+    blocking: 0          hard findings; gate also requires exit 0
+    introduced: 44       advisory; new or changed
+    inherited: 0         informational; prototype-identical
+    source-import: 0     informational; source-conversion loss
+  [CARRIERS] Actual-use receipt (informational; not a quota)
+    Pages: 11 | text: 201 | images: 9 | icons: 0
+    Geometry: SVG elements 107 | native presets 0 | page-frame elements 0 | marker uses 0
+  [REPORT] JSON quality report exported: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/validation/svg_quality_report.json
+=== 2026-11-16T20:27:01.917Z END run=c41f61b59bcb elapsed_ms=694 output_lines=109 retained=18 omitted=91 ===
+
+=== 2026-11-16T20:27:24.147Z PYTHON run=c73fff92e845 ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/compact_svg_styles.py", "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output", "--inplace"]
+=== 2026-11-16T20:27:24.154Z END run=c73fff92e845 elapsed_ms=7 output_lines=1 retained=0 omitted=1 ===
+
+=== 2026-11-16T20:27:24.202Z PYTHON run=4bfad2b075ef ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/svg_quality_checker.py", "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117", "--canonical-authoring", "--stage", "final", "--json"]
+stdout:
+  [WARN] 01_cover.svg - Passed (with warnings)
+     [WARN] Font stack exports non-PPT-safe typeface(s) to PPTX (latin=等线): 等线, DengXian, SimHei, Arial
+     [WARN] 18 ungrouped top-level Slide-local element(s) in svg_output (<rect> #2, <image> #3, <text> #4, ...); group only logical content units in a top-level <g id="...">. Keep genuine static page framing as a root primitive and declare a supported data-pptx-role such as "background" or "decoration"
+  [WARN] 02_overview.svg - Passed (with warnings)
+  [SUMMARY] Check Summary
+  Total files: 11
+    [OK] Fully passed: 0 (0%)
+    [WARN] With warnings: 11 (100%)
+    [ERROR] With errors: 0 (0%)
+  Provenance categories:
+    blocking: 0          hard findings; gate also requires exit 0
+    introduced: 22       advisory; new or changed
+    inherited: 0         informational; prototype-identical
+    source-import: 0     informational; source-conversion loss
+  [CARRIERS] Actual-use receipt (informational; not a quota)
+    Pages: 11 | text: 201 | images: 9 | icons: 0
+    Geometry: SVG elements 107 | native presets 0 | page-frame elements 0 | marker uses 0
+  [REPORT] JSON quality report exported: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/validation/svg_quality_report.json
+=== 2026-11-16T20:27:24.889Z END run=4bfad2b075ef elapsed_ms=687 output_lines=87 retained=18 omitted=69 ===
+
+=== 2026-11-16T20:28:32.770Z PYTHON run=6b8945856640 ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/total_md_split.py", "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117"]
+stdout:
+  [OK] SVG files and notes have one-to-one correspondence
+  [Done] Successfully generated 11/11 file(s)
+  [Done] Notes splitting complete
+=== 2026-11-16T20:28:32.779Z END run=6b8945856640 elapsed_ms=9 output_lines=21 retained=3 omitted=18 ===
+
+=== 2026-11-16T20:28:47.843Z PYTHON run=7cd5593378f8 ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/finalize_svg.py", "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117"]
+stdout:
+  [OK] Done!
+=== 2026-11-16T20:28:49.347Z END run=7cd5593378f8 elapsed_ms=1504 output_lines=12 retained=1 omitted=11 ===
+
+=== 2026-11-16T20:29:45.257Z PYTHON run=cfad017108f7 ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/svg_to_pptx.py", "--help"]
+=== 2026-11-16T20:29:45.666Z END run=cfad017108f7 elapsed_ms=409 output_lines=258 retained=0 omitted=258 ===
+
+=== 2026-11-16T20:29:45.754Z PYTHON run=0c9c8af9a383 ===
+cwd: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/svg_output
+argv: ["/usr/local/bin/python3", "/Users/sherlockdarwin/.claude/plugins/cache/ppt-master/ppt-master/78759bf62e9a-32c1cf49/ppt-master/scripts/svg_to_pptx.py", "/Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117", "-t", "none"]
+stdout:
+  [Done] Saved: /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/exports/MinecraftDog_Defense_20261117_042946.pptx
+    [POSTFLIGHT] status=passed-with-warnings quality_gate=passed slides=11 warning_categories=2
+    [POSTFLIGHT][WARNING] quality_introduced_warnings=22
+    [POSTFLIGHT][WARNING] unsafe_exported_font_faces=4
+    [PPTX] /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/exports/MinecraftDog_Defense_20261117_042946.pptx
+    [REPORT] /Users/sherlockdarwin/code/FPGA/MinecraftDog/source/history/projects/MinecraftDog_Defense_ppt169_20261117/validation/MinecraftDog_Defense_20261117_042946.report.json
+=== 2026-11-16T20:29:47.210Z END run=0c9c8af9a383 elapsed_ms=1456 output_lines=45 retained=6 omitted=39 ===

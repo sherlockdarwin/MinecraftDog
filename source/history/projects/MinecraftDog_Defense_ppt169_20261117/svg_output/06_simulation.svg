@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="微软雅黑,Microsoft YaHei,SimHei,Arial">
+  <rect x="0" y="0" width="1280" height="720" fill="#F5F2E8" />
+  <rect x="0" y="0" width="1280" height="12" fill="#5C8E3A" />
+  <rect x="1190" y="18" width="68" height="22" rx="3" fill="#5C8E3A" />
+  <text x="1224" y="33" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#F5F2E8">P06</text>
+
+  <text x="56" y="50" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#3C6BBE">SIMULATION RESULT</text>
+  <text x="56" y="90" font-family="等线,DengXian,SimHei,Arial" font-size="40" font-weight="bold" fill="#2E3230">跟随闭环仿真</text>
+
+  <image href="../images/chart_follow.png" x="56" y="108" width="860" height="540" preserveAspectRatio="xMidYMid meet" />
+
+  <rect x="940" y="108" width="284" height="130" rx="6" fill="#E8E0CC" />
+  <text x="956" y="130" font-family="Press Start 2P,Arial Black,Arial" font-size="12" fill="#3C6BBE">RESULT 1</text>
+  <text x="956" y="156" font-size="15" fill="#2E3230">人方向突然右偏 30°</text>
+  <text x="956" y="178" font-size="15" fill="#2E3230">车约 1 s 转过去</text>
+  <text x="956" y="200" font-size="14" fill="#6B6E66">第 2 秒起误差 ±1° 以内</text>
+  <text x="956" y="222" font-size="13" fill="#5C8E3A">▲ 仿真验证</text>
+
+  <rect x="940" y="252" width="284" height="130" rx="6" fill="#E8E0CC" />
+  <text x="956" y="274" font-family="Press Start 2P,Arial Black,Arial" font-size="12" fill="#C4362A">RESULT 2</text>
+  <text x="956" y="300" font-size="15" fill="#2E3230">人在右后方 175°</text>
+  <text x="956" y="322" font-size="15" fill="#2E3230">先原地转向人</text>
+  <text x="956" y="344" font-size="14" fill="#6B6E66">3 s 内对准</text>
+  <text x="956" y="366" font-size="13" fill="#5C8E3A">▲ 仿真验证</text>
+
+  <rect x="940" y="396" width="284" height="130" rx="6" fill="#5C8E3A" fill-opacity="0.12" />
+  <text x="956" y="418" font-family="Press Start 2P,Arial Black,Arial" font-size="12" fill="#5C8E3A">MODEL</text>
+  <text x="956" y="444" font-size="14" fill="#2E3230">两轮中心距 13 cm</text>
+  <text x="956" y="466" font-size="14" fill="#2E3230">轮速滞后 60 ms</text>
+  <text x="956" y="488" font-size="14" fill="#2E3230">两电机快慢不同</text>
+  <text x="956" y="510" font-size="13" fill="#6B6E66">按 STL 实车尺寸建模</text>
+
+  <line x1="56" y1="688" x2="1224" y2="688" stroke="#D4CCB8" stroke-width="1" />
+  <text x="56" y="704" font-size="13" fill="#6B6E66">图：tb_follow 闭环仿真曲线（技术文档图 2-16）</text>
+  <text x="1224" y="704" text-anchor="end" font-size="13" fill="#6B6E66">MinecraftDog · FPGA 赛道决赛答辩</text>
+</svg>

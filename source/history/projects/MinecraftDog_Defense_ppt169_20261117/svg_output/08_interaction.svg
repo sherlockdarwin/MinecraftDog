@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="微软雅黑,Microsoft YaHei,SimHei,Arial">
+  <rect x="0" y="0" width="1280" height="720" fill="#F5F2E8" />
+  <rect x="0" y="0" width="1280" height="12" fill="#5C8E3A" />
+  <rect x="1190" y="18" width="68" height="22" rx="3" fill="#5C8E3A" />
+  <text x="1224" y="33" text-anchor="middle" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#F5F2E8">P08</text>
+
+  <text x="56" y="50" font-family="Press Start 2P,Arial Black,Arial" font-size="10" fill="#C4362A">INTERACTION</text>
+  <text x="56" y="90" font-family="等线,DengXian,SimHei,Arial" font-size="40" font-weight="bold" fill="#2E3230">喂食 · 行为层 · 摇尾</text>
+
+  <image href="../images/fig_behavior.png" x="56" y="108" width="760" height="470" preserveAspectRatio="xMidYMid meet" />
+
+  <rect x="840" y="108" width="384" height="100" rx="6" fill="#E8E0CC" />
+  <text x="856" y="130" font-family="Press Start 2P,Arial Black,Arial" font-size="11" fill="#C4362A">DETECT</text>
+  <text x="856" y="156" font-size="15" fill="#2E3230">霍尔传感器 + 骨头里的磁铁</text>
+  <text x="856" y="178" font-size="14" fill="#6B6E66">两级同步 + 20 ms 去抖 → 喂食中</text>
+
+  <rect x="840" y="222" width="384" height="160" rx="6" fill="#E8E0CC" />
+  <text x="856" y="244" font-family="Press Start 2P,Arial Black,Arial" font-size="11" fill="#5C8E3A">BEHAVIOR</text>
+  <text x="856" y="270" font-size="15" fill="#2E3230">① 喂食 / 人在 3 m 内 → 摇尾</text>
+  <text x="856" y="294" font-size="15" fill="#2E3230">② 喂食 → 进食音效（不重复触发）</text>
+  <text x="856" y="318" font-size="14" fill="#2E3230">③ UWB 丢 / 人 10 m 外 / 困住</text>
+  <text x="856" y="340" font-size="14" fill="#C4362A">   → 循环狗叫</text>
+  <text x="856" y="364" font-size="13" fill="#6B6E66">STM32 未开时不叫，偶发不叫</text>
+
+  <rect x="840" y="396" width="384" height="130" rx="6" fill="#5C8E3A" fill-opacity="0.12" />
+  <text x="856" y="418" font-family="Press Start 2P,Arial Black,Arial" font-size="11" fill="#5C8E3A">TAIL WAG</text>
+  <text x="856" y="444" font-size="14" fill="#2E3230">步进电机单圈就近回零定中</text>
+  <text x="856" y="466" font-size="14" fill="#2E3230">中 → 左 45° → 右 45° → 中</text>
+  <text x="856" y="488" font-size="14" fill="#2E3230">10 RPM，约 3.6 s 一遍</text>
+  <text x="856" y="510" font-size="13" fill="#6B6E66">上车验证过</text>
+
+  <line x1="56" y1="688" x2="1224" y2="688" stroke="#D4CCB8" stroke-width="1" />
+  <text x="56" y="704" font-size="13" fill="#6B6E66">图：喂食检测与行为层动作序列（技术文档图 2-18）</text>
+  <text x="1224" y="704" text-anchor="end" font-size="13" fill="#6B6E66">MinecraftDog · FPGA 赛道决赛答辩</text>
+</svg>

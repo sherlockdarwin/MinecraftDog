@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="微软雅黑, Microsoft YaHei, SimHei, Arial">
+  <rect x="0" y="0" width="1280" height="720" fill="#F5F2E8" />
+  <rect x="0" y="0" width="1280" height="12" fill="#5C8E3A" />
+  <rect x="1190" y="18" width="68" height="22" rx="3" fill="#5C8E3A" />
+  <text x="1224" y="33" text-anchor="middle" font-family="Press Start 2P, Arial Black, Arial" font-size="10" fill="#F5F2E8">P03</text>
+
+  <text x="56" y="50" font-family="Press Start 2P, Arial Black, Arial" font-size="10" fill="#C4362A">OBSTACLE DETECTION</text>
+  <text x="56" y="90" font-family="等线, DengXian, SimHei, Arial" font-size="40" font-weight="bold" fill="#2E3230">单目障碍识别</text>
+
+  <rect x="56" y="108" width="484" height="78" rx="6" fill="#E8E0CC" />
+  <text x="72" y="130" font-family="Press Start 2P, Arial Black, Arial" font-size="13" fill="#C4362A">IDEA</text>
+  <text x="72" y="152" font-size="16" fill="#2E3230">车前脚下那块地面作为样本</text>
+  <text x="72" y="174" font-size="16" fill="#2E3230">颜色相近 = 地面，不像 = 障碍</text>
+
+  <rect x="56" y="198" width="484" height="240" rx="6" fill="#E8E0CC" />
+  <text x="72" y="220" font-family="Press Start 2P, Arial Black, Arial" font-size="13" fill="#5C8E3A">PIPELINE</text>
+  <text x="72" y="244" font-size="14" fill="#2E3230">① 下采样 12×12 → 160×90 小图</text>
+  <text x="72" y="264" font-size="14" fill="#2E3230">② RGB → 亮度 Y + 色度 Cb/Cr</text>
+  <text x="72" y="284" font-size="14" fill="#2E3230">③ 地面直方图在线学习（每帧更新）</text>
+  <text x="72" y="304" font-size="14" fill="#2E3230">④ 色度/亮度双门限判地面/障碍</text>
+  <text x="72" y="324" font-size="14" fill="#2E3230">⑤ 3×3 多数表决去噪</text>
+  <text x="72" y="344" font-size="14" fill="#2E3230">⑥ 逐列找障碍下沿（接地点）</text>
+  <text x="72" y="364" font-size="14" fill="#2E3230">⑦ 查几何表：行号 → 地面距离</text>
+  <text x="72" y="384" font-size="14" fill="#2E3230">⑧ 相邻扇区合并 → 红框</text>
+  <text x="72" y="404" font-size="14" fill="#2E3230">⑨ 车宽走廊选 9 个方向可行距离</text>
+
+  <rect x="56" y="450" width="484" height="86" rx="6" fill="#5C8E3A" fill-opacity="0.15" />
+  <text x="72" y="472" font-family="Press Start 2P, Arial Black, Arial" font-size="13" fill="#5C8E3A">KEY ADVANTAGE</text>
+  <text x="72" y="496" font-size="15" fill="#2E3230">只用行缓存与片内 RAM，不占 DDR 带宽</text>
+  <text x="72" y="520" font-size="15" fill="#2E3230">最后一行到达后约 0.01 ms 出结果（≈滞后1帧）</text>
+
+  <image href="../images/fig_obs.png" x="556" y="40" width="668" height="620" preserveAspectRatio="xMidYMid meet" />
+
+  <line x1="56" y1="688" x2="1224" y2="688" stroke="#D4CCB8" stroke-width="1" />
+  <text x="56" y="704" font-size="13" fill="#6B6E66">参考：Ulrich 与 Nourbakhsh，单目颜色视觉地面外观避障（AAAI 2000）</text>
+  <text x="1224" y="704" text-anchor="end" font-size="13" fill="#6B6E66">MinecraftDog · FPGA 赛道决赛答辩</text>
+</svg>

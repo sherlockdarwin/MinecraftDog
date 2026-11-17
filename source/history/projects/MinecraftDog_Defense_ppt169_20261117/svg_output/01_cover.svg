@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" data-pptx-page-role="cover" font-family="等线, DengXian, SimHei, Arial">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2D4A1E" />
+      <stop offset="100%" stop-color="#1A2E10" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1280" height="720" fill="url(#bgGrad)" />
+  <rect x="0" y="0" width="1280" height="14" fill="#5C8E3A" />
+
+  <image href="../images/dog_front.png" x="20" y="60" width="580" height="620" preserveAspectRatio="xMidYMid meet" />
+
+  <text x="665" y="110" font-family="Press Start 2P, Arial Black, Arial" font-size="11" fill="#7DC944">MINECRAFT DOG</text>
+  <text x="665" y="190" font-size="52" font-weight="bold" fill="#FFFFFF">MinecraftDog</text>
+  <text x="665" y="250" font-size="26" fill="#C8E6A8">基于安路 PH1P35 的</text>
+  <text x="665" y="285" font-size="26" fill="#C8E6A8">视觉跟随避障机器狗</text>
+  <line x1="665" y1="310" x2="1210" y2="310" stroke="#5C8E3A" stroke-width="2" />
+
+  <rect x="660" y="325" width="560" height="56" rx="6" fill="#5C8E3A" fill-opacity="0.3" />
+  <text x="680" y="360" font-family="微软雅黑, Microsoft YaHei, SimHei, Arial" font-size="18" fill="#E8F5D8">感知 · 决策 · 控制，全在国产 FPGA 纯硬件实现</text>
+
+  <rect x="660" y="400" width="560" height="36" rx="4" fill="#000000" fill-opacity="0.25" />
+  <text x="680" y="424" font-size="13" fill="#A0C878">2026 全国大学生嵌入式芯片与系统设计竞赛 · FPGA 赛道</text>
+
+  <rect x="660" y="455" width="168" height="28" rx="3" fill="#5C8E3A" opacity="0.6" />
+  <text x="668" y="474" font-family="Press Start 2P, Arial Black, Arial" font-size="11" fill="#F5F2E8">FPGA</text>
+  <rect x="838" y="455" width="168" height="28" rx="3" fill="#3C6BBE" opacity="0.6" />
+  <text x="846" y="474" font-family="Press Start 2P, Arial Black, Arial" font-size="11" fill="#F5F2E8">VISION</text>
+  <rect x="1016" y="455" width="168" height="28" rx="3" fill="#C4362A" opacity="0.6" />
+  <text x="1024" y="474" font-family="Press Start 2P, Arial Black, Arial" font-size="11" fill="#F5F2E8">ROBOT</text>
+
+  <text x="665" y="680" font-size="13" fill="#6B9050">安路科技 PH1P35MDG324 · Verilog · 33 个仿真测试台全部 PASS</text>
+</svg>
