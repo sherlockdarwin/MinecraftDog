@@ -52,7 +52,7 @@ module mc_follow #(
     parameter OBS_TIMEOUT_MS   = 100,
     // ---- 跟随 ----
     parameter STOP_CM          = 200,
-    parameter START_PWM        = 3300,
+    parameter START_PWM        = 3100,
     parameter KP_D             = 10,      // PWM / 厘米
     parameter MAX_FWD          = 5000,
     parameter ANGLE_FILTER     = 3,
@@ -60,7 +60,7 @@ module mc_follow #(
     parameter PIVOT_ENTER      = 90,
     parameter PIVOT_CONFIRM_MS = 300,
     parameter PIVOT_EXIT       = 40,
-    parameter PIVOT_PWM        = 2200,
+    parameter PIVOT_PWM        = 2100,
     parameter MAX_WHEEL        = 6500,
     parameter ACC              = 200,
     parameter DEC              = 400,
@@ -77,7 +77,7 @@ module mc_follow #(
     parameter CLEAR_CM         = 60,
     parameter SPIN_CM          = 60,
     parameter KP_OBS           = 20,      // PWM / 厘米
-    parameter SPIN_PWM         = 2200,
+    parameter SPIN_PWM         = 2100,
     parameter AVOID_TURN_MAX   = 1500,    // PWM：AVD 时转向最多多少
     parameter AVOID_HOLD_CM    = 50,      // 绕完以后直走多远
     parameter CMS_FULL         = 92,      // 满量程 8000 时每秒走多少厘米（估的，只用来换算 AVOID_HOLD_CM）

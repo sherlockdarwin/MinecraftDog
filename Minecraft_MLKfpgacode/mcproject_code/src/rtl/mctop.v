@@ -130,7 +130,7 @@ localparam [7:0]  OBS_D_STOP     = 8'd60;      // 最好的方向也不到这么
 // ---- 跟随 + 避障决策 + 角度环（mc_follow，每 20 ms 一次，PWM 满量程 8000；运行逻辑见 obstacle.md §6）----
 // 跟随（前进量、原地转的条件和 STM32 follow.h 一样；转向改成陀螺仪角度环）
 localparam       FOLLOW_STOP_CM     = 200;     // 离主人这么近就停，再远就走过去（10-30：3 m 改成 2 m。别再小于约 1.5 m：主人的脚进了 1 m 会被当成挡路）
-localparam       FOLLOW_START_PWM   = 3300;    // 起步（600 推不动，2500 能走；10-30 由 3000 提高到 3300）
+localparam       FOLLOW_START_PWM   = 3100;    // 起步：由 3300 小幅降低；600 推不动、2500 曾能走，仍需上车确认
 localparam       FOLLOW_KP_D        = 10;      // 每远 1 cm 多加多少
 localparam       FOLLOW_MAX_FWD     = 5000;
 localparam       FOLLOW_ANGLE_FILTER= 3;       // 主人方向平滑：每次只跟上新方向的 1/3
@@ -138,7 +138,7 @@ localparam       FOLLOW_DEADBAND    = 4;       // 主人方向和现在的目标
 localparam       FOLLOW_PIVOT_ENTER = 90;      // 偏超过 90° 并保持 FOLLOW_PIVOT_MS 才原地转
 localparam       FOLLOW_PIVOT_MS    = 300;
 localparam       FOLLOW_PIVOT_EXIT  = 40;      // 转到 40° 以内再往前走（剩下的交给角度环）
-localparam       FOLLOW_PIVOT_PWM   = 2200;    // 原地转时两轮一正一反
+localparam       FOLLOW_PIVOT_PWM   = 2100;    // 朝主人原地转时两轮一正一反；由 2200 小幅降低，待上车确认
 localparam       FOLLOW_MAX_WHEEL   = 6500;
 localparam       FOLLOW_ACC         = 200;     // 前进斜坡：每 20 ms 最多加 / 减
 localparam       FOLLOW_DEC         = 400;
@@ -156,7 +156,7 @@ localparam       AVOID_CM           = 100;     // 正前方或主人方向不到
 localparam       AVOID_CLEAR_CM     = 60;      // 实在没有，退一步挑能走这么远的；再没有就找出口（AVOID_SCAN_*）
 localparam       AVOID_SPIN_CM      = 60;      // 正前方不到这么远：原地转向能走的方向（SPIN）。镜头竖直装，最近只看得到约 49 cm（画面最下面 9 行 = 49~59 cm）
 localparam       AVOID_KP_OBS       = 20;      // 前进上限 = 起步 + (前面能走多远 − AVOID_CLEAR_CM) × 这个
-localparam       AVOID_SPIN_PWM     = 2200;
+localparam       AVOID_SPIN_PWM     = 2100;    // 避障 / 找出口原地转；由 2200 小幅降低，待上车确认
 localparam       AVOID_TURN_MAX     = 1500;    // 绕行（AVD）时转向最多多少 PWM
 localparam       AVOID_HOLD_CM      = 50;      // 绕过去以后先保持航向直走多远（约一个车长）再朝主人转（障碍出了视场还在旁边；10-30 由 0.5 s 改成按距离）；这段里也不原地转
 localparam       AVOID_W_TGT        = 2;       // 挑方向的代价 = W_TGT × |方向 − 主人| + W_PREV × |方向 − 上次绕的方向|
@@ -166,8 +166,9 @@ localparam       AVOID_OWNER_GAP_CM = 60;      //   只算比主人（UWB 距离
 localparam       AVOID_SCAN_DEG     = 20;      // 哪边都走不了（都 < AVOID_CLEAR_CM）：原地一步转 20°（往主人那边）……
 localparam       AVOID_SCAN_PAUSE_MS= 200;     //   ……每步停 0.2 s 看清楚；转满一圈还没有出口 → 困住：停着、狗叫
 localparam       AVOID_SCAN_STEP_MS = 1000;    //   一步转了 1 s 还没转够 20°（电机推不动）也算一步
-// ---- 激光测距 VL53-200（mc_tof_vl53；装在镜头同一平面、车头最前面后面 5 cm，距离和避障画面一样从镜头算；逻辑见 obstacle.md §11）----
-localparam       TOF_MIN_MM         = 50;      // 比这近的不算（5 cm 以内是狗自己的鼻子；没东西时模块也会报几毫米）。前面没东西屏幕却显示 005~008cm（照到了外壳）→ 加大
+// ---- 激光测距 VL53-200（mc_tof_vl53；11-20 起装在车头最前面后面 10 cm，镜头在最前面后面 5 cm → 模块比镜头靠后 TOF_OFFSET_CM，读数减掉它，距离和避障画面一样从镜头算；逻辑见 obstacle.md §11）----
+localparam       TOF_OFFSET_CM      = 5;       // 模块比镜头靠后多少厘米（模块离车头最前 10 cm − 镜头离车头最前 5 cm）：读数减掉它 = 离镜头的距离；镜头或模块挪了就改这里（整数厘米，TOF_MIN_MM ≥ 它 × 10）
+localparam       TOF_MIN_MM         = 100;     // 比这近的不算（模块读数 10 cm 以内是狗自己的鼻子；没东西时模块也会报几毫米）。前面没东西屏幕却显示 005~008cm（照到了外壳）→ 加大
 localparam       TOF_MAX_CM         = 120;     // 比这远当作没有（模块默认"一般模式"最远 1.2 m）。前面没东西屏幕却显示 080~120cm（照到了地面）→ 先把模块往上仰 5°，不行再减小
 localparam       TOF_FREEZE_CM      = 80;      // 激光看到这么近有东西：避障暂停学地面（东西快进 / 已经进了黄框，黄框离镜头 49~58 cm）；0 = 从不暂停
 localparam       TOF_SIDE           = 2;       // 激光距离盖住正前方两边各几个方向（2 = −9° ~ +9°，激光视场约 ±12.5°）：绕墙绕得太早 / 太晚 → 减小 / 加大（0~4）
@@ -395,6 +396,7 @@ mc_tof_vl53 #(
     .CLK_HZ  (100_000_000),
     .BAUD    (115200),
     .MIN_MM  (TOF_MIN_MM),
+    .OFFSET_CM (TOF_OFFSET_CM),
     .MAX_CM  (TOF_MAX_CM),
     .NEAR_CM (TOF_FREEZE_CM)
 ) u_tof (

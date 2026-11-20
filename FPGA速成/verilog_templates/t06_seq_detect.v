@@ -6,6 +6,7 @@
 // Mealy 型（同一拍就出结果）：found = (state == S3) && din;
 // =============================================================================
 
+// din 是串行的一位输入，每个上升沿采一位；PAT 是例化时可修改的四位目标序列。
 module seq_det_shift #(
     parameter [3:0] PAT = 4'b1011  // 先收到的位在左边（最高位）
 )(
@@ -54,6 +55,8 @@ always @(posedge clk or negedge rst_n) begin
     else        state <= next_state;
 end
 
+// ? 前为条件：din=1 选冒号左边，din=0 选右边；组合逻辑先算 next_state，上升沿才存入 state。
+// 按顺序输入 1011：S0→S1→S2→S3→S4；输入 1010 时末尾 10 可复用，所以 S3→S2。
 // 不匹配时不一定回 S0：看已收到的位的结尾还能当哪个前缀用
 always @(*) begin
     case (state)

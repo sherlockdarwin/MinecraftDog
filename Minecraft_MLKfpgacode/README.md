@@ -10,7 +10,7 @@
 | 功能 | 状态 |
 | --- | --- |
 | 相机 → 屏幕 | 正常：上面相机，中间 8 个方块 + 6 行字 + 安路 Logo，下面避障处理画面 |
-| 跟随 | 正常：UWB 给方向，陀螺仪角度环保持航向（`obstacle.md` §6）。超过 2 m 跟上、2 m 内停，起步 3300。主人在背后时 STM32 发 99°，这边原地转 |
+| 跟随 | 正常：UWB 给方向，陀螺仪角度环保持航向（`obstacle.md` §6）。超过 2 m 跟上、2 m 内停；基础前进由 3300 调至 3100、原地转向由 2200 调至 2100，待上车验证。主人在背后时 STM32 发 99°，这边原地转 |
 | 避障 | 正常：1 m 内绕、60 cm 内原地转；主人方向 2 m 内有东西提前绕；走不了就转着找出口，转一圈没有就停下狗叫。障碍物旁边不粘连。和地面太像的白墙、踢脚线靠颜色判不出来，东西进了黄框会学成地面（`obstacle.md` §8）；激光补正前方 ±9°、1.2 m 以内（还没验证） |
 | 激光测距 VL53-200 | 上车两次：有数据、距离出不来（两处已改，待再上车）。正前方的距离和视觉取近的；≤ 80 cm 有东西就暂停学地面。屏幕第 3 行：`TOF` 状态 / 距离 / `REF` / 模块原始状态号和毫米（如 `S000 0452mm`）；第 4 行最后 `dt 300ms` = 两次测量隔多久；曝光行数挪到了第 1 行 |
 | 陀螺仪 JY61P | 正常：上电自动配置，停稳后航向归零（屏幕第 6 行） |
@@ -31,7 +31,7 @@
 | 轮子 | TB6612 双路驱动模块带稳压版（D153C，接 STM32）+ 直流减速电机 × 2 |
 | 陀螺仪 JY61P | 脚 5 → 模块 RX、模块 TX → 脚 6，VCC → 脚 1（3.3 V）、GND → 脚 2；平放、元件面朝上 |
 | 霍尔 | D0 → CEP 脚 17，VCC → 脚 1，GND → 脚 2 |
-| 激光测距 | 维特 VL53-200：TXD → CEP 脚 7（FPGA 只收），VCC → 脚 1（**3.3 V，别接 5 V**），GND → 脚 2；和镜头同一平面、车头最前面后面 5 cm，朝正前方 |
+| 激光测距 | 维特 VL53-200：TXD → CEP 脚 7（FPGA 只收），VCC → 脚 1（**3.3 V，别接 5 V**），GND → 脚 2；装在车头最前面后面 10 cm（镜头在 5 cm，代码里读数减 5 cm），朝正前方 |
 | 尾巴 | 张大头 ZDT Emm42（X42S）：R/A/H → CEP 脚 15，Gnd → 脚 2；电源用驱动器自己的，别从 FPGA 板取 |
 | 音频 | TF 卡（FAT32，`1.wav` 背景音乐、`2.wav` 进食音效、`3.wav` 狗叫，16 位 PCM）→ ES8388 → 3020 腔体喇叭（4 Ω 3 W）J12 / J11 |
 | 电源 | 稳压 5 V 3 A；**所有板子共地** |
@@ -57,7 +57,7 @@ VL53-200 激光 ─UART─► mc_tof_vl53 ─► 正前方距离 ─► mc_follo
 2. 工具栏绿色 ▶（一键编译，约 10 分钟）；Console 里 `phy_1` 显示 `bitgen complete` 就好了。
 3. 工具栏最右边绿色下载按钮（Tools → Download）→ Add 选 `mcproject_code/MinecraftDog_FPGA_Runs/best_result/MinecraftDog_FPGA.bit` → Mode 选烧 FLASH（断电保留；`JTAG` 断电就没了）→ Run。
 
-`src/boot/MinecraftDog_FPGA.bit` 是命令行编的（`bash tools/td_build.sh`，临时目录跑，不动 TD 的文件夹），和 TD 编的一样，**用最新的那个**。
+本次前进 3100、原地转向 2100 的 bit 已生成在工程根目录 `MinecraftDog_FPGA_3100_2100.bit`（TD 6.2.1，建立余量 +0.107 ns、保持余量 +0.020 ns；待上车验证）。`MinecraftDog_FPGA_3100.bit` 是前一版：原地转向 2200。`src/boot/MinecraftDog_FPGA.bit` 是 3300 的旧版，与 `bit_restore/MinecraftDog_FPGA_6.0_distance.bit` 逐字节一致。原工程内旧的 `best_result` 是更早的版本，只有在 TD 中成功重新编译后才用它；不要只凭文件时间判断。
 
 **仿真**（Git Bash，在本目录下）：`bash tools/sim.sh` 跑默认测试台（约 20 分钟，跳过慢的 `tb_top` / `tb_audio` / `tb_fb`）；`ALL=1 bash tools/sim.sh` 全跑；`bash tools/sim.sh tb_xxx` 跑一个。仿真器 Icarus 装在 `E:\FPGA\iverilog`。
 
@@ -69,7 +69,8 @@ VL53-200 激光 ─UART─► mc_tof_vl53 ─► 正前方距离 ─► mc_follo
 | `OBS_ROW_MIN` | 53 | 判断障碍从处理画面第几行起：53 ≈ 2.36 m（别再小）、60 ≈ 1.35 m、70 ≈ 84 cm |
 | `OBS_YSPREAD` | 2 | 地面亮度宽容度：大片地板发紫 → 加大；和地面一样灰的东西判不出来 → 减小（收太紧反光地面会粘连） |
 | `OBS_TC` / `OBS_TY` | 15 / 15 | 地面门限：零星紫点 → 调小；障碍判不出来 → 调大（13~16 效果几乎一样，24 太高） |
-| `FOLLOW_STOP_CM` / `FOLLOW_START_PWM` | 200 / 3300 | 离主人多近停 / 起步快慢（前进 = 起步 + (距离 − 200) × 10，最多 5000） |
+| `FOLLOW_STOP_CM` / `FOLLOW_START_PWM` | 200 / 3100 | 离主人多近停 / 起步快慢（前进 = 起步 + (距离 − 200) × 10，最多 5000） |
+| `FOLLOW_PIVOT_PWM` / `AVOID_SPIN_PWM` | 2100 / 2100 | 朝主人原地转 / 避障找出口原地转的力度；若转不动，先将对应值加回 2200 |
 | `HEAD_KP` / `HEAD_KI` / `HEAD_KD` | 70 / 20 / 10 | 角度环：左右摆 → 减 KP 或加 KD；转得慢 → 加 KP（KD 跟着加）；走直线一直偏 → 加 KI |
 | `FOLLOW_DEADBAND` / `FOLLOW_TURN_SLEW` / `HEAD_TURN_MAX` | 4° / 800 / 1500 | 主人偏多少才改目标航向 / 转向变化快慢 / 转向上限（大角度转弯快不快看它） |
 | `AVOID_CM` / `AVOID_SPIN_CM` | 100 / 60 | 多近开始绕 / 多近原地转 |

@@ -38,6 +38,8 @@ always @(posedge clk or negedge rst_n) begin
         cnt <= cnt + 1'b1;
 end
 
+// key_d 保存上一拍的 key_out；key_out 从 0 变 1 时 key_d 暂为 0，press 高一拍。
+// 时序块在该沿采到 press，通常是在 key_out 变高后的下一个上升沿。
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) key_d <= 1'b0;
     else        key_d <= key_out;

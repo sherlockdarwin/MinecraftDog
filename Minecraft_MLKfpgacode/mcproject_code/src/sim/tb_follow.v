@@ -61,10 +61,10 @@ integer KIC [0:1], HQ [0:1];
 task set_params;
     integer i;
     begin
-        P_STOP[0] = 200; P_START[0] = 3300; P_KPD[0] = 10; P_MAXF[0] = 5000; P_AF[0] = 3; P_DB[0] = 4;
-        P_PIN[0] = 90; P_PCONF[0] = 300; P_POUT[0] = 40; P_PPWM[0] = 2200; P_MAXW[0] = 6500; P_ACC[0] = 200; P_DEC[0] = 400;
+        P_STOP[0] = 200; P_START[0] = 3100; P_KPD[0] = 10; P_MAXF[0] = 5000; P_AF[0] = 3; P_DB[0] = 4;
+        P_PIN[0] = 90; P_PCONF[0] = 300; P_POUT[0] = 40; P_PPWM[0] = 2100; P_MAXW[0] = 6500; P_ACC[0] = 200; P_DEC[0] = 400;
         P_KP[0] = 70; P_KI[0] = 20; P_KD[0] = 10; P_IMAX[0] = 400; P_TMAX[0] = 1500; P_SLEW[0] = 800; P_IZ[0] = 10;
-        P_AVOID[0] = 100; P_CLEAR[0] = 60; P_SPIN[0] = 60; P_KPO[0] = 20; P_SPWM[0] = 2200; P_AMAX[0] = 1500; P_HOLDCM[0] = 50; P_CMS[0] = 92; P_WT[0] = 2; P_WP[0] = 1;
+        P_AVOID[0] = 100; P_CLEAR[0] = 60; P_SPIN[0] = 60; P_KPO[0] = 20; P_SPWM[0] = 2100; P_AMAX[0] = 1500; P_HOLDCM[0] = 50; P_CMS[0] = 92; P_WT[0] = 2; P_WP[0] = 1;
         P_FAR[0] = 200; P_GAP[0] = 60; P_SDEG[0] = 20; P_SPAUSE[0] = 200; P_SSTEP[0] = 1000;
         P_STOP[1] = 150; P_START[1] = 2500; P_KPD[1] = 20; P_MAXF[1] = 6400; P_AF[1] = 1; P_DB[1] = 2;
         P_PIN[1] = 60; P_PCONF[1] = 200; P_POUT[1] = 30; P_PPWM[1] = 3000; P_MAXW[1] = 6000; P_ACC[1] = 300; P_DEC[1] = 500;

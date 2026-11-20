@@ -12,16 +12,19 @@ module edge_detect (
     input  sig,
     output rise,                   // sig 0→1 的那一拍
     output fall                    // sig 1→0 的那一拍
-);
+  );
 
-reg sig_d;                         // sig 上一拍的值
-always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) sig_d <= 1'b0;
-    else        sig_d <= sig;
-end
+  reg sig_d;                         // sig 上一拍的值
+  always @(posedge clk or negedge rst_n)
+  begin
+    if (!rst_n)
+      sig_d <= 1'b0;
+    else
+      sig_d <= sig;
+  end
 
-assign rise =  sig & ~sig_d;
-assign fall = ~sig &  sig_d;
+  assign rise =  sig & ~sig_d;
+  assign fall = ~sig &  sig_d;
 
 endmodule
 
@@ -32,15 +35,20 @@ module sync_edge (
     input  sig,
     output rise,
     output fall
-);
+  );
 
-reg [2:0] d;                       // d[0]、d[1] 两级同步，d[2] 再存一拍用来比较
-always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) d <= 3'b000;
-    else        d <= {d[1:0], sig};
-end
+  // 每个上升沿 d[0]<=sig, d[1]<=旧d[0], d[2]<=旧d[1]；连续按住时 rise 只高一拍。
+  // 第 2 次采样后 rise 为 1，异步输入到 rise 的实际延迟随输入相位而变；本模块不消抖。
+  reg [2:0] d;                       // d[0]、d[1] 两级同步，d[2] 再存一拍用来比较
+  always @(posedge clk or negedge rst_n)
+  begin
+    if (!rst_n)
+      d <= 3'b000;
+    else
+      d <= {d[1:0], sig};
+  end
 
-assign rise =  d[1] & ~d[2];
-assign fall = ~d[1] &  d[2];
+  assign rise =  d[1] & ~d[2];
+  assign fall = ~d[1] &  d[2];
 
 endmodule

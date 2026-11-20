@@ -6,7 +6,7 @@
 //         "State;0 , Range Valid" CR LF + "d:   73 mm" CR LF（距离右对齐 5 格，和上位机截图一样）。
 //   期望（测试台自己按规格算，不看 RTL 怎么写）：
 //         每一组：O_st = 状态号（超过 255 记 255）、O_mm = 毫米（超过 9999 记 9999）。
-//         状态 0 / 2 / 4 = 一次测量：r = (状态 0 且 MIN_MM ≤ 毫米 ≤ 9999 且 毫米 / 10 ≤ MAX_CM) ? 毫米 / 10 : 255；
+//         状态 0 / 2 / 4 = 一次测量：r = (状态 0 且 MIN_MM ≤ 毫米 ≤ 9999 且 毫米 / 10 ≤ MAX_CM) ? 毫米 / 10 − OFF_CM : 255；
 //           O_cm = max(r, 上一次 r)；O_near = r ≤ NEAR_CM 或 上一次 r ≤ NEAR_CM；掉线以后"上一次"从 255 重来。
 //         其余状态号（255 没有新数据、1 / 3 / 5、说明书里没有的）跳过：O_upd 不打、O_cm / O_near 不变、不算活着。
 //         11-17 上车的情况（量到了和 255 一组隔一组）专门造：距离必须出来。
@@ -19,9 +19,10 @@
 // =============================================================================
 module tb_tof_vl53;
 
-localparam MIN_MM  = 50;
+localparam MIN_MM  = 100;               // 模块在车头最前面后面 10 cm（读数比这近的不算）
+localparam OFF_CM  = 5;                 // 模块比镜头靠后 5 cm：读数 − 5 cm = 离镜头（下面注释里的 cm 数是没减它的毫米 / 10，模型和检查已按减了的算）
 localparam MAX_CM  = 120;
-localparam NEAR_CM = 80;
+localparam NEAR_CM = 75;                // 车上 80；这里取 75，让下面 810 / 809 毫米（离镜头 76 / 75）的边界测试照样正好落在门限上
 localparam ALV_MS  = 30;                // 这么久没有一次测量 = 掉线（车上 900）
 localparam LNK_MS  = 12;                // 这么久没有字节 = 线上没动静（车上 300）
 localparam BIT_NS  = 8680;              // 100 MHz / 115200 = 868 拍 × 10 ns
@@ -41,7 +42,7 @@ wire [7:0] o_st;
 wire [13:0] o_mm;
 wire [9:0] o_dt;
 
-mc_tof_vl53 #(.CLK_HZ (100_000_000), .BAUD (115200), .MIN_MM (MIN_MM), .MAX_CM (MAX_CM), .NEAR_CM (NEAR_CM), .ALIVE_MS (ALV_MS), .LINK_MS (LNK_MS)) dut (
+mc_tof_vl53 #(.CLK_HZ (100_000_000), .BAUD (115200), .MIN_MM (MIN_MM), .OFFSET_CM (OFF_CM), .MAX_CM (MAX_CM), .NEAR_CM (NEAR_CM), .ALIVE_MS (ALV_MS), .LINK_MS (LNK_MS)) dut (
     .I_clk (clk), .I_rst_n (rst_n), .I_tick_1ms (tick), .I_rx (rx),
     .O_cm (o_cm), .O_upd (o_upd), .O_near (o_near), .O_alive (o_alive), .O_link (o_link), .O_st (o_st), .O_mm (o_mm), .O_dt (o_dt)
 );
@@ -204,7 +205,7 @@ task expect_upd;                        // 刚发完一组（状态 st、毫米 
         e_mm = (mm > 9999) ? 9999 : mm;
         raw_is;
         if (e_st == 0 || e_st == 2 || e_st == 4) begin
-            r   = (e_st == 0 && mm >= MIN_MM && mm <= 9999 && mm / 10 <= MAX_CM) ? mm / 10 : 255;
+            r   = (e_st == 0 && mm >= MIN_MM && mm <= 9999 && mm / 10 <= MAX_CM) ? mm / 10 - OFF_CM : 255;
             ecm = (r > r1) ? r : r1;
             en  = (r <= NEAR_CM) || (r1 <= NEAR_CM);
             r1  = r;
@@ -286,9 +287,9 @@ initial begin
     grp(0, 500); grp(0, 500);
     // ---- 11-17 上车：量到了和 255（没有新数据）一组隔一组 → 距离要出来（原来一直 255）----
     for (k = 0; k < 4; k = k + 1) begin grp(0, 450); grp(255, 450); end   // cm 45
-    if (o_cm !== 8'd45) fail("alternating State 0 / 255: distance must come through");
+    if (o_cm !== 8'd40) fail("alternating State 0 / 255: distance must come through");
     for (k = 0; k < 3; k = k + 1) begin grp(1, 8190); grp(0, 650); end    // Sigma Fail 夹在中间：cm 65
-    if (o_cm !== 8'd65) fail("alternating State 0 / 1: distance must come through");
+    if (o_cm !== 8'd60) fail("alternating State 0 / 1: distance must come through");
     // ---- 只有跳过的组：不算活着（逐拍核对管 O_alive 的时间）→ LOST，O_cm 255 ----
     t0 = nms;
     while (nms < t0 + ALV_MS + 3) grp(255, 650);
@@ -297,16 +298,16 @@ initial begin
     // ---- 11-18 上车：两次测量隔得比 LNK_MS 还久（中间线上安静 → NOLK），没到 ALV_MS → 距离照样出来（原来 300 ms 就掉线，一直 255）----
     grp(0, 500); grp(0, 500);                                            // cm 50
     grp(0, 420); wait_ms(LNK_MS + 3);                                    // cm 50；线上安静
-    if (o_link !== 1'b0 || o_alive !== 1'b1 || o_cm !== 8'd50) fail("quiet line shorter than ALIVE_MS: link down, still alive, distance kept");
+    if (o_link !== 1'b0 || o_alive !== 1'b1 || o_cm !== 8'd45) fail("quiet line shorter than ALIVE_MS: link down, still alive, distance kept");
     grp(255, 420); wait_ms(2); grp(0, 420);                              // 第二次测量隔了 > LNK_MS：cm = max(42, 42)
-    if (o_cm !== 8'd42) fail("measurements further apart than LINK_MS: distance must come through");
+    if (o_cm !== 8'd37) fail("measurements further apart than LINK_MS: distance must come through");
     if (o_dt <= LNK_MS || o_dt >= ALV_MS) fail("tb: the two measurements should be between LNK_MS and ALV_MS apart");
     grp(0, 650); grp(0, 650);
     n0 = nupd; txs("State; 0", 8); txs(" , Range Valid", 14); crlf; d_line(500, 1); expect_upd(0, 500, n0);    // 数字前面的空格跳过
 
     // ---- MIN_MM / MAX_CM 边界（各差 1 毫米）----
-    grp(0, 50);  grp(0, 50);                            // 正好 MIN_MM：r 5
-    grp(0, 49);                                         // 差 1：不算
+    grp(0, 100); grp(0, 100);                            // 正好 MIN_MM：r 5
+    grp(0, 99);                                         // 差 1：不算
     grp(0, 0);                                          // 前面没东西也会报 0 mm（说明书截图）
     grp(0, 1209); grp(0, 1209);                         // 120 cm：正好 MAX_CM
     grp(0, 1210);                                       // 121 cm：不算

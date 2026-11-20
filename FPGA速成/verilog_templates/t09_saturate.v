@@ -17,6 +17,8 @@ module acc_sat #(
     output reg [W-1:0] acc
 );
 
+// 条件 ? A : B：使能时取前面补 0 的加数，否则取 W+1 位全 0；补位用来保留进位。
+// {W{1'b1}} 是 W 个 1，正好填满 [W-1:0]；[W:0] 则有 W+1 位。
 wire [W:0] sum  = {1'b0, acc} + (add_en ? {1'b0, add_val} : {(W+1){1'b0}});
 wire [W:0] cost = sub_en ? {1'b0, sub_val} : {(W+1){1'b0}};
 wire [W:0] diff = (sum >= cost) ? (sum - cost) : {(W+1){1'b0}};   // 不够扣 → 0

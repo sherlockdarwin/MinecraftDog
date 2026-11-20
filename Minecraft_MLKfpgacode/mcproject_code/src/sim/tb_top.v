@@ -402,14 +402,14 @@ initial begin
     if (dut.u_disp.SQ_V0 !== 452 || dut.u_disp.SQ_H !== 40)   fail("status square row / height parameters");
     if (dut.u_disp.TXT_V0 !== 496 || dut.u_disp.TXT_ROWS !== 6 || dut.u_disp.TXT_U0 !== 40 || dut.u_disp.TXT_COLS !== 45) fail("text box parameters");
     if (dut.u_dash.ROWS !== 6 || dut.u_dash.COLS !== 45) fail("dashboard rows / cols parameters");
-    if (dut.u_follow.STOP_CM !== 200 || dut.u_follow.START_PWM !== 3300 || dut.u_follow.KP_D !== 10 || dut.u_follow.MAX_FWD !== 5000 ||
+    if (dut.u_follow.STOP_CM !== 200 || dut.u_follow.START_PWM !== 3100 || dut.u_follow.KP_D !== 10 || dut.u_follow.MAX_FWD !== 5000 ||
         dut.u_follow.ANGLE_FILTER !== 3 || dut.u_follow.DEADBAND !== 4 ||
         dut.u_follow.PIVOT_ENTER !== 90 || dut.u_follow.PIVOT_CONFIRM_MS !== 300 || dut.u_follow.PIVOT_EXIT !== 40 ||
-        dut.u_follow.PIVOT_PWM !== 2200 || dut.u_follow.MAX_WHEEL !== 6500 || dut.u_follow.ACC !== 200 || dut.u_follow.DEC !== 400 || dut.u_follow.TURN_SLEW !== 800) fail("follow parameters");
+        dut.u_follow.PIVOT_PWM !== 2100 || dut.u_follow.MAX_WHEEL !== 6500 || dut.u_follow.ACC !== 200 || dut.u_follow.DEC !== 400 || dut.u_follow.TURN_SLEW !== 800) fail("follow parameters");
     if (dut.u_follow.HEAD_KP !== 70 || dut.u_follow.HEAD_KI !== 20 || dut.u_follow.HEAD_KD !== 10 || dut.u_follow.HEAD_I_MAX !== 400 ||
         dut.u_follow.HEAD_I_ZONE !== 10 || dut.u_follow.TURN_MAX !== 1500) fail("heading loop parameters");
     if (dut.u_follow.AVOID_CM !== 100 || dut.u_follow.CLEAR_CM !== 60 || dut.u_follow.SPIN_CM !== 60 || dut.u_follow.KP_OBS !== 20 ||
-        dut.u_follow.SPIN_PWM !== 2200 || dut.u_follow.AVOID_TURN_MAX !== 1500 ||
+        dut.u_follow.SPIN_PWM !== 2100 || dut.u_follow.AVOID_TURN_MAX !== 1500 ||
         dut.u_follow.AVOID_HOLD_CM !== 50 || dut.u_follow.CMS_FULL !== 92 || dut.u_follow.W_TGT !== 2 || dut.u_follow.W_PREV !== 1) fail("avoidance parameters");
     if (dut.u_follow.AVOID_FAR_CM !== 200 || dut.u_follow.OWNER_GAP_CM !== 60 ||
         dut.u_follow.SCAN_DEG !== 20 || dut.u_follow.SCAN_PAUSE_MS !== 200 || dut.u_follow.SCAN_STEP_MS !== 1000) fail("far-obstacle / exit-scan parameters");
@@ -424,7 +424,7 @@ initial begin
         dut.u_obs.D_CAP !== 150 || dut.u_obs.D_STOP !== 60) fail("obstacle parameters");
     if (dut.u_cam.CROP_X0_GRP !== 1 || dut.u_cam.CROP_Y0 !== 13 || dut.u_cam.OUT_H !== 448) fail("camera parameters (1920x1080 from group 1 / row 13, scaled to 448 rows)");
     if (dut.u_audio.u_cfg.SPK_VOL !== dut.AUD_SPK_VOL) fail("speaker volume parameter not passed down");   // 值在 mctop.v 配置区调
-    if (dut.u_tof.MIN_MM !== 50 || dut.u_tof.MAX_CM !== 120 || dut.u_tof.NEAR_CM !== 80 || dut.u_tof.ALIVE_MS !== 900 || dut.u_tof.LINK_MS !== 300 ||
+    if (dut.u_tof.MIN_MM !== 100 || dut.u_tof.OFFSET_CM !== 5 || dut.u_tof.MAX_CM !== 120 || dut.u_tof.NEAR_CM !== 80 || dut.u_tof.ALIVE_MS !== 900 || dut.u_tof.LINK_MS !== 300 ||
         dut.u_follow.TOF_SIDE !== 2) fail("laser ranging parameters");
 
     // ---------- 0a. 接线核对（强制值窗口）----------
@@ -601,32 +601,32 @@ initial begin
     //            线上安静 > 300 "ms" → NOLK 但距离留着；900 "ms" 没有测量 → LOST、255；没字节 → NOLK ----------
     //   45 cm（暂停学）和 100 cm（量到了、照常学）分开：OK / HOLD 两个标志接错能看出来；LOST（有字节没有效组）和 NOLK 分开：alive / link 接错能看出来
     //   中间夹 255（没有新数据，毫米带个诱饵）：跳过，距离照样出来；原始状态号 / 毫米每组都显示
-    tof_group(0, 450); tof_group(255, 8190);
+    tof_group(0, 500); tof_group(255, 8190);   // 模块读 500 mm，减 OFFSET_CM（5 cm）= 离镜头 45 cm（后面的 1050 mm = 100 cm 同理）
     #(1_500_000);
     expect_text(2, 10, "TOF OK   255cm REF HOLD S255 8190mm", 35);    // 只有一次测量：cm 要等第二次，近（45）已经暂停学
     if (dut.u_follow.I_tof_cm !== 8'd255) fail("laser: one measurement should not reach the follow decision yet");
-    tof_group(0, 450);
+    tof_group(0, 500);
     #(1_500_000);
-    expect_text(2, 10, "TOF OK   045cm REF HOLD S000 0450mm", 35);
+    expect_text(2, 10, "TOF OK   045cm REF HOLD S000 0500mm", 35);
     if (dut.u_follow.I_tof_cm !== 8'd45) fail("laser 45 cm did not reach the follow decision");
     // 两次测量的间隔（中间夹着 255 的一组 + 1.5 ms，约 220 "ms"）：显示在第 4 行最后
     if (dut.u_tof.O_dt < 10'd150 || dut.u_tof.O_dt > 10'd300) fail("laser: interval between the two measurements is off");
     $sformat(tof_dts, "dt %03dms", dut.u_tof.O_dt);
     expect_text(3, 37, tof_dts, 8);
     if (dut.u_obs.u_core.u_class.I_freeze !== 1'b1) fail("laser 45 cm: floor learning should be frozen (mc_obs -> core -> class)");
-    tof_group(0, 1000); tof_group(0, 1000);
+    tof_group(0, 1050); tof_group(0, 1050);
     #(1_500_000);
-    expect_text(2, 10, "TOF OK   100cm REF LRN  S000 1000mm", 35);
+    expect_text(2, 10, "TOF OK   100cm REF LRN  S000 1050mm", 35);
     if (dut.u_follow.I_tof_cm !== 8'd100) fail("laser 100 cm did not reach the follow decision");
     if (dut.u_obs.u_core.u_class.I_freeze !== 1'b0) fail("laser 100 cm: floor learning should not be frozen");
     #(3_000_000);                                                       // 线上安静 4.5 ms（450 "ms" > 300）：NOLK，但测量还新鲜（< 900 "ms"），距离留着
-    expect_text(2, 10, "TOF NOLK 100cm REF LRN  S000 1000mm", 35);
+    expect_text(2, 10, "TOF NOLK 100cm REF LRN  S000 1050mm", 35);
     if (dut.u_follow.I_tof_cm !== 8'd100) fail("laser: a quiet line shorter than 900 ms should keep the distance");
     for (i = 0; i < 12; i = i + 1) begin tof_str("Junk", 4); #(500_000); end   // 再 6 ms 只有乱码：900 "ms" 没有测量 → 不算活着，线还通着
-    expect_text(2, 10, "TOF LOST 255cm REF LRN  S000 1000mm", 35);   // 原始值留着最后一组的
+    expect_text(2, 10, "TOF LOST 255cm REF LRN  S000 1050mm", 35);   // 原始值留着最后一组的
     if (dut.u_follow.I_tof_cm !== 8'd255) fail("laser timeout: the follow decision should get 255");
     #(4_000_000);
-    expect_text(2, 10, "TOF NOLK 255cm REF LRN  S000 1000mm", 35);
+    expect_text(2, 10, "TOF NOLK 255cm REF LRN  S000 1050mm", 35);
 
     // ---------- 4. 喂食（霍尔 = 1）：进食音效（2.wav）播一遍，磁铁没拿开不重播；尾巴一遍接一遍地摇，拿开后摇完这一遍就停 ----------
     if (dut.S_tail_busy !== 1'b0) fail("tail should be idle before the feeding test");

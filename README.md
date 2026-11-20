@@ -32,7 +32,7 @@ I love Minecraft, and every time I play it I have a great time. Mining, building
 | Skill | What happens |
 | --- | --- |
 | Follows its owner (the beacon) | Walk away and it catches up, then stands still within two meters of you |
-| Avoids obstacles | Steers around anything in its way, and in a dead end it turns around to find a way out. A laser on its nose is learning to spot the pale walls its eyes miss |
+| Avoids obstacles | Steers around anything in its way, and in a dead end it turns around to find a way out. A laser on its nose catches the pale walls its eyes miss |
 | Feeding | Hold food up to its mouth: it plays the eating sound and wags its tail |
 | Tail wagging | Wags its tail when you are within three meters |
 | Barking | Barks loudly for you when you get too far away, the signal drops, or it gets stuck |

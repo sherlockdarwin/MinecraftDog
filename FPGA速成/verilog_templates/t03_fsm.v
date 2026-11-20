@@ -32,13 +32,19 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 // 状态计时：下一拍要换状态 → 清零，否则 +1
-always @(posedge clk or negedge rst_n) begin
-    if (!rst_n)                   cnt <= 8'd0;
-    else if (next_state != state) cnt <= 8'd0;
-    else                          cnt <= cnt + 8'd1;
+always @(posedge clk or negedge rst_n)
+begin
+  if (!rst_n)
+    cnt <= 8'd0;
+  else if (next_state != state)
+    cnt <= 8'd0;
+  else
+    cnt <= cnt + 8'd1;
 end
 
+
 // 第 2 段：下一状态（组合逻辑，用 =，开头先给默认值"保持"）
+// next_state 随输入组合变化；state 要等上升沿才更新。cnt 从 0 数到 T-1 共 T 个周期。
 always @(*) begin
     next_state = state;
     case (state)
@@ -50,6 +56,8 @@ always @(*) begin
 end
 
 // 第 3 段：输出（只看当前状态 = Moore 型）
+// case 每个分支如要写两条赋值，要用 begin ... end 包住；每个输出都要覆盖所有分支。
+// light[1:0] 是两位的一条总线：00 绿、01 黄、10 红；波形可选 Binary 或展开看每一位。
 always @(*) begin
     case (state)
         S_GREEN:  light = 2'd0;

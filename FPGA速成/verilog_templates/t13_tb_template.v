@@ -69,9 +69,10 @@ initial begin
     check(dout_w, 8'd5, "cnt after 5");
 
     @(negedge clk) en = 1'b1;
-    wait (flag == 1'b1);           // 一直等到 flag 变 1（cnt 到 99）
+    wait (flag == 1'b1);           // 一直等到 flag 变 1（cnt 到 99）。返回时刚过上升沿
+    @(negedge clk);                // 注意：这个下降沿还在同一拍里，cnt 还是 99
     check(dout_w, 8'd99, "cnt at flag");
-    @(negedge clk);
+    @(negedge clk);                // 再过一个上升沿，cnt 才回 0
     check(dout_w, 8'd0, "cnt wrap");
     en = 1'b0;
 

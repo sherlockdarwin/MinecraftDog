@@ -12,9 +12,12 @@
 //   每一组都把原始状态号、毫米放到 O_st / O_mm（屏幕排查用：模块到底发了什么）。
 //   按状态号分两种（11-17 上车：一直显示 255、近处却有 REF HOLD = 两组里总有一组不算，原来把 255 等也当成"前面没东西"）：
 //     · 算一次测量：0（量到了）、2 / 4（信号太弱 / 超范围 = 前面没东西）。这一组的距离 r：
-//         状态 0 且 MIN_MM ≤ 毫米、厘米 ≤ MAX_CM → 毫米 / 10（向下取整）；否则 255（没东西 / 超出 MAX_CM /
+//         状态 0 且 MIN_MM ≤ 毫米、厘米 ≤ MAX_CM → 毫米 / 10 − OFFSET_CM（向下取整，再减模块在镜头后面多少 = 离镜头的距离）；否则 255（没东西 / 超出 MAX_CM /
 //         比 MIN_MM 近：说明书的截图里前面没东西时也会报 0~33 mm 的"有效"值）。O_upd 打一拍。
 //     · 跳过：255（没有新数据）、1 / 3 / 5（这次测得不可靠）和说明书里没有的号：不改距离，也不算"模块还活着"。
+//   安装位置（11-20 改）：模块装在车头最前面后面 10 cm（原来 5 cm），镜头没动、还在最前面后面 5 cm → 模块比镜头靠后 OFFSET_CM = 5 cm。
+//     量到的毫米 / 10 减掉它才是离镜头的距离（避障画面和跟随的所有门限都从镜头算）；MIN_MM 跟着由 50 改成 100（比模块到车头最前面的 10 cm 还近的不可能是车外面的东西）。
+//     MAX_CM 比的是模块的原始读数（模块最远 1.2 m），不减 OFFSET_CM。OFFSET_CM 要是整数厘米、MIN_MM ≥ OFFSET_CM × 10（否则离镜头的距离会减成负数）。
 //   O_cm = 最近两次测量的 r 里大的那个：偶尔一次量错的近距离不会让车乱转（要连着两次都近才算）；东西一离开，一次量不到马上就放开。
 //     11-18 上车：原始值在 S000 / S255 之间跳、S000 0240mm 时距离还是 255、REF HOLD → 两次测量之间总是先"掉线"了：
 //     最可能是模块 300 ms 左右才出一次新测量（S000 后面跟一两个 S255），原来"300 ms 没有测量就掉线"正好卡在边上，
@@ -31,7 +34,8 @@
 module mc_tof_vl53 #(
     parameter CLK_HZ     = 100_000_000,
     parameter BAUD       = 115200,
-    parameter MIN_MM     = 50,          // 比这近的不算：模块在车头最前面后面 5 cm，比 5 cm 近的不可能是车外面的东西（没东西时也会报几毫米）
+    parameter MIN_MM     = 100,         // 比这近的不算：模块在车头最前面后面 10 cm，比 10 cm 近的不可能是车外面的东西（没东西时也会报几毫米）
+    parameter OFFSET_CM  = 5,           // 模块在镜头后面多少厘米（模块离车头最前 10 cm − 镜头离车头最前 5 cm）：量到的距离减掉它 = 离镜头的距离；整数厘米，MIN_MM ≥ 它 × 10
     parameter MAX_CM     = 120,         // 比这远当作没有（模块默认"一般模式"最远 1.2 m）
     parameter NEAR_CM    = 80,          // O_near 的门限
     parameter ALIVE_MS   = 900,         // 这么久没有一次测量 = 掉线（车上的模块约 300 ms 一次测量，留 2 次的余量）
@@ -41,7 +45,7 @@ module mc_tof_vl53 #(
     input  wire        I_rst_n,
     input  wire        I_tick_1ms,
     input  wire        I_rx,            // 模块 TXD（脚上开了上拉）
-    output reg  [7:0]  O_cm,            // 前面最近的东西（厘米，离模块 / 镜头那个面）；255 = 没有 / 没量到 / 掉线
+    output reg  [7:0]  O_cm,            // 前面最近的东西（厘米，离镜头：模块的读数减 OFFSET_CM）；255 = 没有 / 没量到 / 掉线
     output reg         O_upd,           // 每次测量（算数的一组）打一拍
     output reg         O_near,          // 最近两次测量里有一次 ≤ NEAR_CM
     output wire        O_alive,         // ALIVE_MS 内有过一次测量（屏幕 OK）
@@ -58,6 +62,7 @@ mc_uart_rx #(.CLK_HZ (CLK_HZ), .BAUD (BAUD)) u_rx (
 );
 
 localparam [1:0] P_IDLE = 2'd0, P_ST = 2'd1, P_MM = 2'd2;
+localparam [7:0] OFF8 = OFFSET_CM;      // 模块在镜头后面多少厘米（8 位，做减法用）
 reg  [1:0]  S_md;                       // 正在读：0 什么都不读（找 "e;" / "d:"）、1 状态号、2 毫米
 reg  [7:0]  S_prev;                     // 上一个字节
 reg         S_sd;                       // 状态号读到过数字
@@ -77,7 +82,7 @@ wire [7:0]  S_st10 = {S_stn[4:0], 3'd0} + {S_stn[6:0], 1'b0} + {4'd0, S_b[3:0]};
 wire        S_stov = (S_stn > 8'd25) || (S_stn == 8'd25 && S_b[3:0] > 4'd5);       // 再加这一位就超过 255
 wire        S_meas = (S_st == 8'd0) || (S_st == 8'd2) || (S_st == 8'd4);           // 算一次测量（其余跳过）
 wire        S_ok   = (S_st == 8'd0) && !S_big && (S_mm >= MIN_MM) && (S_cmv <= MAX_CM);
-wire [7:0]  S_r    = S_ok ? S_cmv[7:0] : 8'd255;                                    // 这一次测量的 r
+wire [7:0]  S_r    = S_ok ? (S_cmv[7:0] - OFF8) : 8'd255;                                    // 这一次测量的 r
 
 assign O_alive = (S_ta != ALIVE_MS);
 assign O_link  = (S_tl != LINK_MS);

@@ -16,6 +16,7 @@ module div_even #(
     output reg clk_out
 );
 
+// W 是计数器位宽，要能表示计数终值；一拍按相邻两个上升沿算，是一个输入周期。
 reg [W-1:0] cnt;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -49,6 +50,7 @@ always @(posedge clk or negedge rst_n) begin
     else                 cnt <= cnt + 1'b1;
 end
 
+// 例如 N=3：p 稳态高 1 个输入周期、低 2 个；n 延迟半周期后相或，高低各 1.5 周期。
 // 上升沿做一个高 (N-1)/2 拍、低 (N+1)/2 拍的波形
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n)                              p <= 1'b0;

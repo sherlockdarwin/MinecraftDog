@@ -5,7 +5,8 @@
 //   bin2bcd99  0~99 二进制 → 两位 BCD（/ 和 % 写法）
 //   bcd2bin99  两位 BCD → 二进制
 //   bin2bcd8   0~255 二进制 → 三位 BCD（加 3 移位法，经典考题）
-//   seg7       一位 BCD → 七段码
+//   seg7       一位 BCD → 七段码（共阴，1 = 亮）
+//   seg7_ca    一位 BCD → 七段码（共阳，0 = 亮）
 // BCD：每 4 位存一个十进制数字。[7:4] 十位，[3:0] 个位。波形里用十六进制看就是十进制读数
 // =============================================================================
 
@@ -98,7 +99,7 @@ endmodule
 
 module seg7 (
     input      [3:0] bcd,
-    output reg [6:0] seg           // {g,f,e,d,c,b,a}，1 = 亮（共阴）；共阳取反：~seg
+    output reg [6:0] seg           // {g,f,e,d,c,b,a}，1 = 亮（共阴）；共阳看下面的 seg7_ca
 );
 always @(*) begin
     case (bcd)
@@ -113,6 +114,32 @@ always @(*) begin
         4'd8: seg = 7'h7F;
         4'd9: seg = 7'h6F;
         default: seg = 7'h00;      // 非法值全灭
+    endcase
+end
+endmodule
+
+
+// 共阳数码管：段接低电平才亮，所以每个值正好是上面共阴表按位取反（~）
+// 两种写法任选：
+//   ① 例化上面的 seg7，再取反：  seg7 u_seg (.bcd(d), .seg(seg_cc));  assign seg_ca = ~seg_cc;
+//   ② 直接用下面这张共阳表
+module seg7_ca (
+    input      [3:0] bcd,
+    output reg [6:0] seg           // {g,f,e,d,c,b,a}，0 = 亮（共阳）
+);
+always @(*) begin
+    case (bcd)
+        4'd0: seg = 7'h40;         // = ~7'h3F
+        4'd1: seg = 7'h79;
+        4'd2: seg = 7'h24;
+        4'd3: seg = 7'h30;
+        4'd4: seg = 7'h19;
+        4'd5: seg = 7'h12;
+        4'd6: seg = 7'h02;
+        4'd7: seg = 7'h78;
+        4'd8: seg = 7'h00;
+        4'd9: seg = 7'h10;
+        default: seg = 7'h7F;      // 非法值全灭（共阳全 1 = 全灭）
     endcase
 end
 endmodule

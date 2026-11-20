@@ -13,6 +13,8 @@ module skeleton (
     output           flag
 );
 
+// 参数也可写在 module 名后：module m #(parameter W=8)(input [W-1:0] din); ... endmodule
+// parameter 可在例化时改；localparam 是模块内部常量。普通 Verilog 不把它们写在 module 外。
 // ---- 1. 常量：localparam 只在模块内部用；parameter 例化时可以改 ----
 localparam MAX = 8'd99;
 
@@ -54,8 +56,9 @@ endmodule
 // case    case (sel)  2'd0: ...;  2'd1, 2'd2: ...;  default: ...;  endcase
 // for     integer i;  always @(*) for (i = 0; i < 4; i = i + 1) y[i] = a[3-i];  // 位反转
 //         for 只是"复制 4 份电路"的简写，不是循环执行
-// 复位    异步低有效：always @(posedge clk or negedge rst_n)  if (!rst_n) ...
-//         同步高有效：always @(posedge clk)                  if (i_rst)  ...
+// 复位    异步低有效：always @(posedge clk or negedge rst_n)  if (!rst_n) ...  复位一来马上生效，敏感表里要有 rst_n
+//         同步高有效：always @(posedge i_clk)                if (i_rst)  ...  只在时钟沿检查复位，敏感表里只有时钟
+//         clk / i_clk、rst_n / i_rst 都只是端口名，照抄题目程序头
 //         极性必须和题目一致；同步 / 异步题目没说时两种都行
 // 输出    output reg x → always 里给 x 赋值；output x → 只能 assign x = ...;
 // 规则    ① 带 posedge 的 always 用 <=，always @(*) 用 =
